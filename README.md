@@ -97,6 +97,27 @@ git lfs pull
 
 Appuyer sur **▶️ Play** dans la barre supérieure de l'éditeur Unity.
 
+### Assets tiers à réimporter
+
+Certains assets utilisés dans le projet proviennent du **Unity Asset Store** et ne sont **pas versionnés** dans le repo (la Standard Unity Asset Store EULA interdit leur redistribution publique). Il faut donc les réimporter manuellement après le clone, avec ton propre compte Unity.
+
+| Asset | Source | Dossier d'import attendu |
+|---|---|---|
+| SimpleNaturePack | _Asset Store — lien à compléter par le PO_ | `Assets/ThirdParty/SimpleNaturePack/` |
+
+**Procédure d'import :**
+
+1. Ouvrir le projet dans Unity.
+2. Ouvrir le **Package Manager** : `Window` → `Package Manager`.
+3. En haut à gauche, sélectionner **« My Assets »** (nécessite d'être connecté à ton compte Unity).
+4. Chercher le pack par son nom, cliquer **Download** puis **Import**.
+5. Dans la fenêtre d'import, **tout cocher** (ou au minimum les dossiers `Models/`, `Materials/`, `Prefabs/`, `Textures/`).
+6. Cliquer **Import**.
+
+> Si un asset apparaît dans une scène mais que ses prefabs sont absents (icônes roses ou messages d'erreur de référence manquante), c'est qu'un pack n'a pas été importé. Refais la procédure ci-dessus.
+
+> **Note pour les contributeurs :** ne jamais committer le contenu d'un pack du Store. Le `.gitignore` couvre les packs déjà connus ; si tu en ajoutes un nouveau, ajoute son chemin dans `.gitignore` ET dans le tableau ci-dessus, puis acte la décision dans `CLAUDE.md`.
+
 ---
 
 ## 📁 Structure du projet

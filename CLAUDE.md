@@ -179,6 +179,30 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-04-17 — Initialisation du projet Unity et premier asset tiers
+
+**Contexte.** Création du projet Unity dans le repo via Unity Hub (Unity 6 LTS, template 3D URP) et import d'un premier asset tiers (SimpleNaturePack, low-poly nature) pour avoir des éléments visuels prêts à l'emploi pour le prototypage du terrain au Sprint 0.
+
+**Décisions.**
+1. **Unity 6 LTS** confirmé comme version de référence — figée dans `ProjectSettings/ProjectVersion.txt`. Tous les devs doivent installer cette version exacte via Unity Hub.
+2. **Renderers Mobile retirés** (`Mobile_RPAsset`, `Mobile_Renderer`) : POC PC-only assumé, pas de surcoût technique.
+3. **Template tutoriel URP supprimé** : `Readme.asset` et dossier `TutorialInfo/` retirés du commit initial pour partir sur une base propre.
+4. **Format `.slnx` ajouté au `.gitignore`** : nouveau format de solution VS, généré par Unity, à ignorer comme les `.sln`.
+5. **Assets du Unity Asset Store NON versionnés** : Standard Unity Asset Store EULA interdit la redistribution publique des fichiers sources. Chaque dev doit réimporter les packs depuis « My Assets » du Package Manager avec son propre compte Unity. Conséquence : tous les packs vont dans `Assets/ThirdParty/<NomDuPack>/` et ce dossier entier est gitignoré (`/Assets/ThirdParty/` + `/Assets/ThirdParty.meta`). Premier pack importé : `SimpleNaturePack`.
+6. **Convention de rangement `Assets/ThirdParty/`** adoptée : tout asset externe (Asset Store, packs gratuits, addons) va dans ce dossier. Sépare proprement le code/contenu du projet de celui des tiers, et permet un seul pattern gitignore générique au lieu de devoir lister chaque pack.
+7. **`.unitypackage.meta` également ignorés** pour éviter les meta orphelins quand Unity génère des metas pour des `.unitypackage` qui ne sont pas suivis.
+
+**Conséquences.**
+- Nouvelle section « Assets tiers à réimporter » dans le `README.md` avec procédure pas-à-pas.
+- À chaque ajout d'un nouveau pack tiers : (a) ajouter son chemin dans `.gitignore`, (b) ajouter une ligne dans le tableau du `README.md`, (c) acter ici dans le journal.
+- Si un dev voit des prefabs roses / refs manquantes en ouvrant le projet → réflexe d'aller dans Package Manager → My Assets pour réimporter.
+
+**Reste à faire.**
+- [ ] Récupérer l'URL exacte de la page Asset Store du `SimpleNaturePack` et compléter le tableau du `README.md`.
+- [x] ~~Renommer `SampleScene` en `Main.unity`~~ — fait, scène présente dans `Assets/Scenes/Main.unity`.
+
+---
+
 ### 2026-04-17 — Licence propriétaire et politique de branche
 
 **Contexte.** Premières décisions de gouvernance à acter avant le commit initial : choix de licence et règles de protection de `main`.
@@ -236,4 +260,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-17*
+*Dernière mise à jour : 2026-04-17 (init Unity)*
