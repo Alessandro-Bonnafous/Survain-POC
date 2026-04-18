@@ -92,6 +92,9 @@ secrets/
 # Solution VS nouveau format (.slnx) - régénéré par Unity
 *.slnx
 
+# Claude Code — config locale machine
+.claude/settings.local.json
+
 # Assets tiers (à réimporter depuis l'Asset Store)
 /Assets/ThirdParty/
 /Assets/ThirdParty.meta
