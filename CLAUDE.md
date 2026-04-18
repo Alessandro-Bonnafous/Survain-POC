@@ -179,6 +179,30 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-04-18 — GameManager : singleton persistant + state machine
+
+**Contexte.** Issue #1 (Sprint 0), étape 3. Les fondations de logging et d'arborescence étant posées, il fallait introduire le premier composant architectural majeur : un gestionnaire d'état global qui persiste entre les scènes et sert de point d'entrée à la simulation.
+
+**Décisions.**
+1. **State machine enum + switch** (pas de classes `State` polymorphes) : 3 états (`Menu`, `Playing`, `Paused`) ne justifient pas la complexité d'un pattern State complet. Un `switch` est lisible, sans allocation, et extensible à 5–6 états sans refacto. Si le nombre d'états dépasse 6 ou que les états portent leur propre logique, revisiter vers un pattern State dédié.
+2. **Double notification : `event Action<GameState, GameState>` C# statique + `UnityEvent<GameState, GameState>` sérialisé** : les deux sont déclenchés à chaque transition réussie avec la signature `(previousState, newState)`. L'event C# est la voie principale pour le code (zéro friction, pas d'allocation de delegate supplémentaire) ; le `UnityEvent` permet de brancher des listeners depuis l'inspecteur Unity sans écrire une ligne de code (utile pour l'UI ou les feedbacks audio au POC). Choisir l'un ou l'autre selon le contexte de l'appelant.
+3. **Auto-création du singleton interdite** : si une scène démarre sans `GameManager` instancié, c'est une erreur de setup — le code logge en `SurvainLog.Error` mais ne crée pas de `GameManager` à la volée. Le `GameManager` doit toujours être présent via le prefab `_GameManager` dans la scène de bootstrap. Raison : l'auto-création masque les oublis de setup et peut produire un état incohérent si le prefab a des sérialisations non-defaults.
+4. **`Time.timeScale` géré uniquement ici** : seul le `GameManager` écrit `Time.timeScale` pour la gestion de la pause (`0f` en `Paused`, `1f` sinon). Toute autre manipulation du timeScale (slow-mo, cinématiques) devra passer par une API du `GameManager` ou être coordonnée explicitement pour éviter les conflits. Convention à rappeler en revue de code.
+
+**Alternatives écartées.**
+- Pattern State polymorphe (classe abstraite `BaseState` + sous-classes) : over-engineering pour 3 états au stade POC. À considérer si les états deviennent complexes (entrée/sortie, sous-états).
+- Event C# seul (pas de `UnityEvent`) : oblige à écrire du code C# pour tout listener, y compris les réactions UI simples — moins pratique pour le prototypage.
+- `UnityEvent` seul (pas d'event C# statique) : les `UnityEvent` nécessitent une référence à l'objet sérialisé, incompatibles avec des systèmes purement code (tests, logique non-MonoBehaviour).
+- `ScriptableObject` d'état partagé (pattern SO Event) : pertinent pour la multi-scène complexe, disproportionné pour le POC.
+
+**Conséquences.**
+- Tous les systèmes qui réagissent à l'état global (UI, IA, audio) doivent s'abonner à `GameManager.OnStateChanged` (code) ou au `UnityEvent StateChanged` (inspector).
+- La scène `Main.unity` contient désormais une instance du prefab `Assets/Prefabs/_GameManager.prefab`.
+- Le préfixe `_` du nom du GameObject est une convention pour le faire remonter en tête de hiérarchie dans l'éditeur Unity.
+- Transitions autorisées : `Menu → Playing`, `Playing ⇄ Paused`, `Playing → Menu`, `Paused → Menu`. Toute autre transition est refusée avec un `SurvainLog.Error`.
+
+---
+
 ### 2026-04-18 — Arborescence `Assets/` et wrapper de logging `SurvainLog`
 
 **Contexte.** Issue #1 (Sprint 0). Le projet Unity était initialisé mais `Assets/` ne contenait que les dossiers par défaut (`Scenes`, `Settings`) et `ThirdParty`. Aucune structure de code ni convention de logging n'était posée, ce qui bloquait le démarrage des tâches suivantes du sprint (génération de terrain, contrôleur joueur).
@@ -292,4 +316,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-18 (arborescence Assets/ + SurvainLog)*
+*Dernière mise à jour : 2026-04-18 (GameManager singleton + state machine)*
