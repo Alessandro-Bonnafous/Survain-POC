@@ -179,6 +179,85 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-04-18 — ScriptableObjects : GameSettings + BiomeConfig (clôture issue #1)
+
+**Contexte.** Issue #1 (Sprint 0), étape 4 et dernière. Les fondations (arborescence, logging, GameManager) étant posées, il fallait introduire la convention de données : comment le projet stocke et expose la configuration sans mélanger données et logique.
+
+**Décisions.**
+1. **ScriptableObjects = conteneurs de données purs, zéro logique métier.** Aucune méthode de gameplay dans un SO. Les systèmes (génération de terrain, craft, etc.) lisent les données ; les SO ne calculent rien. Convention à signaler en revue de code si un SO commence à porter de la logique.
+2. **`CreateAssetMenu` rangé sous `Survain/Data/...`** : évite la pollution du menu Create d'Unity. Tout nouveau SO du projet suit ce pattern (`menuName = "Survain/<domaine>/<Nom>"`).
+3. **`GameSettings` : un seul asset par projet (singleton conceptuel).** Pas d'enforcement code au POC (pas de chargement automatique via `Resources` ou Addressables), juste une convention stricte. Asset unique : `Assets/ScriptableObjects/Settings/GameSettings.asset`.
+4. **Biome de référence POC : forêt tempérée.** Asset `Assets/ScriptableObjects/Biomes/ForetTemperee.asset`, biome actif dans `GameSettings.defaultBiome`. C'est le seul biome implémenté jusqu'au Sprint 1 au minimum.
+5. **`BiomeType` enum dans `BiomeConfig`** (pas un SO séparé) : le type enum suffit pour les règles de gameplay au POC. Un SO dédié pour le type serait de l'over-engineering.
+
+**Alternatives écartées.**
+- Logique de fallback ou de chargement dans les SO : rompt la séparation données/logique, rend les tests plus complexes.
+- Menu Create à la racine (sans sous-menu `Survain/`) : pollue le menu Create d'Unity avec nos types, difficile à retrouver dans un projet qui grandit.
+- Singleton enforcé par code (`Resources.Load` + vérification au démarrage) : overkill pour le POC, à considérer au Sprint 2 si le besoin de chargement fiable se présente.
+
+**Conséquences.**
+- Clôture de l'issue #1 — Sprint 0 architecture de base entièrement posée.
+- Tout nouveau SO du projet hérite de ces conventions (namespace `Survain.Data`, menu `Survain/...`, accesseurs read-only, zéro logique).
+- Les systèmes futurs (génération terrain, craft) référenceront `GameSettings` via l'Inspector ou un locator, jamais via `new`.
+
+---
+
+### 2026-04-18 — GameManager : singleton persistant + state machine
+
+**Contexte.** Issue #1 (Sprint 0), étape 3. Les fondations de logging et d'arborescence étant posées, il fallait introduire le premier composant architectural majeur : un gestionnaire d'état global qui persiste entre les scènes et sert de point d'entrée à la simulation.
+
+**Décisions.**
+1. **State machine enum + switch** (pas de classes `State` polymorphes) : 3 états (`Menu`, `Playing`, `Paused`) ne justifient pas la complexité d'un pattern State complet. Un `switch` est lisible, sans allocation, et extensible à 5–6 états sans refacto. Si le nombre d'états dépasse 6 ou que les états portent leur propre logique, revisiter vers un pattern State dédié.
+2. **Double notification : `event Action<GameState, GameState>` C# statique + `UnityEvent<GameState, GameState>` sérialisé** : les deux sont déclenchés à chaque transition réussie avec la signature `(previousState, newState)`. L'event C# est la voie principale pour le code (zéro friction, pas d'allocation de delegate supplémentaire) ; le `UnityEvent` permet de brancher des listeners depuis l'inspecteur Unity sans écrire une ligne de code (utile pour l'UI ou les feedbacks audio au POC). Choisir l'un ou l'autre selon le contexte de l'appelant.
+3. **Auto-création du singleton interdite** : si une scène démarre sans `GameManager` instancié, c'est une erreur de setup — le code logge en `SurvainLog.Error` mais ne crée pas de `GameManager` à la volée. Le `GameManager` doit toujours être présent via le prefab `_GameManager` dans la scène de bootstrap. Raison : l'auto-création masque les oublis de setup et peut produire un état incohérent si le prefab a des sérialisations non-defaults.
+4. **`Time.timeScale` géré uniquement ici** : seul le `GameManager` écrit `Time.timeScale` pour la gestion de la pause (`0f` en `Paused`, `1f` sinon). Toute autre manipulation du timeScale (slow-mo, cinématiques) devra passer par une API du `GameManager` ou être coordonnée explicitement pour éviter les conflits. Convention à rappeler en revue de code.
+
+**Alternatives écartées.**
+- Pattern State polymorphe (classe abstraite `BaseState` + sous-classes) : over-engineering pour 3 états au stade POC. À considérer si les états deviennent complexes (entrée/sortie, sous-états).
+- Event C# seul (pas de `UnityEvent`) : oblige à écrire du code C# pour tout listener, y compris les réactions UI simples — moins pratique pour le prototypage.
+- `UnityEvent` seul (pas d'event C# statique) : les `UnityEvent` nécessitent une référence à l'objet sérialisé, incompatibles avec des systèmes purement code (tests, logique non-MonoBehaviour).
+- `ScriptableObject` d'état partagé (pattern SO Event) : pertinent pour la multi-scène complexe, disproportionné pour le POC.
+
+**Conséquences.**
+- Tous les systèmes qui réagissent à l'état global (UI, IA, audio) doivent s'abonner à `GameManager.OnStateChanged` (code) ou au `UnityEvent StateChanged` (inspector).
+- La scène `Main.unity` contient désormais une instance du prefab `Assets/Prefabs/_GameManager.prefab`.
+- Le préfixe `_` du nom du GameObject est une convention pour le faire remonter en tête de hiérarchie dans l'éditeur Unity.
+- Transitions autorisées : `Menu → Playing`, `Playing ⇄ Paused`, `Playing → Menu`, `Paused → Menu`. Toute autre transition est refusée avec un `SurvainLog.Error`.
+
+---
+
+### 2026-04-18 — Arborescence `Assets/` et wrapper de logging `SurvainLog`
+
+**Contexte.** Issue #1 (Sprint 0). Le projet Unity était initialisé mais `Assets/` ne contenait que les dossiers par défaut (`Scenes`, `Settings`) et `ThirdParty`. Aucune structure de code ni convention de logging n'était posée, ce qui bloquait le démarrage des tâches suivantes du sprint (génération de terrain, contrôleur joueur).
+
+**Décisions.**
+1. **Arborescence `Assets/` posée** alignée avec les namespaces `Survain.*` :
+   - `Assets/Scripts/{Core,Gameplay,UI,Data,Editor}` — un sous-dossier par domaine, miroir des namespaces.
+   - `Assets/ScriptableObjects/{Settings,Biomes}` — assets de configuration éditables hors code.
+   - `Assets/Prefabs/` et `Assets/Art/{Models,Textures,Materials,Audio}` — contenu visuel du projet.
+   - `Scripts/Editor/` isolé pour que Unity le compile dans une assembly séparée (accès aux APIs `UnityEditor`).
+2. **`.gitkeep` dans chaque dossier vide** pour que Git suive l'arborescence. Les `.meta` associés seront générés par Unity à la prochaine ouverture de l'éditeur et commités dans un second temps.
+3. **`SurvainLog` comme unique point de logging** du projet (`Assets/Scripts/Core/SurvainLog.cs`) :
+   - 8 catégories (`System`, `Gameplay`, `UI`, `World`, `AI`, `Save`, `Audio`, `Network`) avec couleurs Rich Text distinctes pour lisibilité en Console Unity.
+   - `Info`/`Warn` décorés `[Conditional("UNITY_EDITOR")]` + `[Conditional("DEVELOPMENT_BUILD")]` + `[Conditional("SURVAIN_LOGS_ENABLED")]` → strippés à la compilation en build release (aucun coût runtime).
+   - `Error` toujours actif, même en release, pour capturer les erreurs critiques en prod.
+   - API statique (pas de singleton) : zéro friction à l'usage, pas d'initialisation.
+
+**Convention actée (non négociable).** **Jamais** de `UnityEngine.Debug.Log`/`LogWarning`/`LogError` direct dans le code du projet. Tout log passe par `SurvainLog.Info/Warn/Error` avec une catégorie explicite. À signaler en revue de code si un `Debug.Log` apparaît.
+
+**Alternatives écartées.**
+- Bibliothèque externe type Serilog/ZLogger : overkill pour le POC, dépendance supplémentaire, tooling Unity moins intégré que `Debug.Log`.
+- Singleton `MonoBehaviour` de logging : inutile puisque pas d'état à maintenir, et ajoute un objet à gérer dans chaque scène.
+- Enum de catégorie avec attribut `[Description]` pour le nom lisible : redondant, `ToString()` de l'enum suffit.
+
+**Conséquences.**
+- Toute nouvelle feature peut maintenant ranger son code dans un domaine clair (`Survain.Gameplay.*` va dans `Scripts/Gameplay/`, etc.).
+- Logs filtrables par catégorie dans la Console Unity via le champ de recherche (`[Gameplay]`, `[AI]`, …).
+- Pour activer les `Info`/`Warn` dans un build release, ajouter le define `SURVAIN_LOGS_ENABLED` dans Project Settings → Player → Scripting Define Symbols.
+- Les `.meta` Unity seront générés à la première ouverture de l'éditeur après ce commit et devront être commités à part.
+
+---
+
 ### 2026-04-17 — Initialisation du projet Unity et premier asset tiers
 
 **Contexte.** Création du projet Unity dans le repo via Unity Hub (Unity 6 LTS, template 3D URP) et import d'un premier asset tiers (SimpleNaturePack, low-poly nature) pour avoir des éléments visuels prêts à l'emploi pour le prototypage du terrain au Sprint 0.
@@ -260,4 +339,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-17 (init Unity)*
+*Dernière mise à jour : 2026-04-18 (ScriptableObjects GameSettings + BiomeConfig — clôture issue #1)*
