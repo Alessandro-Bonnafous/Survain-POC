@@ -179,6 +179,29 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-04-18 — ScriptableObjects : GameSettings + BiomeConfig (clôture issue #1)
+
+**Contexte.** Issue #1 (Sprint 0), étape 4 et dernière. Les fondations (arborescence, logging, GameManager) étant posées, il fallait introduire la convention de données : comment le projet stocke et expose la configuration sans mélanger données et logique.
+
+**Décisions.**
+1. **ScriptableObjects = conteneurs de données purs, zéro logique métier.** Aucune méthode de gameplay dans un SO. Les systèmes (génération de terrain, craft, etc.) lisent les données ; les SO ne calculent rien. Convention à signaler en revue de code si un SO commence à porter de la logique.
+2. **`CreateAssetMenu` rangé sous `Survain/Data/...`** : évite la pollution du menu Create d'Unity. Tout nouveau SO du projet suit ce pattern (`menuName = "Survain/<domaine>/<Nom>"`).
+3. **`GameSettings` : un seul asset par projet (singleton conceptuel).** Pas d'enforcement code au POC (pas de chargement automatique via `Resources` ou Addressables), juste une convention stricte. Asset unique : `Assets/ScriptableObjects/Settings/GameSettings.asset`.
+4. **Biome de référence POC : forêt tempérée.** Asset `Assets/ScriptableObjects/Biomes/ForetTemperee.asset`, biome actif dans `GameSettings.defaultBiome`. C'est le seul biome implémenté jusqu'au Sprint 1 au minimum.
+5. **`BiomeType` enum dans `BiomeConfig`** (pas un SO séparé) : le type enum suffit pour les règles de gameplay au POC. Un SO dédié pour le type serait de l'over-engineering.
+
+**Alternatives écartées.**
+- Logique de fallback ou de chargement dans les SO : rompt la séparation données/logique, rend les tests plus complexes.
+- Menu Create à la racine (sans sous-menu `Survain/`) : pollue le menu Create d'Unity avec nos types, difficile à retrouver dans un projet qui grandit.
+- Singleton enforcé par code (`Resources.Load` + vérification au démarrage) : overkill pour le POC, à considérer au Sprint 2 si le besoin de chargement fiable se présente.
+
+**Conséquences.**
+- Clôture de l'issue #1 — Sprint 0 architecture de base entièrement posée.
+- Tout nouveau SO du projet hérite de ces conventions (namespace `Survain.Data`, menu `Survain/...`, accesseurs read-only, zéro logique).
+- Les systèmes futurs (génération terrain, craft) référenceront `GameSettings` via l'Inspector ou un locator, jamais via `new`.
+
+---
+
 ### 2026-04-18 — GameManager : singleton persistant + state machine
 
 **Contexte.** Issue #1 (Sprint 0), étape 3. Les fondations de logging et d'arborescence étant posées, il fallait introduire le premier composant architectural majeur : un gestionnaire d'état global qui persiste entre les scènes et sert de point d'entrée à la simulation.
@@ -316,4 +339,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-18 (GameManager singleton + state machine)*
+*Dernière mise à jour : 2026-04-18 (ScriptableObjects GameSettings + BiomeConfig — clôture issue #1)*
