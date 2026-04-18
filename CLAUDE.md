@@ -179,6 +179,38 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-04-18 — Arborescence `Assets/` et wrapper de logging `SurvainLog`
+
+**Contexte.** Issue #1 (Sprint 0). Le projet Unity était initialisé mais `Assets/` ne contenait que les dossiers par défaut (`Scenes`, `Settings`) et `ThirdParty`. Aucune structure de code ni convention de logging n'était posée, ce qui bloquait le démarrage des tâches suivantes du sprint (génération de terrain, contrôleur joueur).
+
+**Décisions.**
+1. **Arborescence `Assets/` posée** alignée avec les namespaces `Survain.*` :
+   - `Assets/Scripts/{Core,Gameplay,UI,Data,Editor}` — un sous-dossier par domaine, miroir des namespaces.
+   - `Assets/ScriptableObjects/{Settings,Biomes}` — assets de configuration éditables hors code.
+   - `Assets/Prefabs/` et `Assets/Art/{Models,Textures,Materials,Audio}` — contenu visuel du projet.
+   - `Scripts/Editor/` isolé pour que Unity le compile dans une assembly séparée (accès aux APIs `UnityEditor`).
+2. **`.gitkeep` dans chaque dossier vide** pour que Git suive l'arborescence. Les `.meta` associés seront générés par Unity à la prochaine ouverture de l'éditeur et commités dans un second temps.
+3. **`SurvainLog` comme unique point de logging** du projet (`Assets/Scripts/Core/SurvainLog.cs`) :
+   - 8 catégories (`System`, `Gameplay`, `UI`, `World`, `AI`, `Save`, `Audio`, `Network`) avec couleurs Rich Text distinctes pour lisibilité en Console Unity.
+   - `Info`/`Warn` décorés `[Conditional("UNITY_EDITOR")]` + `[Conditional("DEVELOPMENT_BUILD")]` + `[Conditional("SURVAIN_LOGS_ENABLED")]` → strippés à la compilation en build release (aucun coût runtime).
+   - `Error` toujours actif, même en release, pour capturer les erreurs critiques en prod.
+   - API statique (pas de singleton) : zéro friction à l'usage, pas d'initialisation.
+
+**Convention actée (non négociable).** **Jamais** de `UnityEngine.Debug.Log`/`LogWarning`/`LogError` direct dans le code du projet. Tout log passe par `SurvainLog.Info/Warn/Error` avec une catégorie explicite. À signaler en revue de code si un `Debug.Log` apparaît.
+
+**Alternatives écartées.**
+- Bibliothèque externe type Serilog/ZLogger : overkill pour le POC, dépendance supplémentaire, tooling Unity moins intégré que `Debug.Log`.
+- Singleton `MonoBehaviour` de logging : inutile puisque pas d'état à maintenir, et ajoute un objet à gérer dans chaque scène.
+- Enum de catégorie avec attribut `[Description]` pour le nom lisible : redondant, `ToString()` de l'enum suffit.
+
+**Conséquences.**
+- Toute nouvelle feature peut maintenant ranger son code dans un domaine clair (`Survain.Gameplay.*` va dans `Scripts/Gameplay/`, etc.).
+- Logs filtrables par catégorie dans la Console Unity via le champ de recherche (`[Gameplay]`, `[AI]`, …).
+- Pour activer les `Info`/`Warn` dans un build release, ajouter le define `SURVAIN_LOGS_ENABLED` dans Project Settings → Player → Scripting Define Symbols.
+- Les `.meta` Unity seront générés à la première ouverture de l'éditeur après ce commit et devront être commités à part.
+
+---
+
 ### 2026-04-17 — Initialisation du projet Unity et premier asset tiers
 
 **Contexte.** Création du projet Unity dans le repo via Unity Hub (Unity 6 LTS, template 3D URP) et import d'un premier asset tiers (SimpleNaturePack, low-poly nature) pour avoir des éléments visuels prêts à l'emploi pour le prototypage du terrain au Sprint 0.
@@ -260,4 +292,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-17 (init Unity)*
+*Dernière mise à jour : 2026-04-18 (arborescence Assets/ + SurvainLog)*

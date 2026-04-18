@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C c:/dev/repositories/Survain-POC/ status)",
+      "Bash(git -C c:/dev/repositories/Survain-POC/ branch --show-current)"
+    ],
+    "additionalDirectories": [
+      "c:\\dev\\repositories\\Survain-POC\\Assets\\Scripts"
+    ]
+  }
+}
