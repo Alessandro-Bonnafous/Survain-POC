@@ -96,6 +96,14 @@
 
 ---
 
+## ⏳ Décisions en attente (à arbitrer)
+
+> Petites décisions remontées du chat / Discord qui n'ont pas encore été tranchées. À traiter avant la phase qui en dépend pour ne pas bloquer.
+
+- **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant le démarrage du Sprint 1** (rappel échange Discord). Impacte la première table d'armes craftables. Pas de code à toucher tant que la décision n'est pas prise.
+
+---
+
 ## 📝 Conventions de code (C# / Unity)
 
 ### Nommage
@@ -178,6 +186,37 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-04-19 — Génération procédurale du terrain (Sprint 0, issue #2)
+
+**Contexte.** Issue #2 du Sprint 0. Première brique de monde 3D : besoin d'un terrain explorable sur lequel poser les briques suivantes (contrôleur joueur, cycle jour/nuit, récolte). Choix techniques structurants à figer parce qu'ils conditionnent toutes les futures itérations sur le monde (chunks, biomes additionnels, navigation IA).
+
+**Décisions.**
+1. **Mesh généré par code, PAS Unity Terrain.** Trois raisons : (a) le style low-poly flat-shaded sort naturellement d'un mesh à vertices dupliqués par triangle, ce qui est tordu à obtenir avec Unity Terrain ; (b) déterminisme strict par seed, sans aucun asset binaire (`.terraindata`) à versionner — le terrain est entièrement reproductible depuis la C# + le SO ; (c) chemin direct vers une découpe en chunks au Sprint 2/3 si le terrain s'étend (juste une boucle de plus). Conséquence : on perd le tooling de painting/sculpting Unity Terrain — assumé, on n'en a pas besoin au POC.
+2. **Perlin multi-octaves** (`Mathf.PerlinNoise` empilé avec `persistence`/`lacunarity`) pour le relief. Simple, déterministe, largement documenté, suffisant pour des collines crédibles. Si on a besoin de structures plus complexes (rivières, falaises) plus tard, on basculera sur du noise dérivé (Domain Warping, Voronoi) — pas avant.
+3. **Vertex color + shader HLSL custom URP** pour la coloration par altitude, plutôt que Shader Graph. Le `.shader` est du texte (versioning Git propre, diff lisible), Shader Graph est un asset binaire fragile aux mises à jour d'Unity. Le shader est volontairement minimal (diffus + ambient via `SampleSH`) — on ajoutera du `_Color` ou des keywords URP si nécessaire.
+4. **Aucune texture pour le POC.** Le gradient d'altitude évalué en `Color` par vertex suffit à donner du caractère au terrain. Pas de `_BaseMap`, pas de tiling, pas de splat map.
+5. **Placement des placeholders par raycast** sur le `MeshCollider` du terrain (pas de recalcul du Perlin côté placeholders). Une seule source de vérité pour le sol → le placement reste cohérent même si la formule de hauteur change. Rejet par pente via l'angle de la normale du hit.
+6. **Convention forte : les placeholders n'ont PAS de collider.** Au Sprint 0, seul le `MeshCollider` du terrain porte la physique. Les cubes/sphères sont purement visuels. À reconsidérer quand on introduira la collecte (Sprint 1) — probablement un `Collider` sur le prefab d'arbre/rocher dédié, pas sur le placeholder.
+7. **Convention forte : la scène `Main.unity` ne contient PAS le mesh généré ni les placeholders.** Ils sont régénérés à chaque Play / appel de `Generate()` (ContextMenu de l'Inspector) à partir du seed. Si tu vois des enfants `Placeholders` ou un mesh sérialisé sous `_WorldRoot` dans la scène committée, c'est un bug — appeler `Clear` via ContextMenu et resauver. Raison : on ne veut pas versionner du mesh binaire dans le `.unity`, et on veut garantir que le seed est l'unique source de vérité.
+8. **Seed lu depuis `GameSettings.WorldSeed`**, avec override par champ sérialisé `seedOverride` sur le composant. Si seed = 0 (défaut), un seed aléatoire est tiré et loggué — pratique pour itérer visuellement, et le log permet de retomber sur un terrain qu'on a aimé en le mettant en `seedOverride`.
+
+**Alternatives écartées.**
+- **Unity Terrain** : tooling lourd, asset binaire `.terraindata` à versionner (incompatible avec un projet où on veut un diff propre), painting overkill au POC.
+- **Shader Graph** : asset binaire JSON-like, casse régulièrement entre versions URP, diff Git illisible. Notre shader fait 30 lignes — Graph serait disproportionné.
+- **Mesh à vertices partagés + normal smoothing** : nécessite soit un shader qui compute la normale via dérivées (`ddx`/`ddy`, fragile, non supporté partout) soit un post-traitement CPU pour casser les normales. Beaucoup plus simple de dupliquer les vertices à la génération.
+- **Perlin GPU (compute shader)** : prématuré pour un terrain 100m × 80 subdivs (génération <100ms attendue sur CPU), et complique le déterminisme cross-plateforme.
+- **Poisson disk pour la distribution des placeholders** : meilleure qualité visuelle mais coût implémentation disproportionné. Le rejet aléatoire avec contrainte de pente suffit visuellement au Sprint 0.
+
+**Conséquences.**
+- Tout système qui voudra interagir avec le sol (placement, navigation, raycasts gameplay) doit passer par le `MeshCollider` du `_WorldRoot` — pas par un recalcul Perlin parallèle. Une seule source de vérité.
+- Le shader `Survain/TerrainVertexColor` est désormais une dépendance versionnée du projet ; toute évolution (ajout d'AO, brouillard, fog distance) y passera, pas dans un Shader Graph.
+- Le pattern « SO de paramètres + composant qui consomme + ContextMenu Generate/Clear » devient le template pour les futurs systèmes de génération (ex: décor, cluster d'arbres par biome).
+- L'arborescence `Assets/Art/Materials/Shaders/` est créée et accueillera les futurs shaders custom du projet. Convention : un shader = un fichier `.shader`, pas de Graph.
+- `_WorldRoot` est un GameObject vide à la racine de `Main.unity` qui porte le `TerrainGenerator` et tous ses composants requis (`MeshFilter`, `MeshRenderer`, `MeshCollider`). Le préfixe `_` (cohérent avec `_GameManager`) le fait remonter en tête de hiérarchie.
+- Caméra Main repositionnée provisoirement à `(0, 35, -55)` rotation `(25°, 0, 0)` pour qu'on voie quelque chose au démarrage. **Provisoire** — l'issue caméra du Sprint 0 (à venir) réécrira ça proprement avec un suivi de joueur.
+
+---
 
 ### 2026-04-18 — ScriptableObjects : GameSettings + BiomeConfig (clôture issue #1)
 
@@ -339,4 +378,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-18 (ScriptableObjects GameSettings + BiomeConfig — clôture issue #1)*
+*Dernière mise à jour : 2026-04-19 (Génération procédurale du terrain — issue #2)*
