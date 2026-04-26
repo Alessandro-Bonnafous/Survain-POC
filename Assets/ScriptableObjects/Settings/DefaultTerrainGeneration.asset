@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4deb0afd6ff4a6ba0d6f3eeb165193d, type: 3}
+  m_Name: DefaultTerrainGeneration
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Data.TerrainGenerationSettings
+  worldSize: 100
+  subdivisions: 80
+  heightAmplitude: 12
+  baseFrequency: 0.015
+  octaves: 4
+  persistence: 0.5
+  lacunarity: 2
+  altitudeGradient:
+    serializedVersion: 2
+    key0: {r: 0.25, g: 0.45, b: 0.20, a: 1}
+    key1: {r: 0.45, g: 0.60, b: 0.25, a: 1}
+    key2: {r: 0.60, g: 0.50, b: 0.35, a: 1}
+    key3: {r: 0.55, g: 0.55, b: 0.55, a: 1}
+    key4: {r: 0.95, g: 0.95, b: 0.98, a: 1}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 22937
+    ctime2: 39321
+    ctime3: 52428
+    ctime4: 65535
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_NumColorKeys: 5
+    m_NumAlphaKeys: 2
+  placeholderDensityPer100SqM: 8
+  maxSlopeDegrees: 25
+  treeRatio: 0.7
