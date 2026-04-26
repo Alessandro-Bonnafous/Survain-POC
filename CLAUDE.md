@@ -187,6 +187,36 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-04-26 — Contrôleur joueur 3e personne (Sprint 0, issue #3)
+
+**Contexte.** Issue #3 du Sprint 0. Avec un terrain explorable (#2) et un GameManager (#1) en place, il manquait le contrôle joueur pour valider la boucle minimale « lancer le jeu → se déplacer dans le monde ». Choix techniques structurants à figer parce qu'ils conditionnent le combat (Sprint 3+), les interactions monde (Sprint 1) et la caméra (qui dure tout le POC).
+
+**Décisions.**
+1. **`CharacterController`, PAS `Rigidbody`.** Standard Unity pour un perso non-piloté par physics : gestion native pente/marche, slide le long des murs, déplacement déterministe via `Move()`. Un `Rigidbody` serait nécessaire pour subir les forces (knockback, push) — pas notre besoin au Sprint 0. À reconsidérer au Sprint 3 (combat) — possiblement un hybride (CharacterController standard + bascule Rigidbody pendant un knockback).
+2. **Caméra orbitale custom, PAS Cinemachine.** Cohérent avec les rejets Shader Graph et Unity Terrain : code-first, diff Git lisible, zéro asset binaire, zéro dépendance package supplémentaire. Le `PlayerCameraRig` fait ~120 lignes de C# pur (yaw/pitch souris, distance fixe, `SphereCast` anti-clipping) — exactement ce dont on a besoin. Cinemachine serait pertinent pour des cinématiques scriptées (cutscenes, target groups) — pas avant le Sprint 4 si jamais.
+3. **Input via `InputActionAsset` sérialisé + lookup par nom (`FindActionMap`/`FindAction`), PAS de wrapper C# généré, PAS de `PlayerInput.SendMessages`.** `SendMessages` dispatche par nom de méthode au runtime (fragile au refactor, pas vérifié à la compilation). Le wrapper généré ajoute un fichier à versionner et à régénérer à chaque modif. Le lookup par nom une fois au `Awake` + abonnement à `performed`/`canceled` est aussi rapide et garde le code explicite. **Convention :** un seul composant est propriétaire du cycle `Enable`/`Disable` d'une map (`PlayerController` ici) ; les autres consommateurs (`PlayerCameraRig`) lisent les actions sans toucher à l'activation.
+4. **Deux SO de config séparés** (`PlayerMovementConfig` + `PlayerCameraConfig`), PAS un unique `PlayerConfig`. Chaque composant a sa config dédiée — cohérent avec `TerrainGenerationSettings` ↔ `TerrainGenerator`. Permet d'équilibrer locomotion et caméra indépendamment, et de swapper un set complet par contexte de jeu plus tard (caméra exploration vs combat, par ex).
+5. **Visuel joueur = primitive `Capsule` avec son `CapsuleCollider` retiré au profit du `CharacterController`.** Le `CharacterController` est lui-même un collider — laisser le `CapsuleCollider` du primitive crée un double-collider qui décolle le joueur du sol. Convention à rappeler quand on remplacera la capsule par un mesh riggé (le mesh aura potentiellement ses propres colliders pour hit-detection, mais le mouvement passera toujours par le `CharacterController` de la racine).
+6. **Curseur verrouillé/caché par le `PlayerCameraRig` au `OnEnable`, libéré au `OnDisable`.** Le rig caméra est l'autorité sur le curseur (il consomme la souris). Pour le POC, **Esc** suffit à libérer le curseur dans le Game view (comportement Unity Editor). Au Sprint 1+, un menu pause devra explicitement libérer le curseur.
+
+**Alternatives écartées.**
+- **Rigidbody + `ForceMode`** : tuning lourd (drag, friction de matériau, gestion explicite de la pente via raycast), inutile tant qu'on ne se fait pas pousser.
+- **Cinemachine** : asset-driven (Virtual Cameras, blends, noise profiles), incompatible avec la préférence code-first du projet, et ajoute une dépendance package à maintenir.
+- **Wrapper C# généré pour les InputActions** : fichier généré à régénérer à chaque modif, overhead non justifié pour 3-4 actions sur 1 map.
+- **`PlayerInput` component avec `SendMessages`/`BroadcastMessages`** : dispatch par string, non typé, masque le flux d'input dans le boilerplate Unity.
+- **`Camera.main` / `FindObjectOfType` pour résoudre les refs runtime** : viole la convention CLAUDE.md (« injecter les dépendances via inspector »).
+- **SO unique `PlayerConfig`** : moins propre, gros fichier de tuning, plus difficile à swapper par contexte.
+
+**Conséquences.**
+- Le prefab `_Player` (capsule + `CharacterController` + scripts) devient l'unique source de vérité de la kinématique joueur. Tout système qui veut la position joueur passe par ce Transform.
+- La `Main Camera` porte désormais le `PlayerCameraRig`. Sa position/rotation sérialisée dans `Main.unity` n'a plus d'importance — le rig prend le contrôle au premier `LateUpdate`. Le commentaire du 2026-04-19 (« position provisoire à réécrire avec un suivi de joueur ») est donc honoré.
+- Le pattern « SO de config + composant qui consomme + lookup par nom dans `InputActionAsset` » devient le template pour tout futur système d'input (UI, véhicules, dialogue).
+- Arborescence `Assets/ScriptableObjects/Player/` créée — accueillera les futures configs joueur (équipement, stats RPG, etc.).
+- Les placeholders (cubes/sphères du terrain) n'ont pas de collider, donc la caméra les traverse. Cohérent avec la décision du 2026-04-19. Quand on introduira la collecte (Sprint 1), les prefabs dédiés auront des colliders et la caméra reculera automatiquement contre eux (`collisionMask` = tous les layers par défaut).
+- **Divergence convention/code à arbitrer.** Le code du projet utilise `[SerializeField] private camelCase` (sans underscore), alors que CLAUDE.md prescrit `_camelCase`. J'ai suivi la pratique du code pour rester cohérent avec `TerrainGenerator`, `GameManager`, `GameSettings`. Soit on aligne le code sur le doc (rename), soit on aligne le doc sur le code (édition de la section conventions). À trancher avant que la divergence se propage.
+
+---
+
 ### 2026-04-19 — Génération procédurale du terrain (Sprint 0, issue #2)
 
 **Contexte.** Issue #2 du Sprint 0. Première brique de monde 3D : besoin d'un terrain explorable sur lequel poser les briques suivantes (contrôleur joueur, cycle jour/nuit, récolte). Choix techniques structurants à figer parce qu'ils conditionnent toutes les futures itérations sur le monde (chunks, biomes additionnels, navigation IA).
@@ -378,4 +408,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-19 (Génération procédurale du terrain — issue #2)*
+*Dernière mise à jour : 2026-04-26 (Contrôleur joueur 3e personne — issue #3)*
