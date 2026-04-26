@@ -82,11 +82,11 @@
 **Sprint en cours :** Sprint 0 — Fondations
 
 **Objectifs du sprint** : mise en place technique et premier monde explorable.
-- Setup projet Unity
-- Génération procédurale de terrain (1 biome : forêt tempérée)
-- Contrôleur joueur 3D (déplacement, caméra)
-- Cycle jour/nuit basique
-- Architecture dossiers et scripts fondateurs
+- [x] Setup projet Unity (issue #1, mergée)
+- [x] Architecture dossiers et scripts fondateurs (issue #1, mergée)
+- [x] Génération procédurale de terrain — 1 biome forêt tempérée (issue #2, mergée le 2026-04-26)
+- [ ] Contrôleur joueur 3D, 3e personne (issue #3, **en cours** sur branche `3-contrôleur-joueur-3e-personne`)
+- [ ] Cycle jour/nuit basique
 
 **Livrable du sprint :** build où le joueur peut se déplacer dans un monde 3D généré.
 
