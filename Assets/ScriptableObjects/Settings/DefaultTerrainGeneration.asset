@@ -12,20 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4deb0afd6ff4a6ba0d6f3eeb165193d, type: 3}
   m_Name: DefaultTerrainGeneration
   m_EditorClassIdentifier: Assembly-CSharp::Survain.Data.TerrainGenerationSettings
-  worldSize: 100
-  subdivisions: 80
-  heightAmplitude: 12
-  baseFrequency: 0.015
-  octaves: 4
-  persistence: 0.5
-  lacunarity: 2
-  altitudeGradient:
+  _worldSize: 100
+  _subdivisions: 80
+  _heightAmplitude: 12
+  _baseFrequency: 0.015
+  _octaves: 4
+  _persistence: 0.5
+  _lacunarity: 2
+  _altitudeGradient:
     serializedVersion: 2
-    key0: {r: 0.25, g: 0.45, b: 0.20, a: 1}
-    key1: {r: 0.45, g: 0.60, b: 0.25, a: 1}
-    key2: {r: 0.60, g: 0.50, b: 0.35, a: 1}
-    key3: {r: 0.55, g: 0.55, b: 0.55, a: 1}
-    key4: {r: 0.95, g: 0.95, b: 0.98, a: 1}
+    key0: {r: 0.25, g: 0.45, b: 0.2, a: 1}
+    key1: {r: 0.45, g: 0.6, b: 0.25, a: 1}
+    key2: {r: 0.6, g: 0.5, b: 0.35, a: 0}
+    key3: {r: 0.55, g: 0.55, b: 0.55, a: 0}
+    key4: {r: 0.95, g: 0.95, b: 0.98, a: 0}
     key5: {r: 0, g: 0, b: 0, a: 0}
     key6: {r: 0, g: 0, b: 0, a: 0}
     key7: {r: 0, g: 0, b: 0, a: 0}
@@ -46,8 +46,9 @@ MonoBehaviour:
     atime6: 0
     atime7: 0
     m_Mode: 0
+    m_ColorSpace: -1
     m_NumColorKeys: 5
     m_NumAlphaKeys: 2
-  placeholderDensityPer100SqM: 8
-  maxSlopeDegrees: 25
-  treeRatio: 0.7
+  _placeholderDensityPer100SqM: 8
+  _maxSlopeDegrees: 25
+  _treeRatio: 0.7
