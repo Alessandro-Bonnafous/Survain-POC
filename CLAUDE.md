@@ -85,7 +85,8 @@
 - [x] Setup projet Unity (issue #1, mergée)
 - [x] Architecture dossiers et scripts fondateurs (issue #1, mergée)
 - [x] Génération procédurale de terrain — 1 biome forêt tempérée (issue #2, mergée le 2026-04-26)
-- [ ] Contrôleur joueur 3D, 3e personne (issue #3, **en cours** sur branche `3-contrôleur-joueur-3e-personne`)
+- [x] Contrôleur joueur 3D, 3e personne (issue #3, mergée le 2026-05-16)
+- [x] Système de caméra 3e personne — zoom, smoothing, lock rotation (issue #4, mergée le 2026-05-16)
 - [ ] Cycle jour/nuit basique
 
 **Livrable du sprint :** build où le joueur peut se déplacer dans un monde 3D généré.
@@ -431,4 +432,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-16 (Polish caméra — issue #4)*
+*Dernière mise à jour : 2026-05-16 (marquage avancement Sprint 0)*
