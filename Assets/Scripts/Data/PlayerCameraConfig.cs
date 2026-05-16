@@ -14,10 +14,18 @@ namespace Survain.Data
     public sealed class PlayerCameraConfig : ScriptableObject
     {
         [Header("Cadrage")]
-        [Tooltip("Distance entre le pivot et la caméra (mètres).")]
+        [Tooltip("Distance de départ entre le pivot et la caméra (mètres). Sera clampée entre Min/Max au démarrage.")]
         [Range(1f, 15f)]
         [FormerlySerializedAs("distance")]
         [SerializeField] private float _distance = 5f;
+
+        [Tooltip("Distance minimale autorisée par le zoom (mètres).")]
+        [Range(0.5f, 10f)]
+        [SerializeField] private float _minDistance = 2f;
+
+        [Tooltip("Distance maximale autorisée par le zoom (mètres).")]
+        [Range(2f, 20f)]
+        [SerializeField] private float _maxDistance = 10f;
 
         [Tooltip("Hauteur du pivot au-dessus de la position du joueur (mètres). Typiquement la hauteur d'épaule.")]
         [Range(0f, 3f)]
@@ -38,6 +46,20 @@ namespace Survain.Data
         [Tooltip("Inverse l'axe vertical de la souris.")]
         [FormerlySerializedAs("invertY")]
         [SerializeField] private bool _invertY = false;
+
+        [Header("Zoom")]
+        [Tooltip("Sensibilité du zoom (mètres ajoutés/retirés par cran de molette).")]
+        [Range(0.1f, 5f)]
+        [SerializeField] private float _zoomSensitivity = 1f;
+
+        [Tooltip("Temps de smoothing du zoom (secondes). 0 = snap immédiat.")]
+        [Range(0f, 0.5f)]
+        [SerializeField] private float _zoomSmoothTime = 0.12f;
+
+        [Header("Smoothing rotation")]
+        [Tooltip("Temps de smoothing yaw/pitch (secondes). 0 = pas de smoothing (comportement direct).")]
+        [Range(0f, 0.5f)]
+        [SerializeField] private float _rotationSmoothTime = 0.08f;
 
         [Header("Limites verticales")]
         [Tooltip("Pitch minimum (degrés). Négatif = caméra regarde vers le bas.")]
@@ -62,6 +84,8 @@ namespace Survain.Data
         [SerializeField] private float _collisionPadding = 0.1f;
 
         public float Distance => _distance;
+        public float MinDistance => _minDistance;
+        public float MaxDistance => _maxDistance;
         public float PivotHeightOffset => _pivotHeightOffset;
         public float SensitivityX => _sensitivityX;
         public float SensitivityY => _sensitivityY;
@@ -70,5 +94,8 @@ namespace Survain.Data
         public float MaxPitchDeg => _maxPitchDeg;
         public float CollisionRadius => _collisionRadius;
         public float CollisionPadding => _collisionPadding;
+        public float ZoomSensitivity => _zoomSensitivity;
+        public float ZoomSmoothTime => _zoomSmoothTime;
+        public float RotationSmoothTime => _rotationSmoothTime;
     }
 }
