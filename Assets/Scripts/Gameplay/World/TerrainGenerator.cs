@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 using Survain.Core;
 using Survain.Data;
 
@@ -15,28 +16,35 @@ namespace Survain.Gameplay.World
     public sealed class TerrainGenerator : MonoBehaviour
     {
         [Header("Configuration")]
-        [SerializeField] private TerrainGenerationSettings settings;
+        [FormerlySerializedAs("settings")]
+        [SerializeField] private TerrainGenerationSettings _settings;
 
         [Tooltip("Source du seed. Si null, seedOverride est utilisé directement.")]
-        [SerializeField] private GameSettings gameSettings;
+        [FormerlySerializedAs("gameSettings")]
+        [SerializeField] private GameSettings _gameSettings;
 
         [Tooltip("Override du seed. 0 = utilise GameSettings.WorldSeed (ou aléatoire si GameSettings.WorldSeed vaut aussi 0).")]
-        [SerializeField] private int seedOverride = 0;
+        [FormerlySerializedAs("seedOverride")]
+        [SerializeField] private int _seedOverride = 0;
 
         [Header("Matériaux")]
-        [SerializeField] private Material terrainMaterial;
-        [SerializeField] private Material treeMaterial;
-        [SerializeField] private Material rockMaterial;
+        [FormerlySerializedAs("terrainMaterial")]
+        [SerializeField] private Material _terrainMaterial;
+        [FormerlySerializedAs("treeMaterial")]
+        [SerializeField] private Material _treeMaterial;
+        [FormerlySerializedAs("rockMaterial")]
+        [SerializeField] private Material _rockMaterial;
 
         [Header("Auto")]
         [Tooltip("Génère automatiquement au Start().")]
-        [SerializeField] private bool generateOnStart = true;
+        [FormerlySerializedAs("generateOnStart")]
+        [SerializeField] private bool _generateOnStart = true;
 
         // État runtime
-        private System.Random seededRandom;
-        private Vector2 noiseOffset;
-        private int currentSeed;
-        private Transform placeholdersRoot;
+        private System.Random _seededRandom;
+        private Vector2 _noiseOffset;
+        private int _currentSeed;
+        private Transform _placeholdersRoot;
 
         private const string PlaceholdersRootName = "Placeholders";
 
@@ -44,7 +52,7 @@ namespace Survain.Gameplay.World
 
         private void Start()
         {
-            if (generateOnStart) Generate();
+            if (_generateOnStart) Generate();
         }
 
         // ─── API publique ───────────────────────────────────────────────────
@@ -52,21 +60,21 @@ namespace Survain.Gameplay.World
         [ContextMenu("Generate")]
         public void Generate()
         {
-            if (settings == null)
+            if (_settings == null)
             {
                 SurvainLog.Error(SurvainLog.Category.World,
                     "TerrainGenerator : settings non assigné.", this);
                 return;
             }
 
-            int seed = seedOverride != 0
-                ? seedOverride
-                : (gameSettings != null ? gameSettings.WorldSeed : 0);
+            int seed = _seedOverride != 0
+                ? _seedOverride
+                : (_gameSettings != null ? _gameSettings.WorldSeed : 0);
 
             InitRandom(seed);
 
             SurvainLog.Info(SurvainLog.Category.World,
-                $"Génération du terrain (seed={currentSeed}, taille={settings.WorldSize}m, subdivs={settings.Subdivisions}).",
+                $"Génération du terrain (seed={_currentSeed}, taille={_settings.WorldSize}m, subdivs={_settings.Subdivisions}).",
                 this);
 
             var mesh = BuildMesh();
@@ -101,42 +109,42 @@ namespace Survain.Gameplay.World
                 SurvainLog.Info(SurvainLog.Category.World,
                     $"Seed=0 → seed aléatoire généré : {seed}", this);
             }
-            currentSeed = seed;
-            seededRandom = new System.Random(seed);
-            noiseOffset = new Vector2(
-                (float)(seededRandom.NextDouble() * 10000.0 - 5000.0),
-                (float)(seededRandom.NextDouble() * 10000.0 - 5000.0));
+            _currentSeed = seed;
+            _seededRandom = new System.Random(seed);
+            _noiseOffset = new Vector2(
+                (float)(_seededRandom.NextDouble() * 10000.0 - 5000.0),
+                (float)(_seededRandom.NextDouble() * 10000.0 - 5000.0));
         }
 
         private float SampleHeight(float worldX, float worldZ)
         {
             float amplitude = 1f;
-            float frequency = settings.BaseFrequency;
+            float frequency = _settings.BaseFrequency;
             float noiseHeight = 0f;
             float maxAmplitude = 0f;
 
-            for (int i = 0; i < settings.Octaves; i++)
+            for (int i = 0; i < _settings.Octaves; i++)
             {
-                float sampleX = (worldX + noiseOffset.x) * frequency;
-                float sampleZ = (worldZ + noiseOffset.y) * frequency;
+                float sampleX = (worldX + _noiseOffset.x) * frequency;
+                float sampleZ = (worldZ + _noiseOffset.y) * frequency;
                 float perlin = Mathf.PerlinNoise(sampleX, sampleZ) * 2f - 1f; // [-1..1]
                 noiseHeight += perlin * amplitude;
                 maxAmplitude += amplitude;
-                amplitude *= settings.Persistence;
-                frequency *= settings.Lacunarity;
+                amplitude *= _settings.Persistence;
+                frequency *= _settings.Lacunarity;
             }
 
             noiseHeight /= maxAmplitude;          // [-1..1]
             noiseHeight = (noiseHeight + 1f) * 0.5f; // [0..1]
-            return noiseHeight * settings.HeightAmplitude;
+            return noiseHeight * _settings.HeightAmplitude;
         }
 
         // ─── Mesh ───────────────────────────────────────────────────────────
 
         private Mesh BuildMesh()
         {
-            int subs = settings.Subdivisions;
-            float size = settings.WorldSize;
+            int subs = _settings.Subdivisions;
+            float size = _settings.WorldSize;
             float cellSize = size / subs;
             float halfSize = size * 0.5f;
 
@@ -194,7 +202,7 @@ namespace Survain.Gameplay.World
             for (int i = 0; i < vertCount; i++)
             {
                 float t = (vertices[i].y - minY) / range;
-                colors[i] = settings.AltitudeGradient.Evaluate(t);
+                colors[i] = _settings.AltitudeGradient.Evaluate(t);
             }
 
             var mesh = new Mesh
@@ -221,7 +229,7 @@ namespace Survain.Gameplay.World
 
             mf.sharedMesh = mesh;
             mc.sharedMesh = mesh;
-            if (terrainMaterial != null) mr.sharedMaterial = terrainMaterial;
+            if (_terrainMaterial != null) mr.sharedMaterial = _terrainMaterial;
         }
 
         // ─── Placeholders ───────────────────────────────────────────────────
@@ -236,14 +244,14 @@ namespace Survain.Gameplay.World
             }
             var go = new GameObject(PlaceholdersRootName);
             go.transform.SetParent(transform, false);
-            placeholdersRoot = go.transform;
+            _placeholdersRoot = go.transform;
         }
 
         private void SpawnPlaceholders()
         {
-            float size = settings.WorldSize;
+            float size = _settings.WorldSize;
             float area = size * size;
-            int targetCount = Mathf.RoundToInt(area / 100f * settings.PlaceholderDensityPer100SqM);
+            int targetCount = Mathf.RoundToInt(area / 100f * _settings.PlaceholderDensityPer100SqM);
             float halfSize = size * 0.5f;
 
             int placed = 0, attempts = 0, maxAttempts = targetCount * 10;
@@ -252,8 +260,8 @@ namespace Survain.Gameplay.World
             while (placed < targetCount && attempts < maxAttempts)
             {
                 attempts++;
-                float x = ((float)seededRandom.NextDouble() * 2f - 1f) * halfSize;
-                float z = ((float)seededRandom.NextDouble() * 2f - 1f) * halfSize;
+                float x = ((float)_seededRandom.NextDouble() * 2f - 1f) * halfSize;
+                float z = ((float)_seededRandom.NextDouble() * 2f - 1f) * halfSize;
 
                 // Raycast sur le MeshCollider uniquement (on vise précisément notre terrain)
                 var rayOrigin = new Vector3(x, 10000f, z);
@@ -261,9 +269,9 @@ namespace Survain.Gameplay.World
                     continue;
 
                 float slope = Vector3.Angle(hit.normal, Vector3.up);
-                if (slope > settings.MaxSlopeDegrees) continue;
+                if (slope > _settings.MaxSlopeDegrees) continue;
 
-                bool isTree = seededRandom.NextDouble() < settings.TreeRatio;
+                bool isTree = _seededRandom.NextDouble() < _settings.TreeRatio;
                 SpawnPlaceholder(hit.point, isTree);
                 placed++;
             }
@@ -276,7 +284,7 @@ namespace Survain.Gameplay.World
         {
             var go = GameObject.CreatePrimitive(isTree ? PrimitiveType.Cube : PrimitiveType.Sphere);
             go.name = isTree ? "PH_Tree" : "PH_Rock";
-            go.transform.SetParent(placeholdersRoot, false);
+            go.transform.SetParent(_placeholdersRoot, false);
 
             // Pas de collider physique sur les placeholders au POC
             var c = go.GetComponent<Collider>();
@@ -292,14 +300,14 @@ namespace Survain.Gameplay.World
             {
                 go.transform.localScale = new Vector3(0.8f, 3.0f, 0.8f);
                 go.transform.localPosition = groundPos + Vector3.up * 1.5f;
-                if (treeMaterial != null) rend.sharedMaterial = treeMaterial;
+                if (_treeMaterial != null) rend.sharedMaterial = _treeMaterial;
             }
             else
             {
-                float s = 0.5f + (float)seededRandom.NextDouble() * 0.9f;
+                float s = 0.5f + (float)_seededRandom.NextDouble() * 0.9f;
                 go.transform.localScale = Vector3.one * s;
                 go.transform.localPosition = groundPos + Vector3.up * s * 0.4f;
-                if (rockMaterial != null) rend.sharedMaterial = rockMaterial;
+                if (_rockMaterial != null) rend.sharedMaterial = _rockMaterial;
             }
         }
 

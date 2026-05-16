@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 namespace Survain.Core
 {
@@ -31,7 +32,8 @@ namespace Survain.Core
 
         // ─── État ───────────────────────────────────────────────────────────
 
-        [SerializeField] private GameState initialState = GameState.Menu;
+        [FormerlySerializedAs("initialState")]
+        [SerializeField] private GameState _initialState = GameState.Menu;
 
         public GameState CurrentState { get; private set; }
 
@@ -42,8 +44,9 @@ namespace Survain.Core
 
         [Serializable] public class GameStateChangedEvent : UnityEvent<GameState, GameState> { }
 
-        [SerializeField] private GameStateChangedEvent stateChanged = new GameStateChangedEvent();
-        public GameStateChangedEvent StateChanged => stateChanged;
+        [FormerlySerializedAs("stateChanged")]
+        [SerializeField] private GameStateChangedEvent _stateChanged = new GameStateChangedEvent();
+        public GameStateChangedEvent StateChanged => _stateChanged;
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
 
@@ -60,7 +63,7 @@ namespace Survain.Core
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            CurrentState = initialState;
+            CurrentState = _initialState;
             ApplyTimeScaleFor(CurrentState);
             SurvainLog.Info(SurvainLog.Category.System, $"GameManager initialisé en état {CurrentState}.", this);
         }
@@ -102,7 +105,7 @@ namespace Survain.Core
             SurvainLog.Info(SurvainLog.Category.System, $"Transition d'état : {previous} → {next}.", this);
 
             OnStateChanged?.Invoke(previous, next);
-            stateChanged?.Invoke(previous, next);
+            _stateChanged?.Invoke(previous, next);
 
             return true;
         }
