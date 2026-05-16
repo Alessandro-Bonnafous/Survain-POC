@@ -187,6 +187,29 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-05-16 — Polish caméra : zoom, smoothing, lock rotation (Sprint 0, issue #4)
+
+**Contexte.** Issue #4 du Sprint 0 — polish du `PlayerCameraRig` posé en #3. Trois items à ajouter par-dessus l'existant : zoom à la molette, smoothing du mouvement caméra, lock de rotation (préparation Sprint 2 mode construction). Le SphereCast anti-clipping et l'orbitale souris étaient déjà en place et ont été conservés.
+
+**Décisions.**
+1. **`Mathf.SmoothDampAngle` pour yaw, `Mathf.SmoothDamp` pour pitch, PAS `Lerp`.** `SmoothDamp` produit un easing critique (pas d'overshoot) qui est l'attendu standard pour une caméra suiveuse. Sur le yaw, la version `Angle` gère le wrap 360° (passer de 359° à 1° prend le chemin court). Sur le pitch, la valeur est déjà clampée en `[-89..89]`, pas de wrap à gérer → `SmoothDamp` standard suffit. Champ unique `RotationSmoothTime` partagé entre les deux, `0` = comportement direct ancien. Valeur par défaut 0.08s.
+2. **Zoom event-driven via `_zoomAction.performed`, PAS polling dans LateUpdate.** Le scroll wheel produit des ticks discrets ; en polling on lit `0` la plupart des frames et la valeur du tick uniquement le frame où l'événement arrive — risque de perdre des ticks si la frame est sautée. L'abonnement à `performed` est appelé une fois par tick par Input System lui-même. Cohérent avec le pattern Jump du `PlayerController`.
+3. **`RotationLocked` = simple propriété publique `bool { get; set; }`, PAS event ni méthode.** Le futur mode construction (Sprint 2) doit pouvoir lock/unlock à volonté ; une propriété est l'API la plus directe. Pas de mémorisation de l'angle pré-lock (au unlock, on reprend là où on est). Pas de binding qui l'active au Sprint 0, juste l'API exposée.
+
+**Alternatives écartées.**
+- **`Lerp` framerate-dépendant** (`Lerp(a, b, smoothFactor)` sans `Time.deltaTime`) : flicker selon le framerate, mauvaise pratique.
+- **`Lerp` framerate-indépendant** (`Lerp(a, b, 1 - Mathf.Pow(decay, Time.deltaTime))`) : marche, mais paramètre `decay` non-intuitif comparé à un `smoothTime` en secondes.
+- **Zoom en polling `ReadValue<float>()`** : marche en pratique mais introduit une fragilité framerate non nécessaire vu qu'on a déjà l'event natif.
+- **Lock via event `OnLockChanged`** : surcharge pour un cas où le polling de la propriété par les consommateurs suffit.
+
+**Conséquences.**
+- Le SO `PlayerCameraConfig.asset` existant reçoit 5 nouveaux champs aux valeurs par défaut. Tuning à ajuster si feel différent voulu.
+- L'action `Zoom` (Value/Axis, bind `<Mouse>/scroll/y` + `<Gamepad>/dpad/y`) est maintenant une dépendance de la map "Player". Tout `.inputactions` futur du projet devra l'inclure (ou un équivalent) pour que le rig fonctionne.
+- Pattern « target + current + `SmoothDamp` + velocity ref » devient le template pour les autres systèmes de polish caméra (cadrage dynamique, FOV variable, etc.).
+- `PlayerCameraRig.RotationLocked` est l'API que le futur système de construction (Sprint 2) appellera pour figer la vue.
+
+---
+
 ### 2026-04-26 — Contrôleur joueur 3e personne (Sprint 0, issue #3)
 
 **Contexte.** Issue #3 du Sprint 0. Avec un terrain explorable (#2) et un GameManager (#1) en place, il manquait le contrôle joueur pour valider la boucle minimale « lancer le jeu → se déplacer dans le monde ». Choix techniques structurants à figer parce qu'ils conditionnent le combat (Sprint 3+), les interactions monde (Sprint 1) et la caméra (qui dure tout le POC).
@@ -408,4 +431,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-04-26 (Contrôleur joueur 3e personne — issue #3)*
+*Dernière mise à jour : 2026-05-16 (Polish caméra — issue #4)*
