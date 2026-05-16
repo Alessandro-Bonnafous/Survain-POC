@@ -188,6 +188,34 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-05-16 — Cycle jour/nuit basique (Sprint 0, issue #28)
+
+**Contexte.** Issue #28 et dernière brique fonctionnelle du Sprint 0. Avec terrain, joueur et caméra en place, il manquait l'ambiance temporelle qui transforme une scène statique en monde "vivant". Périmètre POC strict : une seule Directional Light qui tourne, intensité et couleur variables, ambient piloté. Skybox dynamique, étoiles, lune et audio hors scope.
+
+**Décisions.**
+1. **MonoBehaviour `DayNightCycle` + SO `TimeOfDayConfig`, PAS de logique dans le SO.** Cohérent avec `TerrainGenerator` ↔ `TerrainGenerationSettings`. Le SO porte la durée du cycle, les `Gradient` (sun + ambient), l'`AnimationCurve` d'intensité et l'heure de départ. Le composant lit ces données et applique l'état chaque frame.
+2. **Heure normalisée `[0..1]` plutôt qu'une simulation `0h..24h`.** Couplage direct aux courbes/gradients du SO (qui sont indexés sur `[0..1]` nativement par Unity), zéro conversion, déterministe. Une horloge `HH:MM` simulée serait pertinente quand on aura un calendrier (saisons, événements datés) — Sprint 3+ au plus tôt.
+3. **`RenderSettings.ambientMode = Flat` forcé au `Start`.** Le mode par défaut "Skybox" ignore `RenderSettings.ambientLight`, donc notre gradient ne s'appliquerait pas. On bascule en Flat pour que le SO ait l'autorité. Trade-off accepté : on perd l'ambient calculé depuis la skybox URP. À reconsidérer si on intègre un jour une skybox dynamique (Sprint 2+).
+4. **Phases `DayPhase { Night, Dawn, Day, Dusk }` avec bornes hardcodées** (`0.0/0.2/0.3/0.7/0.8`). Volontairement simple pour Sprint 0. Si on veut tuner les bornes par biome ou par contexte, on évoluera vers un SO de phases — pas avant que le besoin se présente.
+5. **`Update` (pas `FixedUpdate`), pas de singleton.** Le cycle est visuel donc lié au rendu, pas à la physique. `FindObjectOfType` interdit par convention — les futurs consommateurs (AI, audio, gameplay) s'abonnent à `OnPhaseChanged` ou polleront `CurrentPhase`/`CurrentTime01` via une référence inspector.
+6. **GameObject `_TimeOfDay` dédié, PAS le composant directement sur la Directional Light.** Découple "qui pilote le cycle" de "ce qui est piloté". Cohérent avec `_GameManager`, `_WorldRoot`, `_Player` (préfixe `_` pour remonter en tête de hiérarchie).
+
+**Alternatives écartées.**
+- **Horloge simulée `HH:MM` avec multiplicateur de temps** : conversion supplémentaire vers `[0..1]` pour évaluer les courbes, sans bénéfice tant qu'on n'a pas de calendrier.
+- **Skybox dynamique (Procedural Skybox + variable `_SunDirection`, ou Volume URP avec interpolation)** : excellent visuellement mais demande un shader custom ou un gros volume animé, disproportionné pour Sprint 0.
+- **Bornes de phase dans le SO** : configurable mais sans use-case Sprint 0 ; ajoute 4 champs au SO pour rien.
+- **`FixedUpdate`** : pas pour du visuel — risque de stutter à high refresh rate.
+- **Composant directement sur la Directional Light** : couple le pilote au piloté, complique le test (impossible d'avoir 2 lights pilotables sans rétro-engineering).
+
+**Conséquences.**
+- Le `_TimeOfDay` rejoint le set des GameObjects préfixés `_` à la racine de `Main.unity`. Tout système qui consulte l'heure passe par sa référence (pas de singleton).
+- `RenderSettings.ambientMode` est désormais piloté par code au runtime — la valeur sérialisée dans la scène (en mode Skybox typiquement) est écrasée dès le `Start`. Effet de bord à connaître : si on désactive `DayNightCycle` au runtime, l'ambient reste figé sur la dernière valeur appliquée jusqu'à `RenderSettings.ambientMode = Skybox` manuel.
+- Les défauts du SO (gradients, courbe) sont calibrés pour un visuel cohérent avec le terrain low-poly. Tuning à la main si feel différent voulu.
+- Pattern « SO de courbes/gradients indexées sur `[0..1]` + composant qui les évalue chaque frame » devient le template pour les autres systèmes d'ambiance dynamique (météo, season cycle si Sprint 3+).
+- **Sprint 0 clôturé fonctionnellement** dès que cette issue est mergée. La liste des objectifs du sprint est entièrement cochée.
+
+---
+
 ### 2026-05-16 — Polish caméra : zoom, smoothing, lock rotation (Sprint 0, issue #4)
 
 **Contexte.** Issue #4 du Sprint 0 — polish du `PlayerCameraRig` posé en #3. Trois items à ajouter par-dessus l'existant : zoom à la molette, smoothing du mouvement caméra, lock de rotation (préparation Sprint 2 mode construction). Le SphereCast anti-clipping et l'orbitale souris étaient déjà en place et ont été conservés.
@@ -432,4 +460,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-16 (marquage avancement Sprint 0)*
+*Dernière mise à jour : 2026-05-16 (Cycle jour/nuit — issue #28)*
