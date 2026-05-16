@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Survain.Data
 {
@@ -16,62 +17,73 @@ namespace Survain.Data
         [Header("Dimensions")]
         [Tooltip("Taille du terrain en mètres (carré).")]
         [Range(50f, 500f)]
-        [SerializeField] private float worldSize = 100f;
+        [FormerlySerializedAs("worldSize")]
+        [SerializeField] private float _worldSize = 100f;
 
         [Tooltip("Subdivisions par côté. N subdivisions → 6×N² vertices (vertices dupliqués par triangle pour flat shading).")]
         [Range(16, 128)]
-        [SerializeField] private int subdivisions = 80;
+        [FormerlySerializedAs("subdivisions")]
+        [SerializeField] private int _subdivisions = 80;
 
         [Header("Relief (Perlin multi-octaves)")]
         [Tooltip("Amplitude maximale du relief (mètres).")]
         [Range(1f, 50f)]
-        [SerializeField] private float heightAmplitude = 12f;
+        [FormerlySerializedAs("heightAmplitude")]
+        [SerializeField] private float _heightAmplitude = 12f;
 
         [Tooltip("Fréquence de base du Perlin. Plus élevé = collines plus petites.")]
         [Range(0.001f, 0.1f)]
-        [SerializeField] private float baseFrequency = 0.015f;
+        [FormerlySerializedAs("baseFrequency")]
+        [SerializeField] private float _baseFrequency = 0.015f;
 
         [Tooltip("Nombre d'octaves empilées.")]
         [Range(1, 6)]
-        [SerializeField] private int octaves = 4;
+        [FormerlySerializedAs("octaves")]
+        [SerializeField] private int _octaves = 4;
 
         [Tooltip("Atténuation d'amplitude par octave (typiquement 0.5).")]
         [Range(0.1f, 0.9f)]
-        [SerializeField] private float persistence = 0.5f;
+        [FormerlySerializedAs("persistence")]
+        [SerializeField] private float _persistence = 0.5f;
 
         [Tooltip("Multiplication de fréquence par octave (typiquement 2).")]
         [Range(1.5f, 4f)]
-        [SerializeField] private float lacunarity = 2f;
+        [FormerlySerializedAs("lacunarity")]
+        [SerializeField] private float _lacunarity = 2f;
 
         [Header("Coloration par altitude")]
         [Tooltip("Gradient appliqué en vertex color selon l'altitude normalisée [0..1].")]
-        [SerializeField] private Gradient altitudeGradient = CreateDefaultGradient();
+        [FormerlySerializedAs("altitudeGradient")]
+        [SerializeField] private Gradient _altitudeGradient = CreateDefaultGradient();
 
         [Header("Placeholders")]
         [Tooltip("Densité cible (nombre de placeholders par 100 m²).")]
         [Range(0, 50)]
-        [SerializeField] private int placeholderDensityPer100SqM = 8;
+        [FormerlySerializedAs("placeholderDensityPer100SqM")]
+        [SerializeField] private int _placeholderDensityPer100SqM = 8;
 
         [Tooltip("Pente maximale (degrés) sur laquelle un placeholder peut apparaître.")]
         [Range(0f, 60f)]
-        [SerializeField] private float maxSlopeDegrees = 25f;
+        [FormerlySerializedAs("maxSlopeDegrees")]
+        [SerializeField] private float _maxSlopeDegrees = 25f;
 
         [Tooltip("Ratio d'arbres dans la distribution. Le reste sera des rochers.")]
         [Range(0f, 1f)]
-        [SerializeField] private float treeRatio = 0.7f;
+        [FormerlySerializedAs("treeRatio")]
+        [SerializeField] private float _treeRatio = 0.7f;
 
         // Accesseurs
-        public float WorldSize => worldSize;
-        public int Subdivisions => subdivisions;
-        public float HeightAmplitude => heightAmplitude;
-        public float BaseFrequency => baseFrequency;
-        public int Octaves => octaves;
-        public float Persistence => persistence;
-        public float Lacunarity => lacunarity;
-        public Gradient AltitudeGradient => altitudeGradient;
-        public int PlaceholderDensityPer100SqM => placeholderDensityPer100SqM;
-        public float MaxSlopeDegrees => maxSlopeDegrees;
-        public float TreeRatio => treeRatio;
+        public float WorldSize => _worldSize;
+        public int Subdivisions => _subdivisions;
+        public float HeightAmplitude => _heightAmplitude;
+        public float BaseFrequency => _baseFrequency;
+        public int Octaves => _octaves;
+        public float Persistence => _persistence;
+        public float Lacunarity => _lacunarity;
+        public Gradient AltitudeGradient => _altitudeGradient;
+        public int PlaceholderDensityPer100SqM => _placeholderDensityPer100SqM;
+        public float MaxSlopeDegrees => _maxSlopeDegrees;
+        public float TreeRatio => _treeRatio;
 
         private static Gradient CreateDefaultGradient()
         {

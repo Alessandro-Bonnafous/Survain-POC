@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Survain.Data
 {
@@ -17,18 +18,21 @@ namespace Survain.Data
     {
         [Header("Monde")]
         [Tooltip("Biome utilisé par défaut au démarrage du POC.")]
-        [SerializeField] private BiomeConfig defaultBiome;
+        [FormerlySerializedAs("defaultBiome")]
+        [SerializeField] private BiomeConfig _defaultBiome;
 
         [Tooltip("Seed pour la génération procédurale. 0 = aléatoire à chaque session.")]
-        [SerializeField] private int worldSeed = 0;
+        [FormerlySerializedAs("worldSeed")]
+        [SerializeField] private int _worldSeed = 0;
 
         [Header("Session")]
         [Tooltip("Active les logs verbeux supplémentaires hors Editor (DEVELOPMENT_BUILD).")]
-        [SerializeField] private bool verboseLogging = false;
+        [FormerlySerializedAs("verboseLogging")]
+        [SerializeField] private bool _verboseLogging = false;
 
         // Accesseurs publics — lecture seule.
-        public BiomeConfig DefaultBiome => defaultBiome;
-        public int WorldSeed => worldSeed;
-        public bool VerboseLogging => verboseLogging;
+        public BiomeConfig DefaultBiome => _defaultBiome;
+        public int WorldSeed => _worldSeed;
+        public bool VerboseLogging => _verboseLogging;
     }
 }

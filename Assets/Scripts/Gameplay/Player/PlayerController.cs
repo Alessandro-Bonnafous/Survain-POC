@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 using Survain.Core;
 using Survain.Data;
 
@@ -23,13 +24,16 @@ namespace Survain.Gameplay.Player
         // ─── Configuration ──────────────────────────────────────────────────
 
         [Header("Configuration")]
-        [SerializeField] private PlayerMovementConfig config;
+        [FormerlySerializedAs("config")]
+        [SerializeField] private PlayerMovementConfig _config;
 
         [Tooltip("Asset Input System partagé. La map 'Player' sera activée au OnEnable.")]
-        [SerializeField] private InputActionAsset inputActions;
+        [FormerlySerializedAs("inputActions")]
+        [SerializeField] private InputActionAsset _inputActions;
 
         [Tooltip("Transform de la caméra utilisée pour orienter le mouvement (ex: la Main Camera).")]
-        [SerializeField] private Transform cameraTransform;
+        [FormerlySerializedAs("cameraTransform")]
+        [SerializeField] private Transform _cameraTransform;
 
         // ─── Constantes ─────────────────────────────────────────────────────
 
@@ -40,22 +44,22 @@ namespace Survain.Gameplay.Player
 
         // ─── État runtime ───────────────────────────────────────────────────
 
-        private CharacterController characterController;
-        private InputActionMap playerMap;
-        private InputAction moveAction;
-        private InputAction jumpAction;
-        private InputAction sprintAction;
+        private CharacterController _characterController;
+        private InputActionMap _playerMap;
+        private InputAction _moveAction;
+        private InputAction _jumpAction;
+        private InputAction _sprintAction;
 
-        private Vector3 velocity; // (x, z) = horizontal courant ; y = vertical (gravité/saut)
-        private bool jumpRequested;
+        private Vector3 _velocity; // (x, z) = horizontal courant ; y = vertical (gravité/saut)
+        private bool _jumpRequested;
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
 
         private void Awake()
         {
-            characterController = GetComponent<CharacterController>();
+            _characterController = GetComponent<CharacterController>();
 
-            if (config == null)
+            if (_config == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     "PlayerController : config non assignée.", this);
@@ -63,7 +67,7 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            if (inputActions == null)
+            if (_inputActions == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     "PlayerController : inputActions non assigné.", this);
@@ -71,7 +75,7 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            if (cameraTransform == null)
+            if (_cameraTransform == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     "PlayerController : cameraTransform non assigné.", this);
@@ -79,20 +83,20 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            playerMap = inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
-            if (playerMap == null)
+            _playerMap = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
+            if (_playerMap == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
-                    $"PlayerController : map '{ActionMapName}' introuvable dans {inputActions.name}.", this);
+                    $"PlayerController : map '{ActionMapName}' introuvable dans {_inputActions.name}.", this);
                 enabled = false;
                 return;
             }
 
-            moveAction = playerMap.FindAction(MoveActionName, throwIfNotFound: false);
-            jumpAction = playerMap.FindAction(JumpActionName, throwIfNotFound: false);
-            sprintAction = playerMap.FindAction(SprintActionName, throwIfNotFound: false);
+            _moveAction = _playerMap.FindAction(MoveActionName, throwIfNotFound: false);
+            _jumpAction = _playerMap.FindAction(JumpActionName, throwIfNotFound: false);
+            _sprintAction = _playerMap.FindAction(SprintActionName, throwIfNotFound: false);
 
-            if (moveAction == null || jumpAction == null || sprintAction == null)
+            if (_moveAction == null || _jumpAction == null || _sprintAction == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     "PlayerController : une ou plusieurs actions (Move/Jump/Sprint) introuvables dans la map 'Player'.", this);
@@ -103,14 +107,14 @@ namespace Survain.Gameplay.Player
 
         private void OnEnable()
         {
-            if (jumpAction != null) jumpAction.performed += OnJumpPerformed;
-            if (playerMap != null) playerMap.Enable();
+            if (_jumpAction != null) _jumpAction.performed += OnJumpPerformed;
+            if (_playerMap != null) _playerMap.Enable();
         }
 
         private void OnDisable()
         {
-            if (jumpAction != null) jumpAction.performed -= OnJumpPerformed;
-            if (playerMap != null) playerMap.Disable();
+            if (_jumpAction != null) _jumpAction.performed -= OnJumpPerformed;
+            if (_playerMap != null) _playerMap.Disable();
         }
 
         // ─── Input handlers ─────────────────────────────────────────────────
@@ -118,7 +122,7 @@ namespace Survain.Gameplay.Player
         private void OnJumpPerformed(InputAction.CallbackContext _)
         {
             // On bufferise la requête, traitée dans Update sous condition de grounded.
-            jumpRequested = true;
+            _jumpRequested = true;
         }
 
         // ─── Update ─────────────────────────────────────────────────────────
@@ -127,12 +131,12 @@ namespace Survain.Gameplay.Player
         {
             float dt = Time.deltaTime;
 
-            Vector2 moveInput = moveAction.ReadValue<Vector2>();
-            bool sprinting = sprintAction.IsPressed();
+            Vector2 moveInput = _moveAction.ReadValue<Vector2>();
+            bool sprinting = _sprintAction.IsPressed();
 
             // Direction caméra-relative projetée sur le plan horizontal.
-            Vector3 camForward = cameraTransform.forward;
-            Vector3 camRight = cameraTransform.right;
+            Vector3 camForward = _cameraTransform.forward;
+            Vector3 camRight = _cameraTransform.right;
             camForward.y = 0f;
             camRight.y = 0f;
             camForward.Normalize();
@@ -142,7 +146,7 @@ namespace Survain.Gameplay.Player
             float wishMag = Mathf.Min(wishDir.magnitude, 1f);
             if (wishMag > 0.0001f) wishDir /= wishDir.magnitude; else wishDir = Vector3.zero;
 
-            float targetSpeed = config.WalkSpeed * (sprinting ? config.SprintMultiplier : 1f) * wishMag;
+            float targetSpeed = _config.WalkSpeed * (sprinting ? _config.SprintMultiplier : 1f) * wishMag;
             Vector3 horizontal = wishDir * targetSpeed;
 
             // Rotation du joueur dans la direction visée (uniquement si on bouge).
@@ -151,30 +155,30 @@ namespace Survain.Gameplay.Player
                 Quaternion targetRot = Quaternion.LookRotation(wishDir, Vector3.up);
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, targetRot,
-                    config.RotationSpeedDegPerSec * dt);
+                    _config.RotationSpeedDegPerSec * dt);
             }
 
             // Gravité / saut
-            bool grounded = characterController.isGrounded;
-            if (grounded && velocity.y < 0f)
+            bool grounded = _characterController.isGrounded;
+            if (grounded && _velocity.y < 0f)
             {
-                velocity.y = config.GroundedStickForce;
+                _velocity.y = _config.GroundedStickForce;
             }
 
-            if (jumpRequested)
+            if (_jumpRequested)
             {
-                jumpRequested = false;
+                _jumpRequested = false;
                 if (grounded)
                 {
                     // v0 tel que h_max = v0² / (2g) → v0 = sqrt(2 * h * |g|)
-                    velocity.y = Mathf.Sqrt(2f * config.JumpHeight * -config.Gravity);
+                    _velocity.y = Mathf.Sqrt(2f * _config.JumpHeight * -_config.Gravity);
                 }
             }
 
-            velocity.y += config.Gravity * dt;
+            _velocity.y += _config.Gravity * dt;
 
-            Vector3 motion = (horizontal + Vector3.up * velocity.y) * dt;
-            characterController.Move(motion);
+            Vector3 motion = (horizontal + Vector3.up * _velocity.y) * dt;
+            _characterController.Move(motion);
         }
     }
 }

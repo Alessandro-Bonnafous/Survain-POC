@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Survain.Data
 {
@@ -26,24 +27,28 @@ namespace Survain.Data
 
         [Header("Identité")]
         [Tooltip("Nom affiché dans l'UI et les logs.")]
-        [SerializeField] private string displayName = "Forêt Tempérée";
+        [FormerlySerializedAs("displayName")]
+        [SerializeField] private string _displayName = "Forêt Tempérée";
 
         [Tooltip("Type énuméré du biome — utilisé pour les règles de gameplay.")]
-        [SerializeField] private BiomeType biomeType = BiomeType.ForetTemperee;
+        [FormerlySerializedAs("biomeType")]
+        [SerializeField] private BiomeType _biomeType = BiomeType.ForetTemperee;
 
         [Header("Ambiance")]
         [Tooltip("Couleur dominante du biome (ciel, brouillard, teinte générale).")]
-        [SerializeField] private Color ambientColor = new Color(0.55f, 0.65f, 0.45f, 1f);
+        [FormerlySerializedAs("ambientColor")]
+        [SerializeField] private Color _ambientColor = new Color(0.55f, 0.65f, 0.45f, 1f);
 
         [Header("Climat (placeholder POC)")]
         [Tooltip("Température moyenne en °C — purement indicatif au stade POC.")]
         [Range(-30f, 50f)]
-        [SerializeField] private float averageTemperatureCelsius = 12f;
+        [FormerlySerializedAs("averageTemperatureCelsius")]
+        [SerializeField] private float _averageTemperatureCelsius = 12f;
 
         // Accesseurs publics — lecture seule depuis l'extérieur.
-        public string DisplayName => displayName;
-        public BiomeType Type => biomeType;
-        public Color AmbientColor => ambientColor;
-        public float AverageTemperatureCelsius => averageTemperatureCelsius;
+        public string DisplayName => _displayName;
+        public BiomeType Type => _biomeType;
+        public Color AmbientColor => _ambientColor;
+        public float AverageTemperatureCelsius => _averageTemperatureCelsius;
     }
 }

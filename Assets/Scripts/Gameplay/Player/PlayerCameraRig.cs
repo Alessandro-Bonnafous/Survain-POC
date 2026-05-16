@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 using Survain.Core;
 using Survain.Data;
 
@@ -21,17 +22,21 @@ namespace Survain.Gameplay.Player
         // ─── Configuration ──────────────────────────────────────────────────
 
         [Header("Configuration")]
-        [SerializeField] private PlayerCameraConfig config;
+        [FormerlySerializedAs("config")]
+        [SerializeField] private PlayerCameraConfig _config;
 
         [Tooltip("Asset Input System partagé avec PlayerController. La map 'Player' doit y exposer 'Look'.")]
-        [SerializeField] private InputActionAsset inputActions;
+        [FormerlySerializedAs("inputActions")]
+        [SerializeField] private InputActionAsset _inputActions;
 
         [Tooltip("Cible suivie (typiquement le Transform du joueur).")]
-        [SerializeField] private Transform target;
+        [FormerlySerializedAs("target")]
+        [SerializeField] private Transform _target;
 
         [Header("Collision")]
         [Tooltip("Layers contre lesquels la caméra recule pour éviter le clipping.")]
-        [SerializeField] private LayerMask collisionMask = ~0; // tout par défaut
+        [FormerlySerializedAs("collisionMask")]
+        [SerializeField] private LayerMask _collisionMask = ~0; // tout par défaut
 
         // ─── Constantes ─────────────────────────────────────────────────────
 
@@ -40,15 +45,15 @@ namespace Survain.Gameplay.Player
 
         // ─── État runtime ───────────────────────────────────────────────────
 
-        private InputAction lookAction;
-        private float yawDeg;
-        private float pitchDeg = 15f;
+        private InputAction _lookAction;
+        private float _yawDeg;
+        private float _pitchDeg = 15f;
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
 
         private void Awake()
         {
-            if (config == null)
+            if (_config == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     "PlayerCameraRig : config non assignée.", this);
@@ -56,7 +61,7 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            if (inputActions == null)
+            if (_inputActions == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     "PlayerCameraRig : inputActions non assigné.", this);
@@ -64,7 +69,7 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            if (target == null)
+            if (_target == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     "PlayerCameraRig : target non assignée.", this);
@@ -72,9 +77,9 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            var map = inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
-            lookAction = map?.FindAction(LookActionName, throwIfNotFound: false);
-            if (lookAction == null)
+            var map = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
+            _lookAction = map?.FindAction(LookActionName, throwIfNotFound: false);
+            if (_lookAction == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
                     $"PlayerCameraRig : action '{LookActionName}' introuvable dans la map '{ActionMapName}'.", this);
@@ -84,8 +89,8 @@ namespace Survain.Gameplay.Player
 
             // Initialise yaw sur l'orientation actuelle de la caméra pour éviter un snap au démarrage.
             Vector3 e = transform.eulerAngles;
-            yawDeg = e.y;
-            pitchDeg = NormalizePitch(e.x);
+            _yawDeg = e.y;
+            _pitchDeg = NormalizePitch(e.x);
         }
 
         private void OnEnable()
@@ -105,24 +110,24 @@ namespace Survain.Gameplay.Player
         private void LateUpdate()
         {
             // Mouse delta : NON multiplié par Time.deltaTime — la valeur est déjà un delta par frame.
-            Vector2 look = lookAction.ReadValue<Vector2>();
+            Vector2 look = _lookAction.ReadValue<Vector2>();
 
-            yawDeg += look.x * config.SensitivityX;
-            float pitchDelta = look.y * config.SensitivityY * (config.InvertY ? 1f : -1f);
-            pitchDeg = Mathf.Clamp(pitchDeg + pitchDelta, config.MinPitchDeg, config.MaxPitchDeg);
+            _yawDeg += look.x * _config.SensitivityX;
+            float pitchDelta = look.y * _config.SensitivityY * (_config.InvertY ? 1f : -1f);
+            _pitchDeg = Mathf.Clamp(_pitchDeg + pitchDelta, _config.MinPitchDeg, _config.MaxPitchDeg);
 
-            Quaternion rot = Quaternion.Euler(pitchDeg, yawDeg, 0f);
+            Quaternion rot = Quaternion.Euler(_pitchDeg, _yawDeg, 0f);
 
-            Vector3 pivot = target.position + Vector3.up * config.PivotHeightOffset;
+            Vector3 pivot = _target.position + Vector3.up * _config.PivotHeightOffset;
             Vector3 dirFromPivot = rot * Vector3.back;
 
             // SphereCast pour reculer la caméra si le décor est entre le pivot et la position désirée.
-            float maxDistance = config.Distance;
+            float maxDistance = _config.Distance;
             float resolved = maxDistance;
-            if (Physics.SphereCast(pivot, config.CollisionRadius, dirFromPivot,
-                    out RaycastHit hit, maxDistance, collisionMask, QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(pivot, _config.CollisionRadius, dirFromPivot,
+                    out RaycastHit hit, maxDistance, _collisionMask, QueryTriggerInteraction.Ignore))
             {
-                resolved = Mathf.Max(0f, hit.distance - config.CollisionPadding);
+                resolved = Mathf.Max(0f, hit.distance - _config.CollisionPadding);
             }
 
             transform.SetPositionAndRotation(pivot + dirFromPivot * resolved, rot);
