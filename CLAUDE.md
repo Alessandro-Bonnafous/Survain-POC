@@ -82,7 +82,7 @@
 **Sprint en cours :** Sprint 1 — Récolte & Craft
 
 **Objectifs du sprint** : boucle minimale de survie — récolter dans le monde, gérer un inventaire, transformer la matière par un craft engageant non-répétitif.
-- [ ] Système d'items et ScriptableObjects (issue #5) — fondation, à attaquer en premier
+- [x] Système d'items et ScriptableObjects (issue #5)
 - [ ] Nœuds de ressources et système de récolte (issue #6)
 - [ ] Inventaire joueur (issue #7)
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
