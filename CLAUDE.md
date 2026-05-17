@@ -82,7 +82,7 @@
 **Sprint en cours :** Sprint 1 — Récolte & Craft
 
 **Objectifs du sprint** : boucle minimale de survie — récolter dans le monde, gérer un inventaire, transformer la matière par un craft engageant non-répétitif.
-- [ ] Système d'items et ScriptableObjects (issue #5) — fondation, à attaquer en premier
+- [x] Système d'items et ScriptableObjects (issue #5)
 - [ ] Nœuds de ressources et système de récolte (issue #6)
 - [ ] Inventaire joueur (issue #7)
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
@@ -194,6 +194,38 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-17 — Système d'items et ScriptableObjects (Sprint 1, issue #5)
+
+**Contexte.** Issue #5 du Sprint 1, fondation indispensable pour #6 (récolte), #7 (inventaire) et #8 (craft). Besoin d'un modèle de données SO qui couvre les 6 rôles métier d'item (Resource, Tool, Weapon, Armor, Building, Consumable), les 3 tiers de craft (Basic/Wild/Superior), les nœuds de récolte, et qui supporte une sauvegarde future par identifiant stable.
+
+**Décisions.**
+1. **Hiérarchie de SO `ItemData` (abstract) + sous-classes concrètes**, PAS de SO monolithique avec enum `ItemType` qui pilote des champs conditionnels. Cohérent avec le précédent `PlayerMovementConfig` + `PlayerCameraConfig` (2026-04-26) : un SO = un domaine cohérent. Chaque sous-classe (`ResourceData`, `ToolData`, `WeaponData`, `ArmorData`, `BuildingData`, `ConsumableData`) porte ses propres champs ; l'enum `ItemType` reste exposé sur la base pour filtrage rapide sans cast (UI, requêtes).
+2. **Sous-classes Weapon/Armor/Building/Consumable créées en squelette dès maintenant** (pas seulement Resource/Tool minimum viable). Évite les renames d'asset/menu plus tard ; enrichissement champ par champ au fil des sprints. Coût marginal : ~80 lignes pour les 4 squelettes.
+3. **Identifiants stables : champ `string Id` édité à la main en kebab-case** (`stone-axe`, `raw-wood`), PAS GUID Unity ni nom d'asset. Lisible dans les saves, stable au rename d'asset. Format et unicité validés à l'édition par `ItemRegistry.OnValidate` (Regex kebab-case + HashSet de doublons + warn/error via `SurvainLog.Category.System`).
+4. **`ItemRegistry` SO global introduit dans cette PR** (pas reporté). Référencé depuis `GameSettings.ItemRegistry` (même pattern que `defaultBiome`). Justification : critère d'acceptation « items sérialisables pour la sauvegarde future » implique une résolution `Id` → `ItemData` au load. Aurait nécessité un patch GameSettings de toute façon en #7. API : `GetItemById(string)`, `GetResourceNodeById(string)`, `AllItems`, `AllResourceNodes`. Peuplé manuellement (drag&drop) ou via le menu bootstrap.
+5. **`ItemTier` reste un enum simple** (`Basic`/`Wild`/`Superior`), PAS un SO. Précédent `BiomeType` (2026-04-18). Si un `TierVisualsConfig` (couleur UI, multiplicateurs) devient nécessaire plus tard, on l'introduira en complément sans casser l'enum.
+6. **`ResourceNodeData` SO data + futur `ResourceNode` MonoBehaviour runtime** (issue #6). Le SO décrit le type de nœud (item produit, qty, temps, outil requis) ; le MonoBehaviour portera la logique de placement et hit-detection. Split cohérent avec `BiomeConfig` ↔ `TerrainGenerator`. Suffixe `Data` retenu pour distinguer SO data ↔ runtime component.
+7. **`ItemsBootstrap` Editor menu pour matérialiser les 6 premiers items + 4 nœuds + Registry**, idempotent (re-lance sans risque). **Les `.asset` générés ET leurs `.meta` SONT versionnés** (rectification du 2026-05-17 par rapport à mon premier réflexe initial qui invoquait le pattern `TerrainGenerator`). Raison : `GameSettings.asset._itemRegistry` référence `Registry.asset` **par GUID** (stocké dans le `.meta`). Si on ne versionne pas le `.meta`, chaque dev qui re-lance le Bootstrap génère un GUID différent → `GameSettings.asset` pointe sur missing reference au clone. Idem en chaîne pour les `ResourceNodeData` qui référencent les `ResourceData` par GUID. Le pattern `TerrainGenerator` (assets non versionnés) ne tient que parce que rien ne référence le mesh généré — il est pur runtime. Pour tout SO susceptible d'être référencé par un autre asset, on versionne le couple `.asset` + `.meta`. Le Bootstrap reste donc un outil de **setup initial** dont on commit le résultat, pas un régénérateur permanent.
+8. **Icônes (champ `Sprite _icon`) laissées nullable et vides au Sprint 1.** Pas d'asset graphique créé. L'UI inventaire (#7) gérera le null par un fallback couleur/texte le moment venu.
+
+**Alternatives écartées.**
+- **SO monolithique** + enum `ItemType` qui pilote l'affichage : SO bavard, pas de type-safety, custom editors requis pour cacher les champs non pertinents (overhead). Rejeté.
+- **Composition par modules `[SerializeReference]`** (Stackable, Tool, Weapon en composants) : flexible mais Inspector Unity médiocre, complexité disproportionnée pour le POC. Rejeté.
+- **GUID Unity comme identifiant** : ultra-stable mais opaque, illisible dans les saves, complique le debug. Rejeté.
+- **Pas de registry, scan `Resources.Load` au load** : marche techniquement mais oblige à un placement strict dans `Resources/`, casse au moindre déplacement d'asset. Rejeté.
+- **Asset menu `Survain/Data/Items/...`** : `Items` étant un nouveau domaine de premier rang (pas une config), il a son propre groupe top-level dans le menu Create : `Survain/Items/...`. Cohérent avec la structure de namespaces.
+
+**Conséquences.**
+- Pattern « base abstract SO + sous-classes concrètes + Id string stable + Registry global » devient le template pour les futurs domaines de contenu (recettes de craft #8, métiers de PNJ, dialogues...).
+- `Survain.Items` est le 4e namespace de premier rang du projet (avec `Survain.Core`, `Survain.Data`, `Survain.Gameplay`). Les futurs assets de contenu auront leur propre namespace top-level si le domaine est cohérent (recettes → `Survain.Crafting` probable).
+- `GameSettings.asset` reçoit un nouveau champ `_itemRegistry`. Pas de `FormerlySerializedAs` (nouvel ajout, pas un rename) ; valeur par défaut `null` à brancher dans l'Inspector après checkout.
+- Pattern de validation `OnValidate` avec `SurvainLog.Warn/Error` pour les SO de registre / config introduit. À répliquer pour les futurs SO de catalogue (recettes, recettes de PNJ, etc.).
+- L'arborescence `Assets/ScriptableObjects/Items/{Resources,Tools,ResourceNodes}` + `Registry.asset` est créée par le menu Bootstrap au premier lancement Unity post-checkout **et committée**. Les forks/clones ultérieurs ont les assets directement sans avoir à relancer le Bootstrap.
+- Le bootstrap stocke les valeurs initiales d'équilibrage (temps de récolte 2–6s, quantités 1–4, durabilité 80) en dur dans le code — c'est volontaire pour le POC. Quand Pascal voudra équilibrer, on tunera directement dans les `.asset` via l'Inspector ; le code de bootstrap n'est qu'un point de départ idempotent. **Important** : les valeurs en dur dans le code et les valeurs sérialisées dans les `.asset` peuvent diverger après tuning — le code reste la valeur d'origine, c'est `.asset` qui fait foi au runtime.
+- **Règle générale dégagée** : pour les SO data référencés par d'autres assets (config globale, registry, contenu), on versionne le couple `.asset` + `.meta`. Pour les artefacts purement runtime régénérés à chaque session (mesh terrain), on ne versionne ni l'un ni l'autre. Le critère est : « est-ce qu'un autre asset committé en dépend par GUID ? »
+
+---
 
 ### 2026-05-16 — Cycle jour/nuit basique (Sprint 0, issue #28)
 
@@ -467,4 +499,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-16 (Sprint 0 clôturé, Sprint 1 ouvert)*
+*Dernière mise à jour : 2026-05-17 (Sprint 1 — décision système d'items, issue #5)*

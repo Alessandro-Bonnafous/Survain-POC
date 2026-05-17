@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 14b6b5dbc10b74345beca891f184a841, type: 3}
   m_Name: GameSettings
   m_EditorClassIdentifier: Assembly-CSharp::Survain.Data.GameSettings
-  defaultBiome: {fileID: 11400000, guid: 53ea7e9dfafe5634992a1a696af21ce4, type: 2}
-  worldSeed: 0
-  verboseLogging: 0
+  _defaultBiome: {fileID: 11400000, guid: 53ea7e9dfafe5634992a1a696af21ce4, type: 2}
+  _worldSeed: 0
+  _itemRegistry: {fileID: 11400000, guid: 4cc8603f3f0dcfe4fac53dc38f0186a8, type: 2}
+  _verboseLogging: 0

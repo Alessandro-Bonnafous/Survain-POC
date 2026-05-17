@@ -15,6 +15,11 @@
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 !/[Aa]ssets/**/*.meta
 
+# Recovery files générés par Unity après un crash ou une fermeture brutale
+# (placé après la règle générale !*.meta pour que le .meta du dossier soit bien ignoré)
+/[Aa]ssets/_[Rr]ecovery/
+/[Aa]ssets/_[Rr]ecovery.meta
+
 # Uncomment this line if you wish to ignore the asset store tools plugin
 # /[Aa]ssets/AssetStoreTools*
 

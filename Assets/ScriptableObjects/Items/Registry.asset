@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f95f48aa466acca49a16270e2bfe9d21, type: 3}
+  m_Name: Registry
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Items.ItemRegistry
+  _items:
+  - {fileID: 11400000, guid: 2bd964ae371b6af4988194fc261472ec, type: 2}
+  - {fileID: 11400000, guid: 65c66688fa5c5924e9fdadfa8d896b45, type: 2}
+  - {fileID: 11400000, guid: aec9c9a20b67ed246a920a539e3ba818, type: 2}
+  - {fileID: 11400000, guid: be0aed93b82fc8144863710150210eb2, type: 2}
+  - {fileID: 11400000, guid: 16e81dad9efef6d45ac3b629fa61393a, type: 2}
+  - {fileID: 11400000, guid: 99f1226f79510ec4c9c55864016dc0d0, type: 2}
+  _resourceNodes:
+  - {fileID: 11400000, guid: 14d8966023a00de42b9928f66e534852, type: 2}
+  - {fileID: 11400000, guid: 74587aab89a002e408757764f91da616, type: 2}
+  - {fileID: 11400000, guid: 30a704ece947f9946bb74eea24d4db30, type: 2}
+  - {fileID: 11400000, guid: 2e82dcbec1454b140805e069460e22d2, type: 2}
