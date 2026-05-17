@@ -79,21 +79,27 @@
 
 ## 📊 État actuel
 
-**Sprint en cours :** Sprint 0 — Fondations
+**Sprint en cours :** Sprint 1 — Récolte & Craft
 
-**Objectifs du sprint** : mise en place technique et premier monde explorable.
-- [x] Setup projet Unity (issue #1, mergée)
-- [x] Architecture dossiers et scripts fondateurs (issue #1, mergée)
-- [x] Génération procédurale de terrain — 1 biome forêt tempérée (issue #2, mergée le 2026-04-26)
-- [x] Contrôleur joueur 3D, 3e personne (issue #3, mergée le 2026-05-16)
-- [x] Système de caméra 3e personne — zoom, smoothing, lock rotation (issue #4, mergée le 2026-05-16)
-- [ ] Cycle jour/nuit basique
+**Objectifs du sprint** : boucle minimale de survie — récolter dans le monde, gérer un inventaire, transformer la matière par un craft engageant non-répétitif.
+- [ ] Système d'items et ScriptableObjects (issue #5) — fondation, à attaquer en premier
+- [ ] Nœuds de ressources et système de récolte (issue #6)
+- [ ] Inventaire joueur (issue #7)
+- [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
 
-**Livrable du sprint :** build où le joueur peut se déplacer dans un monde 3D généré.
+**Livrable du sprint :** build où le joueur peut couper un arbre / miner une roche, voir les ressources dans son inventaire, et crafter un outil de base via une mécanique non-répétitive.
+
+**Sprint précédent — Sprint 0 — Fondations (clôturé le 2026-05-16) :**
+- [x] Setup projet Unity (issue #1)
+- [x] Architecture dossiers et scripts fondateurs (issue #1)
+- [x] Génération procédurale de terrain — 1 biome forêt tempérée (issue #2)
+- [x] Contrôleur joueur 3D, 3e personne (issue #3)
+- [x] Système de caméra 3e personne — zoom, smoothing, lock rotation (issue #4)
+- [x] Cycle jour/nuit basique (issue #28)
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** Sprint 1 — Récolte & Craft.
+**Prochain milestone :** Sprint 2 (à définir — probablement Combat & Construction d'après la vision).
 
 ---
 
@@ -101,7 +107,8 @@
 
 > Petites décisions remontées du chat / Discord qui n'ont pas encore été tranchées. À traiter avant la phase qui en dépend pour ne pas bloquer.
 
-- **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant le démarrage du Sprint 1** (rappel échange Discord). Impacte la première table d'armes craftables. Pas de code à toucher tant que la décision n'est pas prise.
+- **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
+- **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
 
 ---
 
@@ -460,4 +467,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-16 (Cycle jour/nuit — issue #28)*
+*Dernière mise à jour : 2026-05-16 (Sprint 0 clôturé, Sprint 1 ouvert)*
