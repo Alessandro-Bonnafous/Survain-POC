@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbbd3914c1793d74ea46f6f293c1e17d, type: 3}
+  m_Name: stone-axe
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Items.ToolData
+  _id: stone-axe
+  _displayName: Hache en pierre
+  _description: "Une lame de pierre attach\xE9e \xE0 un manche de bois. Permet d'abattre
+    les arbres."
+  _icon: {fileID: 0}
+  _tier: 0
+  _isStackable: 0
+  _maxStackSize: 1
+  _toolType: 1
+  _harvestSpeed: 1
+  _maxDurability: 80

@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4baaf467c3aa85b46a1aaa882323daef, type: 3}
+  m_Name: fibre-bush
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Items.ResourceNodeData
+  _id: fibre-bush
+  _displayName: Buisson fibreux
+  _producedItem: {fileID: 11400000, guid: aec9c9a20b67ed246a920a539e3ba818, type: 2}
+  _producedQuantity: 2
+  _harvestSeconds: 2
+  _requiredTool: 0
