@@ -195,6 +195,37 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-05-17 — Système d'items et ScriptableObjects (Sprint 1, issue #5)
+
+**Contexte.** Issue #5 du Sprint 1, fondation indispensable pour #6 (récolte), #7 (inventaire) et #8 (craft). Besoin d'un modèle de données SO qui couvre les 6 rôles métier d'item (Resource, Tool, Weapon, Armor, Building, Consumable), les 3 tiers de craft (Basic/Wild/Superior), les nœuds de récolte, et qui supporte une sauvegarde future par identifiant stable.
+
+**Décisions.**
+1. **Hiérarchie de SO `ItemData` (abstract) + sous-classes concrètes**, PAS de SO monolithique avec enum `ItemType` qui pilote des champs conditionnels. Cohérent avec le précédent `PlayerMovementConfig` + `PlayerCameraConfig` (2026-04-26) : un SO = un domaine cohérent. Chaque sous-classe (`ResourceData`, `ToolData`, `WeaponData`, `ArmorData`, `BuildingData`, `ConsumableData`) porte ses propres champs ; l'enum `ItemType` reste exposé sur la base pour filtrage rapide sans cast (UI, requêtes).
+2. **Sous-classes Weapon/Armor/Building/Consumable créées en squelette dès maintenant** (pas seulement Resource/Tool minimum viable). Évite les renames d'asset/menu plus tard ; enrichissement champ par champ au fil des sprints. Coût marginal : ~80 lignes pour les 4 squelettes.
+3. **Identifiants stables : champ `string Id` édité à la main en kebab-case** (`stone-axe`, `raw-wood`), PAS GUID Unity ni nom d'asset. Lisible dans les saves, stable au rename d'asset. Format et unicité validés à l'édition par `ItemRegistry.OnValidate` (Regex kebab-case + HashSet de doublons + warn/error via `SurvainLog.Category.System`).
+4. **`ItemRegistry` SO global introduit dans cette PR** (pas reporté). Référencé depuis `GameSettings.ItemRegistry` (même pattern que `defaultBiome`). Justification : critère d'acceptation « items sérialisables pour la sauvegarde future » implique une résolution `Id` → `ItemData` au load. Aurait nécessité un patch GameSettings de toute façon en #7. API : `GetItemById(string)`, `GetResourceNodeById(string)`, `AllItems`, `AllResourceNodes`. Peuplé manuellement (drag&drop) ou via le menu bootstrap.
+5. **`ItemTier` reste un enum simple** (`Basic`/`Wild`/`Superior`), PAS un SO. Précédent `BiomeType` (2026-04-18). Si un `TierVisualsConfig` (couleur UI, multiplicateurs) devient nécessaire plus tard, on l'introduira en complément sans casser l'enum.
+6. **`ResourceNodeData` SO data + futur `ResourceNode` MonoBehaviour runtime** (issue #6). Le SO décrit le type de nœud (item produit, qty, temps, outil requis) ; le MonoBehaviour portera la logique de placement et hit-detection. Split cohérent avec `BiomeConfig` ↔ `TerrainGenerator`. Suffixe `Data` retenu pour distinguer SO data ↔ runtime component.
+7. **`ItemsBootstrap` Editor menu pour matérialiser les 6 premiers items + 4 nœuds + Registry**, idempotent (re-lance sans risque). Aucun `.asset` versionné dans le commit — les assets sont régénérés au premier lancement Unity post-checkout via le menu `Survain → Items → Bootstrap First Items`. Cohérent avec le pattern « pas de mesh versionné, source de vérité = code+seed » du `TerrainGenerator` (2026-04-19).
+8. **Icônes (champ `Sprite _icon`) laissées nullable et vides au Sprint 1.** Pas d'asset graphique créé. L'UI inventaire (#7) gérera le null par un fallback couleur/texte le moment venu.
+
+**Alternatives écartées.**
+- **SO monolithique** + enum `ItemType` qui pilote l'affichage : SO bavard, pas de type-safety, custom editors requis pour cacher les champs non pertinents (overhead). Rejeté.
+- **Composition par modules `[SerializeReference]`** (Stackable, Tool, Weapon en composants) : flexible mais Inspector Unity médiocre, complexité disproportionnée pour le POC. Rejeté.
+- **GUID Unity comme identifiant** : ultra-stable mais opaque, illisible dans les saves, complique le debug. Rejeté.
+- **Pas de registry, scan `Resources.Load` au load** : marche techniquement mais oblige à un placement strict dans `Resources/`, casse au moindre déplacement d'asset. Rejeté.
+- **Asset menu `Survain/Data/Items/...`** : `Items` étant un nouveau domaine de premier rang (pas une config), il a son propre groupe top-level dans le menu Create : `Survain/Items/...`. Cohérent avec la structure de namespaces.
+
+**Conséquences.**
+- Pattern « base abstract SO + sous-classes concrètes + Id string stable + Registry global » devient le template pour les futurs domaines de contenu (recettes de craft #8, métiers de PNJ, dialogues...).
+- `Survain.Items` est le 4e namespace de premier rang du projet (avec `Survain.Core`, `Survain.Data`, `Survain.Gameplay`). Les futurs assets de contenu auront leur propre namespace top-level si le domaine est cohérent (recettes → `Survain.Crafting` probable).
+- `GameSettings.asset` reçoit un nouveau champ `_itemRegistry`. Pas de `FormerlySerializedAs` (nouvel ajout, pas un rename) ; valeur par défaut `null` à brancher dans l'Inspector après checkout.
+- Pattern de validation `OnValidate` avec `SurvainLog.Warn/Error` pour les SO de registre / config introduit. À répliquer pour les futurs SO de catalogue (recettes, recettes de PNJ, etc.).
+- L'arborescence `Assets/ScriptableObjects/Items/{Resources,Tools,ResourceNodes}` + `Registry.asset` sera créée par le menu Bootstrap au premier lancement Unity post-checkout.
+- Le bootstrap stocke les valeurs initiales d'équilibrage (temps de récolte 2–6s, quantités 1–4, durabilité 80) en dur dans le code — c'est volontaire pour le POC. Quand Pascal voudra équilibrer, on tunera directement dans les `.asset` via l'Inspector ; le code de bootstrap n'est qu'un point de départ idempotent.
+
+---
+
 ### 2026-05-16 — Cycle jour/nuit basique (Sprint 0, issue #28)
 
 **Contexte.** Issue #28 et dernière brique fonctionnelle du Sprint 0. Avec terrain, joueur et caméra en place, il manquait l'ambiance temporelle qui transforme une scène statique en monde "vivant". Périmètre POC strict : une seule Directional Light qui tourne, intensité et couleur variables, ambient piloté. Skybox dynamique, étoiles, lune et audio hors scope.
@@ -467,4 +498,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-16 (Sprint 0 clôturé, Sprint 1 ouvert)*
+*Dernière mise à jour : 2026-05-17 (Sprint 1 — décision système d'items, issue #5)*
