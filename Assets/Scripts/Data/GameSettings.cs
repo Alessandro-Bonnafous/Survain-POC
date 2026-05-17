@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Serialization;
+using Survain.Items;
 
 namespace Survain.Data
 {
@@ -25,6 +26,10 @@ namespace Survain.Data
         [FormerlySerializedAs("worldSeed")]
         [SerializeField] private int _worldSeed = 0;
 
+        [Header("Items")]
+        [Tooltip("Registry global référençant tous les ItemData et ResourceNodeData du projet.")]
+        [SerializeField] private ItemRegistry _itemRegistry;
+
         [Header("Session")]
         [Tooltip("Active les logs verbeux supplémentaires hors Editor (DEVELOPMENT_BUILD).")]
         [FormerlySerializedAs("verboseLogging")]
@@ -33,6 +38,7 @@ namespace Survain.Data
         // Accesseurs publics — lecture seule.
         public BiomeConfig DefaultBiome => _defaultBiome;
         public int WorldSeed => _worldSeed;
+        public ItemRegistry ItemRegistry => _itemRegistry;
         public bool VerboseLogging => _verboseLogging;
     }
 }
