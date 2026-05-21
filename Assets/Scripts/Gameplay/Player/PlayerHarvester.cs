@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Survain.Core;
 using Survain.Gameplay.Items;
+using Survain.UI;
 
 namespace Survain.Gameplay.Player
 {
@@ -62,6 +63,7 @@ namespace Survain.Gameplay.Player
         private InputAction _previousAction;
         private InputAction _nextAction;
         private float _nextHitAllowedAt; // Time.time minimal pour le prochain coup
+        private ResourceNode _currentTarget; // résultat du dernier raycast hover
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
 
@@ -106,6 +108,35 @@ namespace Survain.Gameplay.Player
             if (_nextAction != null) _nextAction.performed -= OnNextPerformed;
         }
 
+        // ─── Update : hover & prompt ────────────────────────────────────────
+
+        private void Update()
+        {
+            // Met à jour la cible courante via raycast continu.
+            var target = RaycastForNode();
+            if (target != _currentTarget)
+            {
+                _currentTarget = target;
+                UpdatePrompt();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            // Sécurité : si le harvester disparaît, on cache le prompt résiduel.
+            if (_currentTarget != null) InteractionPrompt.Instance.Hide();
+        }
+
+        private void UpdatePrompt()
+        {
+            if (_currentTarget == null)
+            {
+                InteractionPrompt.Instance.Hide();
+                return;
+            }
+            InteractionPrompt.Instance.Show($"[E] Récolter {_currentTarget.Data.DisplayName}");
+        }
+
         // ─── Input handlers ─────────────────────────────────────────────────
 
         private void OnInteractStarted(InputAction.CallbackContext _) => TryHarvest();
@@ -114,34 +145,40 @@ namespace Survain.Gameplay.Player
 
         // ─── Logique de récolte ─────────────────────────────────────────────
 
-        private void TryHarvest()
+        /// <summary>
+        /// Raycast caméra + tri par distance + filtre joueur. Retourne le ResourceNode
+        /// le plus proche dans la portée, ou null si rien d'interactable.
+        /// </summary>
+        private ResourceNode RaycastForNode()
         {
-            if (Time.time < _nextHitAllowedAt) return;
-
-            // RaycastAll + filtre joueur : en 3e personne, le ray part de derrière le joueur
-            // et hit son CharacterController avant d'atteindre la cible. On ignore donc
-            // tous les colliders enfants du _playerRoot, et on garde le premier hit utile.
             var hits = Physics.RaycastAll(
                 _cameraTransform.position, _cameraTransform.forward,
                 _maxReach, _harvestRaycastMask, QueryTriggerInteraction.Ignore);
 
-            if (hits.Length == 0) return;
+            if (hits.Length == 0) return null;
 
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
-            RaycastHit? firstUseful = null;
             for (int i = 0; i < hits.Length; i++)
             {
                 var t = hits[i].collider.transform;
                 if (t == _playerRoot || t.IsChildOf(_playerRoot)) continue;
-                firstUseful = hits[i];
-                break;
+
+                // Premier hit non-joueur. Soit c'est un nœud récoltable, soit la vue est
+                // obstruée par autre chose (terrain, drop, mur...) — dans ce cas, pas de cible.
+                var node = hits[i].collider.GetComponentInParent<ResourceNode>();
+                if (node != null && !node.IsDepleted) return node;
+                return null;
             }
+            return null;
+        }
 
-            if (!firstUseful.HasValue) return;
+        private void TryHarvest()
+        {
+            if (Time.time < _nextHitAllowedAt) return;
 
-            var node = firstUseful.Value.collider.GetComponentInParent<ResourceNode>();
-            if (node == null) return;
+            var node = _currentTarget;
+            if (node == null || node.IsDepleted) return;
 
             var tool = _equipment.CurrentTool;
             bool hitLanded = node.TryHit(tool);

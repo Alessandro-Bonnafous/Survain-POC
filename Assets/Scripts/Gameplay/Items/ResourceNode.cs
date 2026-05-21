@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using Survain.Core;
 using Survain.Items;
@@ -6,11 +7,12 @@ namespace Survain.Gameplay.Items
 {
     /// <summary>
     /// Composant runtime d'un nœud de ressource posé dans le monde. Consomme un
-    /// ResourceNodeData SO pour ses paramètres (HP, item produit, outil requis).
+    /// ResourceNodeData SO pour ses paramètres (HP, item produit, outil requis, respawn).
     ///
     /// Mécanique POC (D2 clic discret) : chaque appel à TryHit() avec l'outil
-    /// approprié consomme 1 HP. À HP=0, le nœud spawne le drop et se désactive.
-    /// Le respawn est traité en phase 3 (champ ResourceNodeData.respawnSeconds à venir).
+    /// approprié consomme 1 HP. À HP=0, le nœud spawne le drop, cache son visuel
+    /// et désactive son collider. Si RespawnSeconds > 0, une coroutine remet le
+    /// nœud en état après le délai.
     ///
     /// Le visuel est soit le prefab référencé par data.VisualPrefab, soit un
     /// placeholder coloré généré au Awake (cube vert pour arbres, sphère grise sinon).
@@ -32,6 +34,7 @@ namespace Survain.Gameplay.Items
         // État runtime
         private int _currentHits;
         private GameObject _visualInstance;
+        private Coroutine _respawnRoutine;
 
         public ResourceNodeData Data => _data;
         public int CurrentHits => _currentHits;
@@ -45,11 +48,17 @@ namespace Survain.Gameplay.Items
         public event System.Action OnHit;
 
         /// <summary>
-        /// Émis quand le nœud atteint 0 HP, juste avant la désactivation du GameObject.
-        /// Les abonnés qui veulent survivre à la destruction (particules de fin)
+        /// Émis quand le nœud atteint 0 HP, juste avant que le visuel et le collider
+        /// soient désactivés. Les abonnés qui veulent survivre (particules de fin)
         /// doivent spawner leurs effets dans des GameObjects standalone.
         /// </summary>
         public event System.Action OnDepleted;
+
+        /// <summary>
+        /// Émis quand le nœud reset ses HP et redevient harvestable (après respawn).
+        /// Consommé par ResourceNodeJuice pour reset l'échelle du visuel.
+        /// </summary>
+        public event System.Action OnRespawned;
 
         /// <summary>
         /// Assigne la data du nœud. Doit être appelé AVANT que le GameObject ne devienne actif
@@ -156,8 +165,36 @@ namespace Survain.Gameplay.Items
             SpawnDrop();
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Nœud '{_data.Id}' épuisé.", this);
+
             OnDepleted?.Invoke();
-            gameObject.SetActive(false);
+
+            // Cache le visuel et désactive le collider, mais GARDE le GameObject actif
+            // pour que la coroutine de respawn puisse continuer à tourner.
+            if (_visualInstance != null) _visualInstance.SetActive(false);
+            var col = GetComponent<Collider>();
+            if (col != null) col.enabled = false;
+
+            if (_data.RespawnSeconds > 0f)
+            {
+                _respawnRoutine = StartCoroutine(RespawnAfterDelay(_data.RespawnSeconds));
+            }
+        }
+
+        private IEnumerator RespawnAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+
+            _currentHits = _data.Hits;
+
+            if (_visualInstance != null) _visualInstance.SetActive(true);
+            var col = GetComponent<Collider>();
+            if (col != null) col.enabled = true;
+
+            SurvainLog.Info(SurvainLog.Category.Gameplay,
+                $"Nœud '{_data.Id}' réapparu.", this);
+
+            OnRespawned?.Invoke();
+            _respawnRoutine = null;
         }
 
         private void SpawnDrop()

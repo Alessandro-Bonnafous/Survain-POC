@@ -42,6 +42,10 @@ namespace Survain.Items
         [Tooltip("Famille d'outil requise. None = récolte à mains nues autorisée.")]
         [SerializeField] private ToolType _requiredTool = ToolType.None;
 
+        [Tooltip("Délai avant respawn du nœud après épuisement (secondes). 0 = pas de respawn.")]
+        [Min(0f)]
+        [SerializeField] private float _respawnSeconds = 0f;
+
         [Header("Visuel")]
         [Tooltip("Prefab du visuel à instancier sur le nœud (mesh + matériaux). Optionnel : si null, un placeholder coloré est utilisé.")]
         [SerializeField] private GameObject _visualPrefab;
@@ -72,6 +76,7 @@ namespace Survain.Items
         public int Hits => _hits;
         public float HarvestSeconds => _harvestSeconds;
         public ToolType RequiredTool => _requiredTool;
+        public float RespawnSeconds => _respawnSeconds;
         public GameObject VisualPrefab => _visualPrefab;
         public Color HitColor => _hitColor;
         public int HitParticleCount => _hitParticleCount;

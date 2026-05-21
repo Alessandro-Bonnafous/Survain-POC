@@ -19,5 +19,6 @@ MonoBehaviour:
   _hits: 3
   _harvestSeconds: 2
   _requiredTool: 0
+  _respawnSeconds: 15
   _visualPrefab: {fileID: 4263922822445002727, guid: 3cdafb3c2f54d434894928d72d282874, type: 3}
   _hitColor: {r: 0.35, g: 0.55, b: 0.2, a: 1}

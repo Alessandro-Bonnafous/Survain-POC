@@ -83,6 +83,7 @@ namespace Survain.Gameplay.Items
             {
                 _node.OnHit += HandleHit;
                 _node.OnDepleted += HandleDepleted;
+                _node.OnRespawned += HandleRespawned;
             }
         }
 
@@ -92,6 +93,7 @@ namespace Survain.Gameplay.Items
             {
                 _node.OnHit -= HandleHit;
                 _node.OnDepleted -= HandleDepleted;
+                _node.OnRespawned -= HandleRespawned;
             }
         }
 
@@ -152,6 +154,20 @@ namespace Survain.Gameplay.Items
             // Particules en standalone pour survivre à la désactivation du nœud.
             SpawnStandaloneDepletionParticles();
             PlaySound(volumeScale: 1.4f);
+        }
+
+        private void HandleRespawned()
+        {
+            // Reset l'échelle du visuel à 1.0 (les hits suivants la feront re-décroître).
+            _targetHpScale = 1f;
+            _currentHpScale = 1f;
+            _scalePunchFactor = 1f;
+            _shakeEndAt = 0f;
+            if (_visual != null)
+            {
+                _visual.localPosition = _baseLocalPos;
+                _visual.localScale = _baseScale;
+            }
         }
 
         // ─── Particules ─────────────────────────────────────────────────────
