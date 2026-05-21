@@ -1,0 +1,162 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+using Survain.Core;
+using Survain.Gameplay.Items;
+
+namespace Survain.Gameplay.Player
+{
+    /// <summary>
+    /// Système de récolte côté joueur. Lit les actions Interact / Previous / Next
+    /// de l'InputActionAsset (sans toucher au cycle Enable/Disable de la map :
+    /// c'est PlayerController qui en est propriétaire — cf. CLAUDE.md 2026-04-26 §3).
+    ///
+    /// Mécanique (D2 clic discret) : à chaque pression sur Interact, raycast depuis
+    /// la caméra vers le pointer center. Si on touche un ResourceNode à portée,
+    /// on tente TryHit() avec l'outil courant de PlayerEquipment. Punch caméra à chaque coup.
+    ///
+    /// Cooldown entre 2 coups : HarvestSeconds du nœud / HarvestSpeed de l'outil.
+    /// Les touches Previous/Next basculent entre les slots de PlayerEquipment.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class PlayerHarvester : MonoBehaviour
+    {
+        [Header("Dépendances")]
+        [Tooltip("Asset Input System partagé. La map 'Player' doit exposer Interact, Previous, Next.")]
+        [SerializeField] private InputActionAsset _inputActions;
+
+        [Tooltip("Transform de la caméra (origine du raycast).")]
+        [SerializeField] private Transform _cameraTransform;
+
+        [Tooltip("Rig caméra pour le punch feedback (optionnel).")]
+        [SerializeField] private PlayerCameraRig _cameraRig;
+
+        [Tooltip("Équipement joueur (source de l'outil courant).")]
+        [SerializeField] private PlayerEquipment _equipment;
+
+        [Tooltip("Racine du joueur (ses colliders seront ignorés par le raycast). Si null = self.")]
+        [SerializeField] private Transform _playerRoot;
+
+        [Header("Récolte")]
+        [Tooltip("Portée maximum du raycast de récolte (mètres).")]
+        [Range(1f, 20f)]
+        [SerializeField] private float _maxReach = 6f;
+
+        [Tooltip("Layers ignorés par le raycast de récolte. Le terrain doit en faire partie pour éviter de bloquer les nœuds derrière une pente.")]
+        [SerializeField] private LayerMask _harvestRaycastMask = ~0;
+
+        [Header("Feedback")]
+        [Tooltip("Intensité du punch caméra (degrés) à chaque coup. 0 = désactivé.")]
+        [Range(0f, 10f)]
+        [SerializeField] private float _cameraPunchDegrees = 2f;
+
+        // ─── Constantes ─────────────────────────────────────────────────────
+
+        private const string ActionMapName = "Player";
+        private const string InteractActionName = "Interact";
+        private const string PreviousActionName = "Previous";
+        private const string NextActionName = "Next";
+
+        // ─── État runtime ───────────────────────────────────────────────────
+
+        private InputAction _interactAction;
+        private InputAction _previousAction;
+        private InputAction _nextAction;
+        private float _nextHitAllowedAt; // Time.time minimal pour le prochain coup
+
+        // ─── Lifecycle ──────────────────────────────────────────────────────
+
+        private void Awake()
+        {
+            if (_inputActions == null || _cameraTransform == null || _equipment == null)
+            {
+                SurvainLog.Error(SurvainLog.Category.Gameplay,
+                    "PlayerHarvester : inputActions, cameraTransform ou equipment non assigné.", this);
+                enabled = false;
+                return;
+            }
+
+            if (_playerRoot == null) _playerRoot = transform;
+
+            var map = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
+            _interactAction = map?.FindAction(InteractActionName, throwIfNotFound: false);
+            _previousAction = map?.FindAction(PreviousActionName, throwIfNotFound: false);
+            _nextAction = map?.FindAction(NextActionName, throwIfNotFound: false);
+
+            if (_interactAction == null || _previousAction == null || _nextAction == null)
+            {
+                SurvainLog.Error(SurvainLog.Category.Gameplay,
+                    "PlayerHarvester : actions Interact/Previous/Next introuvables dans la map 'Player'.", this);
+                enabled = false;
+            }
+        }
+
+        private void OnEnable()
+        {
+            // On utilise 'started' (pression initiale) plutôt que 'performed' pour bypass
+            // l'interaction Hold de l'asset Interact (qui imposerait un délai de 0.4s par défaut).
+            if (_interactAction != null) _interactAction.started += OnInteractStarted;
+            if (_previousAction != null) _previousAction.performed += OnPreviousPerformed;
+            if (_nextAction != null) _nextAction.performed += OnNextPerformed;
+        }
+
+        private void OnDisable()
+        {
+            if (_interactAction != null) _interactAction.started -= OnInteractStarted;
+            if (_previousAction != null) _previousAction.performed -= OnPreviousPerformed;
+            if (_nextAction != null) _nextAction.performed -= OnNextPerformed;
+        }
+
+        // ─── Input handlers ─────────────────────────────────────────────────
+
+        private void OnInteractStarted(InputAction.CallbackContext _) => TryHarvest();
+        private void OnPreviousPerformed(InputAction.CallbackContext _) => _equipment.SetTool(0);
+        private void OnNextPerformed(InputAction.CallbackContext _) => _equipment.SetTool(1);
+
+        // ─── Logique de récolte ─────────────────────────────────────────────
+
+        private void TryHarvest()
+        {
+            if (Time.time < _nextHitAllowedAt) return;
+
+            // RaycastAll + filtre joueur : en 3e personne, le ray part de derrière le joueur
+            // et hit son CharacterController avant d'atteindre la cible. On ignore donc
+            // tous les colliders enfants du _playerRoot, et on garde le premier hit utile.
+            var hits = Physics.RaycastAll(
+                _cameraTransform.position, _cameraTransform.forward,
+                _maxReach, _harvestRaycastMask, QueryTriggerInteraction.Ignore);
+
+            if (hits.Length == 0) return;
+
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            RaycastHit? firstUseful = null;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                var t = hits[i].collider.transform;
+                if (t == _playerRoot || t.IsChildOf(_playerRoot)) continue;
+                firstUseful = hits[i];
+                break;
+            }
+
+            if (!firstUseful.HasValue) return;
+
+            var node = firstUseful.Value.collider.GetComponentInParent<ResourceNode>();
+            if (node == null) return;
+
+            var tool = _equipment.CurrentTool;
+            bool hitLanded = node.TryHit(tool);
+            if (!hitLanded) return;
+
+            // Cooldown jusqu'au prochain coup
+            float speed = (tool != null && tool.HarvestSpeed > 0f) ? tool.HarvestSpeed : 1f;
+            float cooldown = node.Data.HarvestSeconds / speed;
+            _nextHitAllowedAt = Time.time + cooldown;
+
+            // Punch caméra (juice). Pitch positif = caméra "recule" vers le haut.
+            if (_cameraRig != null && _cameraPunchDegrees > 0f)
+            {
+                _cameraRig.Punch(_cameraPunchDegrees);
+            }
+        }
+    }
+}

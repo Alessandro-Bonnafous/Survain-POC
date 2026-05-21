@@ -16,5 +16,7 @@ MonoBehaviour:
   _displayName: Rocher
   _producedItem: {fileID: 11400000, guid: 65c66688fa5c5924e9fdadfa8d896b45, type: 2}
   _producedQuantity: 3
-  _harvestSeconds: 5
+  _hits: 3
+  _harvestSeconds: 2
   _requiredTool: 2
+  _visualPrefab: {fileID: 4680757731160225450, guid: 0fde05fa0f3321942a21896ff4f0856f, type: 3}

@@ -56,22 +56,6 @@ namespace Survain.Data
         [FormerlySerializedAs("altitudeGradient")]
         [SerializeField] private Gradient _altitudeGradient = CreateDefaultGradient();
 
-        [Header("Placeholders")]
-        [Tooltip("Densité cible (nombre de placeholders par 100 m²).")]
-        [Range(0, 50)]
-        [FormerlySerializedAs("placeholderDensityPer100SqM")]
-        [SerializeField] private int _placeholderDensityPer100SqM = 8;
-
-        [Tooltip("Pente maximale (degrés) sur laquelle un placeholder peut apparaître.")]
-        [Range(0f, 60f)]
-        [FormerlySerializedAs("maxSlopeDegrees")]
-        [SerializeField] private float _maxSlopeDegrees = 25f;
-
-        [Tooltip("Ratio d'arbres dans la distribution. Le reste sera des rochers.")]
-        [Range(0f, 1f)]
-        [FormerlySerializedAs("treeRatio")]
-        [SerializeField] private float _treeRatio = 0.7f;
-
         // Accesseurs
         public float WorldSize => _worldSize;
         public int Subdivisions => _subdivisions;
@@ -81,9 +65,6 @@ namespace Survain.Data
         public float Persistence => _persistence;
         public float Lacunarity => _lacunarity;
         public Gradient AltitudeGradient => _altitudeGradient;
-        public int PlaceholderDensityPer100SqM => _placeholderDensityPer100SqM;
-        public float MaxSlopeDegrees => _maxSlopeDegrees;
-        public float TreeRatio => _treeRatio;
 
         private static Gradient CreateDefaultGradient()
         {

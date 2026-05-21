@@ -16,5 +16,7 @@ MonoBehaviour:
   _displayName: Arbre
   _producedItem: {fileID: 11400000, guid: 2bd964ae371b6af4988194fc261472ec, type: 2}
   _producedQuantity: 4
-  _harvestSeconds: 4
+  _hits: 3
+  _harvestSeconds: 2
   _requiredTool: 1
+  _visualPrefab: {fileID: 9069115365609291303, guid: 60f79905accf3b24fa0114b941f1aac0, type: 3}

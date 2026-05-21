@@ -31,6 +31,10 @@ namespace Survain.Items
         [Min(1)]
         [SerializeField] private int _producedQuantity = 1;
 
+        [Tooltip("Nombre de coups d'outil nécessaires pour épuiser le nœud (gris/Basic). Plus = nœud plus dur.")]
+        [Min(1)]
+        [SerializeField] private int _hits = 3;
+
         [Tooltip("Temps de récolte de base en secondes. Modulé par ToolData.HarvestSpeed.")]
         [Range(0.1f, 30f)]
         [SerializeField] private float _harvestSeconds = 3f;
@@ -38,12 +42,18 @@ namespace Survain.Items
         [Tooltip("Famille d'outil requise. None = récolte à mains nues autorisée.")]
         [SerializeField] private ToolType _requiredTool = ToolType.None;
 
+        [Header("Visuel")]
+        [Tooltip("Prefab du visuel à instancier sur le nœud (mesh + matériaux). Optionnel : si null, un placeholder coloré est utilisé.")]
+        [SerializeField] private GameObject _visualPrefab;
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public ItemData ProducedItem => _producedItem;
         public int ProducedQuantity => _producedQuantity;
+        public int Hits => _hits;
         public float HarvestSeconds => _harvestSeconds;
         public ToolType RequiredTool => _requiredTool;
+        public GameObject VisualPrefab => _visualPrefab;
 
         /// <summary>
         /// Vérifie si un outil donné permet de récolter ce nœud.

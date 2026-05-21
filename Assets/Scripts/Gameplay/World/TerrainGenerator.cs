@@ -7,12 +7,17 @@ using Survain.Data;
 namespace Survain.Gameplay.World
 {
     /// <summary>
-    /// Génère un terrain procédural low-poly flat shaded + des placeholders (arbres/rochers).
-    /// Déterministe à partir d'un seed. Placé à la racine (0,0,0) par convention, terrain centré.
+    /// Génère un terrain procédural low-poly flat shaded. Déterministe à partir d'un seed.
+    /// Placé à la racine (0,0,0) par convention, terrain centré.
+    ///
+    /// Le placement des nœuds de ressources (arbres, rochers...) est délégué au
+    /// ResourceNodeSpawner (Survain.Gameplay.Items) — séparation des responsabilités
+    /// introduite en #6 (les anciens placeholders Cube/Sphere ont été retirés).
     /// </summary>
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
     [RequireComponent(typeof(MeshCollider))]
+    [DefaultExecutionOrder(-100)] // Doit s'exécuter AVANT ResourceNodeSpawner qui raycast sur le MeshCollider.
     public sealed class TerrainGenerator : MonoBehaviour
     {
         [Header("Configuration")]
@@ -30,10 +35,6 @@ namespace Survain.Gameplay.World
         [Header("Matériaux")]
         [FormerlySerializedAs("terrainMaterial")]
         [SerializeField] private Material _terrainMaterial;
-        [FormerlySerializedAs("treeMaterial")]
-        [SerializeField] private Material _treeMaterial;
-        [FormerlySerializedAs("rockMaterial")]
-        [SerializeField] private Material _rockMaterial;
 
         [Header("Auto")]
         [Tooltip("Génère automatiquement au Start().")]
@@ -44,9 +45,6 @@ namespace Survain.Gameplay.World
         private System.Random _seededRandom;
         private Vector2 _noiseOffset;
         private int _currentSeed;
-        private Transform _placeholdersRoot;
-
-        private const string PlaceholdersRootName = "Placeholders";
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
 
@@ -80,9 +78,6 @@ namespace Survain.Gameplay.World
             var mesh = BuildMesh();
             ApplyMesh(mesh);
 
-            ClearPlaceholders();
-            SpawnPlaceholders();
-
             SurvainLog.Info(SurvainLog.Category.World, "Terrain généré.", this);
         }
 
@@ -96,7 +91,6 @@ namespace Survain.Gameplay.World
                 mf.sharedMesh = null;
             }
             GetComponent<MeshCollider>().sharedMesh = null;
-            ClearPlaceholders();
         }
 
         // ─── Random / bruit ─────────────────────────────────────────────────
@@ -230,85 +224,6 @@ namespace Survain.Gameplay.World
             mf.sharedMesh = mesh;
             mc.sharedMesh = mesh;
             if (_terrainMaterial != null) mr.sharedMaterial = _terrainMaterial;
-        }
-
-        // ─── Placeholders ───────────────────────────────────────────────────
-
-        private void ClearPlaceholders()
-        {
-            var existing = transform.Find(PlaceholdersRootName);
-            if (existing != null)
-            {
-                if (Application.isPlaying) Destroy(existing.gameObject);
-                else DestroyImmediate(existing.gameObject);
-            }
-            var go = new GameObject(PlaceholdersRootName);
-            go.transform.SetParent(transform, false);
-            _placeholdersRoot = go.transform;
-        }
-
-        private void SpawnPlaceholders()
-        {
-            float size = _settings.WorldSize;
-            float area = size * size;
-            int targetCount = Mathf.RoundToInt(area / 100f * _settings.PlaceholderDensityPer100SqM);
-            float halfSize = size * 0.5f;
-
-            int placed = 0, attempts = 0, maxAttempts = targetCount * 10;
-            var mc = GetComponent<MeshCollider>();
-
-            while (placed < targetCount && attempts < maxAttempts)
-            {
-                attempts++;
-                float x = ((float)_seededRandom.NextDouble() * 2f - 1f) * halfSize;
-                float z = ((float)_seededRandom.NextDouble() * 2f - 1f) * halfSize;
-
-                // Raycast sur le MeshCollider uniquement (on vise précisément notre terrain)
-                var rayOrigin = new Vector3(x, 10000f, z);
-                if (!mc.Raycast(new Ray(rayOrigin, Vector3.down), out RaycastHit hit, 20000f))
-                    continue;
-
-                float slope = Vector3.Angle(hit.normal, Vector3.up);
-                if (slope > _settings.MaxSlopeDegrees) continue;
-
-                bool isTree = _seededRandom.NextDouble() < _settings.TreeRatio;
-                SpawnPlaceholder(hit.point, isTree);
-                placed++;
-            }
-
-            SurvainLog.Info(SurvainLog.Category.World,
-                $"Placeholders générés : {placed}/{targetCount} (tentatives : {attempts}).", this);
-        }
-
-        private void SpawnPlaceholder(Vector3 groundPos, bool isTree)
-        {
-            var go = GameObject.CreatePrimitive(isTree ? PrimitiveType.Cube : PrimitiveType.Sphere);
-            go.name = isTree ? "PH_Tree" : "PH_Rock";
-            go.transform.SetParent(_placeholdersRoot, false);
-
-            // Pas de collider physique sur les placeholders au POC
-            var c = go.GetComponent<Collider>();
-            if (c != null)
-            {
-                if (Application.isPlaying) Destroy(c);
-                else DestroyImmediate(c);
-            }
-
-            var rend = go.GetComponent<Renderer>();
-
-            if (isTree)
-            {
-                go.transform.localScale = new Vector3(0.8f, 3.0f, 0.8f);
-                go.transform.localPosition = groundPos + Vector3.up * 1.5f;
-                if (_treeMaterial != null) rend.sharedMaterial = _treeMaterial;
-            }
-            else
-            {
-                float s = 0.5f + (float)_seededRandom.NextDouble() * 0.9f;
-                go.transform.localScale = Vector3.one * s;
-                go.transform.localPosition = groundPos + Vector3.up * s * 0.4f;
-                if (_rockMaterial != null) rend.sharedMaterial = _rockMaterial;
-            }
         }
 
         // ─── Utilitaires ────────────────────────────────────────────────────

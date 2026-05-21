@@ -63,6 +63,10 @@ namespace Survain.Gameplay.Player
         private float _targetDistance;
         private float _distanceVelocity;
 
+        // Punch : offset additif appliqué au pitch final, décroît exponentiellement vers 0.
+        // Utilisé pour donner du feedback aux actions (récolte, futur combat).
+        private float _punchPitch;
+
         // ─── API publique ───────────────────────────────────────────────────
 
         /// <summary>
@@ -70,6 +74,15 @@ namespace Survain.Gameplay.Player
         /// Le zoom continue de fonctionner. Réservé au futur mode construction (Sprint 2).
         /// </summary>
         public bool RotationLocked { get; set; }
+
+        /// <summary>
+        /// Applique un "punch" instantané sur le pitch de la caméra (en degrés). Décroît
+        /// exponentiellement vers 0 selon PlayerCameraConfig.PunchDecayRate.
+        /// </summary>
+        public void Punch(float pitchDegrees)
+        {
+            _punchPitch += pitchDegrees;
+        }
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
 
@@ -169,8 +182,18 @@ namespace Survain.Gameplay.Player
             // Smoothing zoom.
             _currentDistance = Mathf.SmoothDamp(_currentDistance, _targetDistance, ref _distanceVelocity, _config.ZoomSmoothTime);
 
-            // Pose finale.
-            Quaternion rot = Quaternion.Euler(_pitchDeg, _yawDeg, 0f);
+            // Punch : décroît exponentiellement vers 0 (framerate-independent).
+            if (Mathf.Abs(_punchPitch) > 0.001f)
+            {
+                _punchPitch *= Mathf.Exp(-_config.PunchDecayRate * Time.deltaTime);
+            }
+            else
+            {
+                _punchPitch = 0f;
+            }
+
+            // Pose finale (punch additif au pitch — peut briefly sortir des limites pour le juice).
+            Quaternion rot = Quaternion.Euler(_pitchDeg + _punchPitch, _yawDeg, 0f);
             Vector3 pivot = _target.position + Vector3.up * _config.PivotHeightOffset;
             Vector3 dirFromPivot = rot * Vector3.back;
 
