@@ -83,7 +83,7 @@
 
 **Objectifs du sprint** : boucle minimale de survie — récolter dans le monde, gérer un inventaire, transformer la matière par un craft engageant non-répétitif.
 - [x] Système d'items et ScriptableObjects (issue #5)
-- [ ] Nœuds de ressources et système de récolte (issue #6)
+- [x] Nœuds de ressources et système de récolte (issue #6)
 - [ ] Inventaire joueur (issue #7)
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
 
@@ -194,6 +194,100 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-21 — Récolte : phase 3 / respawn + prompt UI (Sprint 1, issue #6 complète)
+
+**Contexte.** Phase 3 et dernière de l'issue #6 : respawn des nœuds après épuisement, prompt UI "[E] Récolter X" quand le joueur vise un nœud. L'outline d'objet interactif (Renderer Feature URP) a été reporté hors phase 3 — le prompt seul suffit visuellement, l'outline pourra revenir en post-#6 si Pascal le juge utile.
+
+**Décisions.**
+1. **Respawn = réutilisation in-place via coroutine** (P1). `ResourceNode.Deplete()` ne fait plus `SetActive(false)` : il cache le visuel (`_visualInstance.SetActive(false)`) et désactive le collider. Le GameObject reste actif → la coroutine `RespawnAfterDelay` continue de tourner. Au délai écoulé : reset des HP, réactivation visuel/collider, event `OnRespawned`. Avantage : zéro allocation, état conservé (transform position, abonnements existants).
+2. **Délai paramétré par nœud** (P2). Nouveau champ `_respawnSeconds` sur `ResourceNodeData`, convention `0 = pas de respawn` (le défaut C# pour les SO existants → comportement actuel préservé sans tuning). Valeurs initiales : `tree=30s`, `rock=60s`, `fibre-bush=15s`, `ore-deposit=90s`. Variation par type pour rythmer l'exploration (fibres abondantes, minerais rares).
+3. **`InteractionPrompt` singleton screen-space overlay auto-créé** (P3). Lazy init au premier accès via `InteractionPrompt.Instance`, `DontDestroyOnLoad`. Construit son propre Canvas + RectTransform + Text au runtime. Zéro setup Unity côté scène — pattern "UI utilitaire qui se débrouille seul". Utilise `UnityEngine.UI.Text` (et non `TMP_Text`) pour éviter la dépendance aux TMP Essentials (pas garanti importés). À migrer vers TMP au Sprint UI quand on touchera à l'esthétique HUD.
+4. **Pas d'outline en phase 3** (P4). L'outline rim shader URP propre demande une Renderer Feature URP (config Project Settings + shader custom) — disproportionné pour le POC. Le prompt UI est suffisamment explicite. Solution alternative légère (tint via `MaterialPropertyBlock`) reportée si feel pauvre.
+5. **`PlayerHarvester` raycast en continu pour le hover**. Refactor : extraction de `RaycastForNode()` réutilisée par `Update` (toggle prompt selon `_currentTarget`) et `TryHarvest` (utilise `_currentTarget` cached). Une seule source de vérité, ~60 raycasts/s acceptables au POC. Le raycast retourne null si le premier hit non-joueur n'est pas un nœud (vue obstruée par terrain/drop/etc.) — pas de "voir à travers".
+6. **Event `OnRespawned` sur `ResourceNode`** consommé par `ResourceNodeJuice` pour reset `_targetHpScale`, `_currentHpScale`, `_scalePunchFactor`, `_shakeEndAt` et la position/échelle du visuel. Sans ça, un nœud respawned reprendrait son apparence rétrécie (~0.6×) d'avant destruction.
+
+**Alternatives écartées.**
+- **Destruction + re-spawn par le spawner** : sémantiquement plus propre mais demande de tenir une liste de "slots" à respawner côté spawner, plus de code, plus d'allocs.
+- **Object pool** : optimal sur grand nombre de nœuds mais overkill au stade POC.
+- **Range min/max sur le délai** (anti-synchronisation) : reportable si on observe que tous les nœuds reviennent en même temps et que ça fait moche visuellement.
+- **Canvas world-space par nœud** : 1 Canvas par nœud = overhead non négligeable (centaines de nœuds), et orientation à gérer (billboard). L'overlay global est plus économique.
+- **TextMeshPro** : meilleure typo mais demande l'import "TMP Essentials" (assets dans le projet) — pas garanti. uGUI Text marche partout, on migrera plus tard.
+- **Recheck raycast dans `TryHarvest`** au lieu du cache : fraîcheur garantie, mais coût d'un raycast supplémentaire au moment du press, et le `_currentTarget` du dernier Update est au pire à 1/60s de retard — négligeable.
+
+**Conséquences.**
+- **Pattern "mort logique sans destruction physique"** : pour tout objet qui doit revenir (nœud, futur PNJ ressuscitable, structure réparable), garder le GameObject actif + cacher visuel + désactiver collider permet de coder le retour via une simple coroutine sur l'objet lui-même.
+- **Pattern "UI utilitaire singleton lazy"** à répliquer : un service UI (prompt, notif, toast) peut s'auto-instancier au premier accès, créer son Canvas, et exposer une API impérative `Show/Hide`. Aucun composant à pré-placer en scène. À utiliser pour les futurs HUD légers (combat hit feedback, dialogue indicator, etc.).
+- Le respawn modifie la sémantique de "fin de vie" d'un nœud : `IsDepleted == true` ne signifie plus "GameObject inactif", mais "HP à 0, en attente du timer". Les abonnés à `OnDepleted` doivent en tenir compte (en pratique : seul `ResourceNodeJuice` est concerné, et il s'en sort avec `OnRespawned`).
+- **Issue #6 complète** : la case du Sprint 1 est désormais cochée.
+- Pattern dégagé pour les SO data : ajouter un champ avec `défaut = comportement actuel` (ici `0 = pas de respawn`) permet d'introduire une nouvelle mécanique sans casser les SO existants. Pas besoin de migration de YAML.
+
+---
+
+### 2026-05-21 — Récolte : phase 2 / juice (Sprint 1, issue #6 partiel — suite)
+
+**Contexte.** Phase 2 de l'issue #6, dédiée au feedback "juice" : à chaque coup réussi sur un nœud, le visuel doit réagir (shake + scale punch), rapetisser progressivement à mesure que les HP descendent, émettre des particules colorées par type, et jouer un son si disponible. À l'épuisement, un burst plus généreux marque la destruction et doit **survivre** à la disparition du nœud.
+
+**Décisions.**
+1. **Composant `ResourceNodeJuice` séparé du `ResourceNode`** (J6). SRP : le core reste pur logique (HP, drop, events) ; le juice est une couche optionnelle attachée par le `ResourceNodeSpawner` à chaque spawn. On peut désactiver tout le feedback en retirant un seul composant. Communication via deux events C# publics sur `ResourceNode` (`OnHit`, `OnDepleted`).
+2. **Shake position + scale punch combinés** (J1). Shake amplitude 0.05m, durée 0.15s, intensité décroissante linéaire. Scale punch pic à 1.08×, retour exponentiel (`_scaleReturnRate = 25`). Les deux jouent sur le `VisualInstance` (exposé en lecture via un getter sur `ResourceNode`, sans coupler le Juice à l'init du visuel).
+3. **Scale décroissant proportionnel aux HP restants** (J2). Le visuel rapetisse à chaque coup vers une cible smooth-lerpée. Échelle min paramétrée par nœud (`_minScaleAtLastHit`, défaut 0.6). Formule : `Lerp(minScale, 1, CurrentHits / Hits)`.
+4. **Particules code-only avec `ParticleSystem` créé au `Start`** (J3). Émission en mode `Emit()` manuel (pas d'emission rate automatique) pour avoir un burst pile au moment du hit. Material `Universal Render Pipeline/Unlit` partagé statiquement (avec fallback `Sprites/Default` si URP indisponible), mesh cube partagé statiquement aussi — évite les allocations à chaque nœud. Couleur lue depuis `ResourceNodeData.HitColor`, taille/vitesse depuis le composant Juice.
+5. **Burst de destruction en GameObject standalone** (J5). Le `ResourceNode.Deplete` invoque `OnDepleted` AVANT `SetActive(false)`. Le Juice spawne alors un GameObject indépendant (pas enfant du nœud) avec son propre `ParticleSystem` + `stopAction = Destroy` + sécurité `Destroy(go, 5f)`. Les particules survivent à la disparition du nœud. Pattern à retenir pour tous les effets de "fin de vie" d'un objet : émettre ailleurs, pas en enfant.
+6. **API audio prête, sans assets** (J4). Champ `_hitSound : AudioClip` (nullable) sur `ResourceNodeData`. Si null = pas de son joué (pas d'erreur, pas de log). `AudioSource` 3D spatialisée (rolloff linéaire 2-25m) créé au Start sur le nœud. Volume scalé : 1× au hit, 1.4× à la destruction. Pas d'assets audio créés en phase 2 ; on branchera des clips quand on en aura.
+7. **Tuning par nœud dans `ResourceNodeData`** (J7). 5 nouveaux champs sous header "Juice" : `HitColor`, `HitParticleCount` (défaut 10), `DepleteParticleCount` (défaut 30), `MinScaleAtLastHit` (défaut 0.6), `HitSound` (nullable). Les params communs (durées, amplitudes shake, vitesse particules) restent sur le `ResourceNodeJuice` composant. Couleurs paramétrées : `tree` brun, `rock` gris, `fibre-bush` vert, `ore-deposit` ocre.
+
+**Alternatives écartées.**
+- **Tout dans `ResourceNode`** : viole SRP, fait grossir un composant déjà chargé (HP + drop + visuel + lifecycle).
+- **Prefab `ParticleSystem` par type de nœud référencé en SO** : plus joli si les assets existaient, mais demande à créer 4 prefabs binaires en phase POC ; le code-only avec couleur paramétrée donne un résultat suffisant.
+- **Bend directionnel du nœud** : joli pour arbres mais demande de connaître la direction d'impact (vector depuis caméra) ; pas universel (un rocher qui se penche, c'est bizarre). À reconsidérer si Pascal veut un feel plus "réaliste arbre".
+- **Émettre les particules de destruction en enfant du nœud** : elles seraient coupées au `SetActive(false)` qui suit immédiatement. Le standalone GameObject est la solution propre.
+- **`UnityEvent` au lieu d'`event System.Action`** : `UnityEvent` permet d'attacher des listeners dans l'Inspector, mais le `ResourceNodeJuice` est ajouté en code par le spawner — pas de path Inspector utile. Event C# pur, plus économe.
+
+**Conséquences.**
+- Pattern « event C# pur `Action` sur un MB + composant satellite qui s'y abonne pour les effets » devient le template pour le feedback. À répliquer pour le futur combat (hit/miss/parry sur un `CombatTarget`), les buildings (placement/destruction), etc.
+- Pattern « burst final en GameObject standalone détaché » : utile dès qu'un objet meurt et qu'on veut un effet qui lui survit (drop, mort PNJ, destruction batiment).
+- Les `ResourceNodeData.asset` ont leur champ `_hitColor` écrit dans le YAML ; les autres champs juice utilisent les valeurs par défaut C# (10, 30, 0.6, null) jusqu'à ce qu'Unity les sérialise à un prochain save. **Tuning futur via Inspector** : si Pascal veut un effet de destruction plus généreux sur un type, on touchera `_depleteParticleCount` directement dans le `.asset`.
+- Les materials/mesh des particules sont cached statiquement (cache cross-instance) : zéro allocation au-delà de la première utilisation. Pattern à retenir si on instancie beaucoup de juice.
+- L'issue #6 reste OPEN : phase 3 (respawn + prompt UI + outline) à venir.
+
+---
+
+### 2026-05-21 — Récolte : phase 1 (Sprint 1, issue #6 partiel)
+
+**Contexte.** Phase 1 de l'issue #6, qui couvre la boucle minimale fonctionnelle de récolte : viser un nœud avec la caméra → appuyer sur E → coups successifs → nœud épuisé → drop au sol. Phases 2 (juice : feedback visuel/audio, réduction visuelle du nœud) et 3 (respawn + prompt UI + outline) à venir dans la même branche/PR. Découpage en phases validé pour permettre des validations visuelles intermédiaires avant d'investir dans le polish.
+
+**Décisions.**
+1. **Mécanique de récolte = clic discret** (D2). Chaque pression sur Interact = 1 coup ; le nœud porte un `_hits` (nombre de coups requis, ajouté à `ResourceNodeData`). Cooldown entre 2 coups = `HarvestSeconds / ToolData.HarvestSpeed`. Style Minecraft. Alternative écartée : jauge sur touche maintenue (plus immersif mais complique l'animation + tuning). On peut basculer en jauge sans refonte si Pascal préfère le feel.
+2. **Ciblage = raycast caméra** (D3) avec `RaycastAll` + tri par distance + filtre des colliders enfants de `_playerRoot`. En 3e personne, le ray part de derrière le joueur et hit son `CharacterController` avant la cible — un simple `Raycast` ne suffit pas. Le filtre via référence Transform évite d'avoir à configurer un layer "Player" côté Unity (le setup reste 100% code).
+3. **`ResourceNodeSpawner` séparé du `TerrainGenerator`** (D4). Le `TerrainGenerator` est désormais responsable uniquement du mesh terrain ; le spawn des nœuds est délégué à un nouveau composant. Les anciens placeholders (cubes verts / sphères grises) ont été retirés du `TerrainGenerator`, ainsi que les champs orphelins du `TerrainGenerationSettings` (`_placeholderDensityPer100SqM`, `_maxSlopeDegrees`, `_treeRatio`). Le spawner consomme le `MeshCollider` du terrain via raycast vertical, seed-cohérent avec `GameSettings.WorldSeed` (XOR avec un salt pour ne pas aligner les nœuds sur le bruit Perlin).
+4. **Ordre d'exécution via `[DefaultExecutionOrder]`** : `-100` sur `TerrainGenerator`, `+100` sur `ResourceNodeSpawner`. Le `Start` du spawner s'exécute après celui du terrain, donc le `MeshCollider.sharedMesh` est déjà peuplé au moment du raycast. Garde-fou défensif : le spawner log une erreur explicite si `sharedMesh == null` (au cas où on l'utiliserait sans `TerrainGenerator` dans la scène).
+5. **`PlayerEquipment` provisoire** (D5). MB léger sur `_Player` avec un tableau `ToolData[] _toolSlots` (2 slots POC = hache + pioche) et un `CurrentTool` exposé read-only + event `OnCurrentToolChanged`. Piloté pour l'instant par les touches `1`/`2` (actions `Previous`/`Next` déjà bindées dans l'`InputActionAsset`). Quand l'inventaire (#7) arrivera, il pilotera `SetTool(int)` à la place — l'API publique reste stable.
+6. **`PlayerHarvester` distinct du `PlayerController`** (SRP). Le contrôleur garde son scope locomotion (Move/Jump/Sprint) et reste l'unique propriétaire du cycle Enable/Disable de la map `Player` (cf. décision 2026-04-26 §3). Le `PlayerHarvester` consomme `Interact`/`Previous`/`Next` sans toucher à l'activation. Pattern : un seul owner par map, autant de consumers que nécessaire.
+7. **`Interact.started` au lieu de `performed`**. L'action `Interact` de l'`InputActionAsset` a une interaction `Hold` (binding existant). S'abonner à `started` court-circuite le délai Hold et donne le comportement de clic discret voulu sans modifier l'asset binaire. Pattern à retenir : pour les actions avec interactions complexes, on choisit le phase d'event (`started`/`performed`/`canceled`) plutôt que de toucher à l'asset.
+8. **Drop = `WorldItemDropPlaceholder` jetable** (D6). Cube jaune avec Rigidbody qui tombe au sol et log son contenu (`Xx 'item-id'`) au premier impact. Sera remplacé en #7 par un vrai `WorldItem` (mesh propre, trigger de pickup vers inventaire). Le `ResourceNode` instancie le drop soit via un prefab référencé (`_dropPrefab`), soit en pur code si le champ est null — phase 1 utilise le mode code.
+9. **`_visualPrefab` sur `ResourceNodeData`** (D7). Référence optionnelle au mesh à instancier comme enfant du nœud. Fallback automatique si null : primitive colorée (cube vert pour les nœuds requérant une hache, sphère pour les autres). Sur ce projet, branchement avec les prefabs du `SimpleNaturePack` (pack tiers non versionné). Note pratique : les materials Built-in du pack sont rose sous URP → conversion via `Window → Rendering → Render Pipeline Converter` (local à la machine, pas dans le repo).
+10. **Punch caméra léger** (D8 partiel). Ajout d'une API publique `PlayerCameraRig.Punch(degrees)` qui ajoute un offset additif au pitch final, décroissant exponentiellement via `_punchDecayRate` (nouveau champ `PlayerCameraConfig`). À chaque coup réussi, le harvester appelle `Punch(2°)`. Pas d'animation avatar (la capsule placeholder du joueur n'est pas riggée — viendra Sprint 4 combat).
+
+**Alternatives écartées.**
+- **Une seule grosse PR couvrant les 7 chantiers #6 d'un coup** : review difficile, intégration risquée. Phases successives sur la même branche permettent des points de validation visuels intermédiaires.
+- **Touche maintenue + jauge progressive** : plus immersif mais complique l'animation et le tuning ; basculement possible plus tard si feel insatisfaisant.
+- **Configurer un layer "Player" exclusif** au raycast : standard Unity mais nécessite setup côté éditeur. Le filtre via Transform reste 100% code, plus self-contained pour un POC.
+- **Étendre `TerrainGenerator` pour spawner aussi les nœuds** : couple deux responsabilités, casse SRP. Le spawner dédié est plus extensible (un jour : un spawner par biome).
+- **Logique de récolte directement dans `PlayerController`** : viole SRP, gonfle un composant déjà chargé (Move/Jump/Sprint). Le composant dédié reste lisible et testable séparément.
+- **Modifier l'`InputActionAsset` pour retirer l'interaction Hold de `Interact`** : nécessaire pour `performed` mais évitable via `started`. Mieux de ne pas toucher à un asset binaire si une solution code-only existe.
+- **Pickup direct dans une "console inventory"** sans drop physique : casserait le critère d'acceptation `ressources tombent au sol`.
+
+**Conséquences.**
+- Pattern « SO data + MonoBehaviour runtime + référence par GUID via inspector » consolidé : `ResourceNodeData` ↔ `ResourceNode`, comme `BiomeConfig` ↔ (à venir) et `TerrainGenerationSettings` ↔ `TerrainGenerator`.
+- Le `_playerRoot` du `PlayerHarvester` exposé en SerializeField nullable avec fallback `transform` au Awake : pattern utile pour tous les futurs systèmes d'interaction joueur (combat, dialogue, construction).
+- `Survain.Gameplay.Items` est le nouveau sous-namespace pour les runtime MB des items dans le monde (à distinguer de `Survain.Items` qui reste pour les SO data). Cohérent avec `Survain.Gameplay.Player` ↔ `Survain.Items` au niveau data.
+- Les ResourceNodeData.asset sont tunés à `_harvestSeconds = 2` pour la sensation phase 1 (le code de bootstrap garde ses valeurs originales 4/5/6 ; règle « code = origine, asset = tuning » conservée).
+- L'ordre des composants via `[DefaultExecutionOrder]` devient le pattern par défaut pour les chaînes de dépendances Start() entre systèmes du monde. À répliquer dès qu'une chaîne similaire apparaît.
+- `PlayerCameraConfig.PunchDecayRate` est paramétrable à l'asset ; valeur par défaut 8 (retour ~0.4s pour un punch de 2°). Réutilisable par d'autres systèmes (futur combat).
+- L'issue #6 reste OPEN : phases 2 (juice) et 3 (respawn + prompt + outline) à enchaîner. La case `#6` du Sprint 1 sera cochée à la clôture complète.
+
+---
 
 ### 2026-05-17 — Système d'items et ScriptableObjects (Sprint 1, issue #5)
 
@@ -499,4 +593,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-17 (Sprint 1 — décision système d'items, issue #5)*
+*Dernière mise à jour : 2026-05-21 (Sprint 1 — récolte phase 3 / clôture issue #6)*

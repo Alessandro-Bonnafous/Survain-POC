@@ -16,5 +16,9 @@ MonoBehaviour:
   _displayName: Filon de minerai
   _producedItem: {fileID: 11400000, guid: be0aed93b82fc8144863710150210eb2, type: 2}
   _producedQuantity: 2
-  _harvestSeconds: 6
+  _hits: 3
+  _harvestSeconds: 2
   _requiredTool: 2
+  _respawnSeconds: 90
+  _visualPrefab: {fileID: 7405846476849542632, guid: c6308cb7062fac34e8e50600086b12a1, type: 3}
+  _hitColor: {r: 0.65, g: 0.45, b: 0.2, a: 1}

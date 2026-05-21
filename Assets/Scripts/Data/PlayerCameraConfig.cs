@@ -61,6 +61,11 @@ namespace Survain.Data
         [Range(0f, 0.5f)]
         [SerializeField] private float _rotationSmoothTime = 0.08f;
 
+        [Header("Feedback")]
+        [Tooltip("Vitesse de retour du 'punch' caméra (rate exponentiel). Plus élevé = retour plus rapide.")]
+        [Range(1f, 30f)]
+        [SerializeField] private float _punchDecayRate = 8f;
+
         [Header("Limites verticales")]
         [Tooltip("Pitch minimum (degrés). Négatif = caméra regarde vers le bas.")]
         [Range(-89f, 0f)]
@@ -97,5 +102,6 @@ namespace Survain.Data
         public float ZoomSensitivity => _zoomSensitivity;
         public float ZoomSmoothTime => _zoomSmoothTime;
         public float RotationSmoothTime => _rotationSmoothTime;
+        public float PunchDecayRate => _punchDecayRate;
     }
 }
