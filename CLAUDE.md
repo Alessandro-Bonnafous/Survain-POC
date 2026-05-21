@@ -83,7 +83,7 @@
 
 **Objectifs du sprint** : boucle minimale de survie — récolter dans le monde, gérer un inventaire, transformer la matière par un craft engageant non-répétitif.
 - [x] Système d'items et ScriptableObjects (issue #5)
-- [ ] Nœuds de ressources et système de récolte (issue #6)
+- [x] Nœuds de ressources et système de récolte (issue #6)
 - [ ] Inventaire joueur (issue #7)
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
 
@@ -194,6 +194,35 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-21 — Récolte : phase 3 / respawn + prompt UI (Sprint 1, issue #6 complète)
+
+**Contexte.** Phase 3 et dernière de l'issue #6 : respawn des nœuds après épuisement, prompt UI "[E] Récolter X" quand le joueur vise un nœud. L'outline d'objet interactif (Renderer Feature URP) a été reporté hors phase 3 — le prompt seul suffit visuellement, l'outline pourra revenir en post-#6 si Pascal le juge utile.
+
+**Décisions.**
+1. **Respawn = réutilisation in-place via coroutine** (P1). `ResourceNode.Deplete()` ne fait plus `SetActive(false)` : il cache le visuel (`_visualInstance.SetActive(false)`) et désactive le collider. Le GameObject reste actif → la coroutine `RespawnAfterDelay` continue de tourner. Au délai écoulé : reset des HP, réactivation visuel/collider, event `OnRespawned`. Avantage : zéro allocation, état conservé (transform position, abonnements existants).
+2. **Délai paramétré par nœud** (P2). Nouveau champ `_respawnSeconds` sur `ResourceNodeData`, convention `0 = pas de respawn` (le défaut C# pour les SO existants → comportement actuel préservé sans tuning). Valeurs initiales : `tree=30s`, `rock=60s`, `fibre-bush=15s`, `ore-deposit=90s`. Variation par type pour rythmer l'exploration (fibres abondantes, minerais rares).
+3. **`InteractionPrompt` singleton screen-space overlay auto-créé** (P3). Lazy init au premier accès via `InteractionPrompt.Instance`, `DontDestroyOnLoad`. Construit son propre Canvas + RectTransform + Text au runtime. Zéro setup Unity côté scène — pattern "UI utilitaire qui se débrouille seul". Utilise `UnityEngine.UI.Text` (et non `TMP_Text`) pour éviter la dépendance aux TMP Essentials (pas garanti importés). À migrer vers TMP au Sprint UI quand on touchera à l'esthétique HUD.
+4. **Pas d'outline en phase 3** (P4). L'outline rim shader URP propre demande une Renderer Feature URP (config Project Settings + shader custom) — disproportionné pour le POC. Le prompt UI est suffisamment explicite. Solution alternative légère (tint via `MaterialPropertyBlock`) reportée si feel pauvre.
+5. **`PlayerHarvester` raycast en continu pour le hover**. Refactor : extraction de `RaycastForNode()` réutilisée par `Update` (toggle prompt selon `_currentTarget`) et `TryHarvest` (utilise `_currentTarget` cached). Une seule source de vérité, ~60 raycasts/s acceptables au POC. Le raycast retourne null si le premier hit non-joueur n'est pas un nœud (vue obstruée par terrain/drop/etc.) — pas de "voir à travers".
+6. **Event `OnRespawned` sur `ResourceNode`** consommé par `ResourceNodeJuice` pour reset `_targetHpScale`, `_currentHpScale`, `_scalePunchFactor`, `_shakeEndAt` et la position/échelle du visuel. Sans ça, un nœud respawned reprendrait son apparence rétrécie (~0.6×) d'avant destruction.
+
+**Alternatives écartées.**
+- **Destruction + re-spawn par le spawner** : sémantiquement plus propre mais demande de tenir une liste de "slots" à respawner côté spawner, plus de code, plus d'allocs.
+- **Object pool** : optimal sur grand nombre de nœuds mais overkill au stade POC.
+- **Range min/max sur le délai** (anti-synchronisation) : reportable si on observe que tous les nœuds reviennent en même temps et que ça fait moche visuellement.
+- **Canvas world-space par nœud** : 1 Canvas par nœud = overhead non négligeable (centaines de nœuds), et orientation à gérer (billboard). L'overlay global est plus économique.
+- **TextMeshPro** : meilleure typo mais demande l'import "TMP Essentials" (assets dans le projet) — pas garanti. uGUI Text marche partout, on migrera plus tard.
+- **Recheck raycast dans `TryHarvest`** au lieu du cache : fraîcheur garantie, mais coût d'un raycast supplémentaire au moment du press, et le `_currentTarget` du dernier Update est au pire à 1/60s de retard — négligeable.
+
+**Conséquences.**
+- **Pattern "mort logique sans destruction physique"** : pour tout objet qui doit revenir (nœud, futur PNJ ressuscitable, structure réparable), garder le GameObject actif + cacher visuel + désactiver collider permet de coder le retour via une simple coroutine sur l'objet lui-même.
+- **Pattern "UI utilitaire singleton lazy"** à répliquer : un service UI (prompt, notif, toast) peut s'auto-instancier au premier accès, créer son Canvas, et exposer une API impérative `Show/Hide`. Aucun composant à pré-placer en scène. À utiliser pour les futurs HUD légers (combat hit feedback, dialogue indicator, etc.).
+- Le respawn modifie la sémantique de "fin de vie" d'un nœud : `IsDepleted == true` ne signifie plus "GameObject inactif", mais "HP à 0, en attente du timer". Les abonnés à `OnDepleted` doivent en tenir compte (en pratique : seul `ResourceNodeJuice` est concerné, et il s'en sort avec `OnRespawned`).
+- **Issue #6 complète** : la case du Sprint 1 est désormais cochée.
+- Pattern dégagé pour les SO data : ajouter un champ avec `défaut = comportement actuel` (ici `0 = pas de respawn`) permet d'introduire une nouvelle mécanique sans casser les SO existants. Pas besoin de migration de YAML.
+
+---
 
 ### 2026-05-21 — Récolte : phase 2 / juice (Sprint 1, issue #6 partiel — suite)
 
@@ -564,4 +593,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-21 (Sprint 1 — récolte phase 2 / juice, issue #6 partiel)*
+*Dernière mise à jour : 2026-05-21 (Sprint 1 — récolte phase 3 / clôture issue #6)*
