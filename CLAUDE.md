@@ -195,6 +195,35 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-05-21 — Récolte : phase 2 / juice (Sprint 1, issue #6 partiel — suite)
+
+**Contexte.** Phase 2 de l'issue #6, dédiée au feedback "juice" : à chaque coup réussi sur un nœud, le visuel doit réagir (shake + scale punch), rapetisser progressivement à mesure que les HP descendent, émettre des particules colorées par type, et jouer un son si disponible. À l'épuisement, un burst plus généreux marque la destruction et doit **survivre** à la disparition du nœud.
+
+**Décisions.**
+1. **Composant `ResourceNodeJuice` séparé du `ResourceNode`** (J6). SRP : le core reste pur logique (HP, drop, events) ; le juice est une couche optionnelle attachée par le `ResourceNodeSpawner` à chaque spawn. On peut désactiver tout le feedback en retirant un seul composant. Communication via deux events C# publics sur `ResourceNode` (`OnHit`, `OnDepleted`).
+2. **Shake position + scale punch combinés** (J1). Shake amplitude 0.05m, durée 0.15s, intensité décroissante linéaire. Scale punch pic à 1.08×, retour exponentiel (`_scaleReturnRate = 25`). Les deux jouent sur le `VisualInstance` (exposé en lecture via un getter sur `ResourceNode`, sans coupler le Juice à l'init du visuel).
+3. **Scale décroissant proportionnel aux HP restants** (J2). Le visuel rapetisse à chaque coup vers une cible smooth-lerpée. Échelle min paramétrée par nœud (`_minScaleAtLastHit`, défaut 0.6). Formule : `Lerp(minScale, 1, CurrentHits / Hits)`.
+4. **Particules code-only avec `ParticleSystem` créé au `Start`** (J3). Émission en mode `Emit()` manuel (pas d'emission rate automatique) pour avoir un burst pile au moment du hit. Material `Universal Render Pipeline/Unlit` partagé statiquement (avec fallback `Sprites/Default` si URP indisponible), mesh cube partagé statiquement aussi — évite les allocations à chaque nœud. Couleur lue depuis `ResourceNodeData.HitColor`, taille/vitesse depuis le composant Juice.
+5. **Burst de destruction en GameObject standalone** (J5). Le `ResourceNode.Deplete` invoque `OnDepleted` AVANT `SetActive(false)`. Le Juice spawne alors un GameObject indépendant (pas enfant du nœud) avec son propre `ParticleSystem` + `stopAction = Destroy` + sécurité `Destroy(go, 5f)`. Les particules survivent à la disparition du nœud. Pattern à retenir pour tous les effets de "fin de vie" d'un objet : émettre ailleurs, pas en enfant.
+6. **API audio prête, sans assets** (J4). Champ `_hitSound : AudioClip` (nullable) sur `ResourceNodeData`. Si null = pas de son joué (pas d'erreur, pas de log). `AudioSource` 3D spatialisée (rolloff linéaire 2-25m) créé au Start sur le nœud. Volume scalé : 1× au hit, 1.4× à la destruction. Pas d'assets audio créés en phase 2 ; on branchera des clips quand on en aura.
+7. **Tuning par nœud dans `ResourceNodeData`** (J7). 5 nouveaux champs sous header "Juice" : `HitColor`, `HitParticleCount` (défaut 10), `DepleteParticleCount` (défaut 30), `MinScaleAtLastHit` (défaut 0.6), `HitSound` (nullable). Les params communs (durées, amplitudes shake, vitesse particules) restent sur le `ResourceNodeJuice` composant. Couleurs paramétrées : `tree` brun, `rock` gris, `fibre-bush` vert, `ore-deposit` ocre.
+
+**Alternatives écartées.**
+- **Tout dans `ResourceNode`** : viole SRP, fait grossir un composant déjà chargé (HP + drop + visuel + lifecycle).
+- **Prefab `ParticleSystem` par type de nœud référencé en SO** : plus joli si les assets existaient, mais demande à créer 4 prefabs binaires en phase POC ; le code-only avec couleur paramétrée donne un résultat suffisant.
+- **Bend directionnel du nœud** : joli pour arbres mais demande de connaître la direction d'impact (vector depuis caméra) ; pas universel (un rocher qui se penche, c'est bizarre). À reconsidérer si Pascal veut un feel plus "réaliste arbre".
+- **Émettre les particules de destruction en enfant du nœud** : elles seraient coupées au `SetActive(false)` qui suit immédiatement. Le standalone GameObject est la solution propre.
+- **`UnityEvent` au lieu d'`event System.Action`** : `UnityEvent` permet d'attacher des listeners dans l'Inspector, mais le `ResourceNodeJuice` est ajouté en code par le spawner — pas de path Inspector utile. Event C# pur, plus économe.
+
+**Conséquences.**
+- Pattern « event C# pur `Action` sur un MB + composant satellite qui s'y abonne pour les effets » devient le template pour le feedback. À répliquer pour le futur combat (hit/miss/parry sur un `CombatTarget`), les buildings (placement/destruction), etc.
+- Pattern « burst final en GameObject standalone détaché » : utile dès qu'un objet meurt et qu'on veut un effet qui lui survit (drop, mort PNJ, destruction batiment).
+- Les `ResourceNodeData.asset` ont leur champ `_hitColor` écrit dans le YAML ; les autres champs juice utilisent les valeurs par défaut C# (10, 30, 0.6, null) jusqu'à ce qu'Unity les sérialise à un prochain save. **Tuning futur via Inspector** : si Pascal veut un effet de destruction plus généreux sur un type, on touchera `_depleteParticleCount` directement dans le `.asset`.
+- Les materials/mesh des particules sont cached statiquement (cache cross-instance) : zéro allocation au-delà de la première utilisation. Pattern à retenir si on instancie beaucoup de juice.
+- L'issue #6 reste OPEN : phase 3 (respawn + prompt UI + outline) à venir.
+
+---
+
 ### 2026-05-21 — Récolte : phase 1 (Sprint 1, issue #6 partiel)
 
 **Contexte.** Phase 1 de l'issue #6, qui couvre la boucle minimale fonctionnelle de récolte : viser un nœud avec la caméra → appuyer sur E → coups successifs → nœud épuisé → drop au sol. Phases 2 (juice : feedback visuel/audio, réduction visuelle du nœud) et 3 (respawn + prompt UI + outline) à venir dans la même branche/PR. Découpage en phases validé pour permettre des validations visuelles intermédiaires avant d'investir dans le polish.
@@ -535,4 +564,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-21 (Sprint 1 — récolte phase 1, issue #6 partiel)*
+*Dernière mise à jour : 2026-05-21 (Sprint 1 — récolte phase 2 / juice, issue #6 partiel)*
