@@ -36,6 +36,20 @@ namespace Survain.Gameplay.Items
         public ResourceNodeData Data => _data;
         public int CurrentHits => _currentHits;
         public bool IsDepleted => _currentHits <= 0;
+        public Transform VisualInstance => _visualInstance != null ? _visualInstance.transform : null;
+
+        /// <summary>
+        /// Émis à chaque coup réussi (avant la vérification d'épuisement).
+        /// Consommé par ResourceNodeJuice pour le feedback visuel/audio.
+        /// </summary>
+        public event System.Action OnHit;
+
+        /// <summary>
+        /// Émis quand le nœud atteint 0 HP, juste avant la désactivation du GameObject.
+        /// Les abonnés qui veulent survivre à la destruction (particules de fin)
+        /// doivent spawner leurs effets dans des GameObjects standalone.
+        /// </summary>
+        public event System.Action OnDepleted;
 
         /// <summary>
         /// Assigne la data du nœud. Doit être appelé AVANT que le GameObject ne devienne actif
@@ -84,6 +98,8 @@ namespace Survain.Gameplay.Items
             _currentHits--;
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Coup porté sur '{_data.Id}' — HP restant : {_currentHits}/{_data.Hits}.", this);
+
+            OnHit?.Invoke();
 
             if (_currentHits <= 0)
             {
@@ -140,6 +156,7 @@ namespace Survain.Gameplay.Items
             SpawnDrop();
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Nœud '{_data.Id}' épuisé.", this);
+            OnDepleted?.Invoke();
             gameObject.SetActive(false);
         }
 

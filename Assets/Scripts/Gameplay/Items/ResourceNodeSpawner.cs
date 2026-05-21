@@ -213,6 +213,10 @@ namespace Survain.Gameplay.Items
             var node = go.AddComponent<ResourceNode>();
             node.SetData(data);
 
+            // Le composant de juice est requis par convention sur les nœuds spawned :
+            // il s'abonne aux events OnHit/OnDepleted du ResourceNode pour le feedback.
+            go.AddComponent<ResourceNodeJuice>();
+
             go.SetActive(true);
         }
 

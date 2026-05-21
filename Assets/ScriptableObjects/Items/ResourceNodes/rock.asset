@@ -20,3 +20,4 @@ MonoBehaviour:
   _harvestSeconds: 2
   _requiredTool: 2
   _visualPrefab: {fileID: 4680757731160225450, guid: 0fde05fa0f3321942a21896ff4f0856f, type: 3}
+  _hitColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}
