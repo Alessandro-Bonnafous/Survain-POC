@@ -195,6 +195,42 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-05-21 — Récolte : phase 1 (Sprint 1, issue #6 partiel)
+
+**Contexte.** Phase 1 de l'issue #6, qui couvre la boucle minimale fonctionnelle de récolte : viser un nœud avec la caméra → appuyer sur E → coups successifs → nœud épuisé → drop au sol. Phases 2 (juice : feedback visuel/audio, réduction visuelle du nœud) et 3 (respawn + prompt UI + outline) à venir dans la même branche/PR. Découpage en phases validé pour permettre des validations visuelles intermédiaires avant d'investir dans le polish.
+
+**Décisions.**
+1. **Mécanique de récolte = clic discret** (D2). Chaque pression sur Interact = 1 coup ; le nœud porte un `_hits` (nombre de coups requis, ajouté à `ResourceNodeData`). Cooldown entre 2 coups = `HarvestSeconds / ToolData.HarvestSpeed`. Style Minecraft. Alternative écartée : jauge sur touche maintenue (plus immersif mais complique l'animation + tuning). On peut basculer en jauge sans refonte si Pascal préfère le feel.
+2. **Ciblage = raycast caméra** (D3) avec `RaycastAll` + tri par distance + filtre des colliders enfants de `_playerRoot`. En 3e personne, le ray part de derrière le joueur et hit son `CharacterController` avant la cible — un simple `Raycast` ne suffit pas. Le filtre via référence Transform évite d'avoir à configurer un layer "Player" côté Unity (le setup reste 100% code).
+3. **`ResourceNodeSpawner` séparé du `TerrainGenerator`** (D4). Le `TerrainGenerator` est désormais responsable uniquement du mesh terrain ; le spawn des nœuds est délégué à un nouveau composant. Les anciens placeholders (cubes verts / sphères grises) ont été retirés du `TerrainGenerator`, ainsi que les champs orphelins du `TerrainGenerationSettings` (`_placeholderDensityPer100SqM`, `_maxSlopeDegrees`, `_treeRatio`). Le spawner consomme le `MeshCollider` du terrain via raycast vertical, seed-cohérent avec `GameSettings.WorldSeed` (XOR avec un salt pour ne pas aligner les nœuds sur le bruit Perlin).
+4. **Ordre d'exécution via `[DefaultExecutionOrder]`** : `-100` sur `TerrainGenerator`, `+100` sur `ResourceNodeSpawner`. Le `Start` du spawner s'exécute après celui du terrain, donc le `MeshCollider.sharedMesh` est déjà peuplé au moment du raycast. Garde-fou défensif : le spawner log une erreur explicite si `sharedMesh == null` (au cas où on l'utiliserait sans `TerrainGenerator` dans la scène).
+5. **`PlayerEquipment` provisoire** (D5). MB léger sur `_Player` avec un tableau `ToolData[] _toolSlots` (2 slots POC = hache + pioche) et un `CurrentTool` exposé read-only + event `OnCurrentToolChanged`. Piloté pour l'instant par les touches `1`/`2` (actions `Previous`/`Next` déjà bindées dans l'`InputActionAsset`). Quand l'inventaire (#7) arrivera, il pilotera `SetTool(int)` à la place — l'API publique reste stable.
+6. **`PlayerHarvester` distinct du `PlayerController`** (SRP). Le contrôleur garde son scope locomotion (Move/Jump/Sprint) et reste l'unique propriétaire du cycle Enable/Disable de la map `Player` (cf. décision 2026-04-26 §3). Le `PlayerHarvester` consomme `Interact`/`Previous`/`Next` sans toucher à l'activation. Pattern : un seul owner par map, autant de consumers que nécessaire.
+7. **`Interact.started` au lieu de `performed`**. L'action `Interact` de l'`InputActionAsset` a une interaction `Hold` (binding existant). S'abonner à `started` court-circuite le délai Hold et donne le comportement de clic discret voulu sans modifier l'asset binaire. Pattern à retenir : pour les actions avec interactions complexes, on choisit le phase d'event (`started`/`performed`/`canceled`) plutôt que de toucher à l'asset.
+8. **Drop = `WorldItemDropPlaceholder` jetable** (D6). Cube jaune avec Rigidbody qui tombe au sol et log son contenu (`Xx 'item-id'`) au premier impact. Sera remplacé en #7 par un vrai `WorldItem` (mesh propre, trigger de pickup vers inventaire). Le `ResourceNode` instancie le drop soit via un prefab référencé (`_dropPrefab`), soit en pur code si le champ est null — phase 1 utilise le mode code.
+9. **`_visualPrefab` sur `ResourceNodeData`** (D7). Référence optionnelle au mesh à instancier comme enfant du nœud. Fallback automatique si null : primitive colorée (cube vert pour les nœuds requérant une hache, sphère pour les autres). Sur ce projet, branchement avec les prefabs du `SimpleNaturePack` (pack tiers non versionné). Note pratique : les materials Built-in du pack sont rose sous URP → conversion via `Window → Rendering → Render Pipeline Converter` (local à la machine, pas dans le repo).
+10. **Punch caméra léger** (D8 partiel). Ajout d'une API publique `PlayerCameraRig.Punch(degrees)` qui ajoute un offset additif au pitch final, décroissant exponentiellement via `_punchDecayRate` (nouveau champ `PlayerCameraConfig`). À chaque coup réussi, le harvester appelle `Punch(2°)`. Pas d'animation avatar (la capsule placeholder du joueur n'est pas riggée — viendra Sprint 4 combat).
+
+**Alternatives écartées.**
+- **Une seule grosse PR couvrant les 7 chantiers #6 d'un coup** : review difficile, intégration risquée. Phases successives sur la même branche permettent des points de validation visuels intermédiaires.
+- **Touche maintenue + jauge progressive** : plus immersif mais complique l'animation et le tuning ; basculement possible plus tard si feel insatisfaisant.
+- **Configurer un layer "Player" exclusif** au raycast : standard Unity mais nécessite setup côté éditeur. Le filtre via Transform reste 100% code, plus self-contained pour un POC.
+- **Étendre `TerrainGenerator` pour spawner aussi les nœuds** : couple deux responsabilités, casse SRP. Le spawner dédié est plus extensible (un jour : un spawner par biome).
+- **Logique de récolte directement dans `PlayerController`** : viole SRP, gonfle un composant déjà chargé (Move/Jump/Sprint). Le composant dédié reste lisible et testable séparément.
+- **Modifier l'`InputActionAsset` pour retirer l'interaction Hold de `Interact`** : nécessaire pour `performed` mais évitable via `started`. Mieux de ne pas toucher à un asset binaire si une solution code-only existe.
+- **Pickup direct dans une "console inventory"** sans drop physique : casserait le critère d'acceptation `ressources tombent au sol`.
+
+**Conséquences.**
+- Pattern « SO data + MonoBehaviour runtime + référence par GUID via inspector » consolidé : `ResourceNodeData` ↔ `ResourceNode`, comme `BiomeConfig` ↔ (à venir) et `TerrainGenerationSettings` ↔ `TerrainGenerator`.
+- Le `_playerRoot` du `PlayerHarvester` exposé en SerializeField nullable avec fallback `transform` au Awake : pattern utile pour tous les futurs systèmes d'interaction joueur (combat, dialogue, construction).
+- `Survain.Gameplay.Items` est le nouveau sous-namespace pour les runtime MB des items dans le monde (à distinguer de `Survain.Items` qui reste pour les SO data). Cohérent avec `Survain.Gameplay.Player` ↔ `Survain.Items` au niveau data.
+- Les ResourceNodeData.asset sont tunés à `_harvestSeconds = 2` pour la sensation phase 1 (le code de bootstrap garde ses valeurs originales 4/5/6 ; règle « code = origine, asset = tuning » conservée).
+- L'ordre des composants via `[DefaultExecutionOrder]` devient le pattern par défaut pour les chaînes de dépendances Start() entre systèmes du monde. À répliquer dès qu'une chaîne similaire apparaît.
+- `PlayerCameraConfig.PunchDecayRate` est paramétrable à l'asset ; valeur par défaut 8 (retour ~0.4s pour un punch de 2°). Réutilisable par d'autres systèmes (futur combat).
+- L'issue #6 reste OPEN : phases 2 (juice) et 3 (respawn + prompt + outline) à enchaîner. La case `#6` du Sprint 1 sera cochée à la clôture complète.
+
+---
+
 ### 2026-05-17 — Système d'items et ScriptableObjects (Sprint 1, issue #5)
 
 **Contexte.** Issue #5 du Sprint 1, fondation indispensable pour #6 (récolte), #7 (inventaire) et #8 (craft). Besoin d'un modèle de données SO qui couvre les 6 rôles métier d'item (Resource, Tool, Weapon, Armor, Building, Consumable), les 3 tiers de craft (Basic/Wild/Superior), les nœuds de récolte, et qui supporte une sauvegarde future par identifiant stable.
@@ -499,4 +535,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-17 (Sprint 1 — décision système d'items, issue #5)*
+*Dernière mise à jour : 2026-05-21 (Sprint 1 — récolte phase 1, issue #6 partiel)*
