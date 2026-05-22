@@ -64,14 +64,15 @@ namespace Survain.Gameplay.Player
 
         private const string ActionMapName = "Player";
         private const string InteractActionName = "Interact";
-        private const string PreviousActionName = "Previous";
-        private const string NextActionName = "Next";
+        private const int HotbarSize = 4;
+        private static readonly string[] EquipSlotActionNames =
+            { "EquipSlot1", "EquipSlot2", "EquipSlot3", "EquipSlot4" };
 
         // ─── État runtime ───────────────────────────────────────────────────
 
         private InputAction _interactAction;
-        private InputAction _previousAction;
-        private InputAction _nextAction;
+        private InputAction[] _equipSlotActions;
+        private Action<InputAction.CallbackContext>[] _equipSlotHandlers;
         private float _nextHitAllowedAt; // Time.time minimal pour le prochain coup
         private ResourceNode _currentTarget; // résultat du dernier raycast hover
 
@@ -91,14 +92,32 @@ namespace Survain.Gameplay.Player
 
             var map = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
             _interactAction = map?.FindAction(InteractActionName, throwIfNotFound: false);
-            _previousAction = map?.FindAction(PreviousActionName, throwIfNotFound: false);
-            _nextAction = map?.FindAction(NextActionName, throwIfNotFound: false);
 
-            if (_interactAction == null || _previousAction == null || _nextAction == null)
+            _equipSlotActions = new InputAction[HotbarSize];
+            _equipSlotHandlers = new Action<InputAction.CallbackContext>[HotbarSize];
+            for (int i = 0; i < HotbarSize; i++)
+            {
+                _equipSlotActions[i] = map?.FindAction(EquipSlotActionNames[i], throwIfNotFound: false);
+                int slotIndex = i; // capture pour le delegate
+                _equipSlotHandlers[i] = _ => _equipment.SetTool(slotIndex);
+            }
+
+            if (_interactAction == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
-                    "PlayerHarvester : actions Interact/Previous/Next introuvables dans la map 'Player'.", this);
+                    "PlayerHarvester : action 'Interact' introuvable dans la map 'Player'.", this);
                 enabled = false;
+                return;
+            }
+
+            for (int i = 0; i < HotbarSize; i++)
+            {
+                if (_equipSlotActions[i] == null)
+                {
+                    SurvainLog.Warn(SurvainLog.Category.Gameplay,
+                        $"PlayerHarvester : action '{EquipSlotActionNames[i]}' introuvable. Le slot hotbar {i} ne sera pas équipable au clavier.",
+                        this);
+                }
             }
         }
 
@@ -107,15 +126,27 @@ namespace Survain.Gameplay.Player
             // On utilise 'started' (pression initiale) plutôt que 'performed' pour bypass
             // l'interaction Hold de l'asset Interact (qui imposerait un délai de 0.4s par défaut).
             if (_interactAction != null) _interactAction.started += OnInteractStarted;
-            if (_previousAction != null) _previousAction.performed += OnPreviousPerformed;
-            if (_nextAction != null) _nextAction.performed += OnNextPerformed;
+
+            if (_equipSlotActions != null)
+            {
+                for (int i = 0; i < HotbarSize; i++)
+                {
+                    if (_equipSlotActions[i] != null) _equipSlotActions[i].performed += _equipSlotHandlers[i];
+                }
+            }
         }
 
         private void OnDisable()
         {
             if (_interactAction != null) _interactAction.started -= OnInteractStarted;
-            if (_previousAction != null) _previousAction.performed -= OnPreviousPerformed;
-            if (_nextAction != null) _nextAction.performed -= OnNextPerformed;
+
+            if (_equipSlotActions != null)
+            {
+                for (int i = 0; i < HotbarSize; i++)
+                {
+                    if (_equipSlotActions[i] != null) _equipSlotActions[i].performed -= _equipSlotHandlers[i];
+                }
+            }
         }
 
         // ─── Update : hover & prompt ────────────────────────────────────────
@@ -150,8 +181,6 @@ namespace Survain.Gameplay.Player
         // ─── Input handlers ─────────────────────────────────────────────────
 
         private void OnInteractStarted(InputAction.CallbackContext _) => TryHarvest();
-        private void OnPreviousPerformed(InputAction.CallbackContext _) => _equipment.SetTool(0);
-        private void OnNextPerformed(InputAction.CallbackContext _) => _equipment.SetTool(1);
 
         // ─── Logique de récolte ─────────────────────────────────────────────
 
