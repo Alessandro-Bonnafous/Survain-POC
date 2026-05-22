@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Survain.Core;
@@ -49,6 +50,15 @@ namespace Survain.Gameplay.Player
         [Tooltip("Intensité du punch caméra (degrés) à chaque coup. 0 = désactivé.")]
         [Range(0f, 10f)]
         [SerializeField] private float _cameraPunchDegrees = 2f;
+
+        // ─── Events ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Déclenché à chaque coup qui touche effectivement un nœud (TryHit a réussi),
+        /// AVANT l'application du cooldown. Consommé par PlayerVisualAnimator pour
+        /// déclencher l'anim de récolte (punch générique au Sprint 1).
+        /// </summary>
+        public event Action HitLanded;
 
         // ─── Constantes ─────────────────────────────────────────────────────
 
@@ -183,6 +193,8 @@ namespace Survain.Gameplay.Player
             var tool = _equipment.CurrentTool;
             bool hitLanded = node.TryHit(tool);
             if (!hitLanded) return;
+
+            HitLanded?.Invoke();
 
             // Cooldown jusqu'au prochain coup
             float speed = (tool != null && tool.HarvestSpeed > 0f) ? tool.HarvestSpeed : 1f;

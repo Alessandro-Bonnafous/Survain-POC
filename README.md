@@ -97,26 +97,69 @@ git lfs pull
 
 Appuyer sur **▶️ Play** dans la barre supérieure de l'éditeur Unity.
 
-### Assets tiers à réimporter
+### Assets tiers
 
-Certains assets utilisés dans le projet proviennent du **Unity Asset Store** et ne sont **pas versionnés** dans le repo (la Standard Unity Asset Store EULA interdit leur redistribution publique). Il faut donc les réimporter manuellement après le clone, avec ton propre compte Unity.
+Deux sources d'assets externes alimentent le projet — chacune avec une politique de versioning différente.
 
-| Asset | Source | Dossier d'import attendu |
+#### 🛍️ Unity Asset Store (modèles 3D, packs Synty…)
+
+Les packs **Unity Asset Store** ne sont **pas versionnés** (la Standard Unity Asset Store EULA interdit leur redistribution publique). À réimporter manuellement après chaque clone, avec ton compte Unity.
+
+| Pack | Lien Asset Store | Dossier d'import attendu |
 |---|---|---|
-| SimpleNaturePack | _Asset Store — lien à compléter par le PO_ | `Assets/ThirdParty/SimpleNaturePack/` |
+| SimpleNaturePack | _lien à compléter_ | `Assets/ThirdParty/SimpleNaturePack/` |
+| Synty Sidekick Characters | [voir Asset Store](https://assetstore.unity.com/publishers/5217) (publisher Synty) | `Assets/Synty/SidekickCharacters/` ⚠️ chemin forcé par le pack |
+| Synty PolygonGeneric _(Sprint 2 — construction)_ | [voir Asset Store](https://assetstore.unity.com/publishers/5217) | `Assets/ThirdParty/Synty/PolygonGeneric/` |
 
 **Procédure d'import :**
 
 1. Ouvrir le projet dans Unity.
-2. Ouvrir le **Package Manager** : `Window` → `Package Manager`.
-3. En haut à gauche, sélectionner **« My Assets »** (nécessite d'être connecté à ton compte Unity).
-4. Chercher le pack par son nom, cliquer **Download** puis **Import**.
-5. Dans la fenêtre d'import, **tout cocher** (ou au minimum les dossiers `Models/`, `Materials/`, `Prefabs/`, `Textures/`).
-6. Cliquer **Import**.
+2. `Window` → `Package Manager` → sélectionner **« My Assets »** en haut à gauche (nécessite d'être connecté au compte Unity propriétaire du pack).
+3. Chercher le pack par son nom → **Download** → **Import**.
+4. Dans la fenêtre d'import : tout cocher (ou au minimum `Models/`, `Materials/`, `Prefabs/`, `Textures/`) → **Import**.
 
-> Si un asset apparaît dans une scène mais que ses prefabs sont absents (icônes roses ou messages d'erreur de référence manquante), c'est qu'un pack n'a pas été importé. Refais la procédure ci-dessus.
+**Diagnostic d'un pack manquant :** prefabs roses dans la scène, messages "Missing Reference" en Console au démarrage, ou couleurs aberrantes (souvent dues à des materials Built-in dans un projet URP). Refaire la procédure d'import du pack concerné.
 
-> **Note pour les contributeurs :** ne jamais committer le contenu d'un pack du Store. Le `.gitignore` couvre les packs déjà connus ; si tu en ajoutes un nouveau, ajoute son chemin dans `.gitignore` ET dans le tableau ci-dessus, puis acte la décision dans `CLAUDE.md`.
+**Conversion URP des materials (si nécessaire) :** certains packs anciens sont livrés avec des materials Built-in qui apparaissent **roses** sous URP. Fix : `Window` → `Rendering` → `Render Pipeline Converter` → choisir `Built-in to URP` → cocher `Material Upgrade` → `Initialize and Convert`. Opération locale, pas committée.
+
+**Ajouter un nouveau pack au projet** (checklist pour les contributeurs) :
+1. Vérifier que son chemin d'import est couvert par `.gitignore` (`/Assets/ThirdParty/` ou path-spécifique).
+2. Ajouter une ligne dans le tableau ci-dessus.
+3. Acter la décision dans `CLAUDE.md` (journal des décisions).
+
+---
+
+#### 🎬 Mixamo (animations de personnages)
+
+Les animations gameplay (locomotion, saut, attaques…) viennent de [**mixamo.com**](https://www.mixamo.com) (Adobe, **gratuit** avec un compte Adobe). Contrairement aux packs Store, les FBX Mixamo **sont versionnés** dans le repo (`Assets/Animation/Mixamo/`, en Git LFS via `*.fbx`). Pas de réimport après clone.
+
+**Pourquoi versionner Mixamo et pas l'Asset Store ?** Mixamo permet la redistribution dans un projet, l'Asset Store EULA non.
+
+**Procédure pour télécharger une nouvelle anim :**
+
+1. Aller sur [mixamo.com](https://www.mixamo.com) (connecté avec un compte Adobe).
+2. Chercher l'anim désirée (ex: `Walking`, `Punching`, `Crouch Idle`).
+3. Sur la page de l'anim, panneau droit :
+   - **In Place** : ✅ coché (pas de déplacement racine — on bouge via `CharacterController`)
+   - **Trim** : laisser par défaut sauf si l'anim a du temps mort en début/fin
+   - **Overdrive** : 100 (vitesse standard ; calibrage fin via le `Speed` du Blend Tree dans Unity)
+4. **Download** → format `FBX for Unity` → **Skin** = `Without Skin` (on a déjà nos persos) → **Frames per Second** = 30 → **Keyframe Reduction** = none.
+5. Sauvegarder dans `Assets/Animation/Mixamo/<NomAnim>.fbx`.
+
+**Configuration Unity après import** (checklist incontournable) :
+
+| Étape | Réglage | Pourquoi |
+|---|---|---|
+| 1. Onglet `Rig` | `Animation Type` = **Humanoid** | Active le retargeting Humanoid |
+| 2. Onglet `Rig` | `Avatar Definition` = **Create From This Model** | Rigs Mixamo ≠ rigs Synty → `Copy From Other Avatar` plante |
+| 3. Onglet `Rig` | **Apply** | Génère l'avatar sous-asset du FBX |
+| 4. Onglet `Animation` | `Loop Time` ✅ + `Loop Pose` ✅ pour les anims qui bouclent (Idle/Walk/Run) | Mixamo ne les active pas par défaut → l'anim joue une fois et fige ("personne se fige et glisse") |
+| 5. Onglet `Animation` | `Loop Time` ❌ pour les one-shots (Jump, Punch, Attack) | Pas de boucle souhaitée |
+| 6. **Apply** | — | Sauve la config |
+
+**Test rapide après import :** preview FBX en bas de l'Inspector → joue l'anim → vérifie que le cycle reboucle (loopable) ou s'arrête (one-shot) comme attendu.
+
+**Pour brancher l'anim dans le projet :** voir l'`AnimatorController` `Assets/Animation/PlayerAvatar.controller` comme exemple (Blend Tree de locomotion + state Jump + state Punch, paramètres `speed`/`isGrounded`/`isJumping`/`isHarvesting`).
 
 ---
 
