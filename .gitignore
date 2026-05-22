@@ -104,3 +104,10 @@ secrets/
 /Assets/ThirdParty/
 /Assets/ThirdParty.meta
 *.unitypackage.meta
+
+# Synty Sidekick force son installation à Assets/Synty/ (path codé en dur dans le pack).
+# Cache de téléchargement Unity Asset Store (.unitypackage bruts).
+/Assets/Synty/
+/Assets/Synty.meta
+/Assets/DownloadCache/
+/Assets/DownloadCache.meta

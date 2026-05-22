@@ -104,6 +104,9 @@ Certains assets utilisés dans le projet proviennent du **Unity Asset Store** et
 | Asset | Source | Dossier d'import attendu |
 |---|---|---|
 | SimpleNaturePack | _Asset Store — lien à compléter par le PO_ | `Assets/ThirdParty/SimpleNaturePack/` |
+| Synty Sidekick Characters | [Asset Store](https://assetstore.unity.com/publishers/5217) (Synty publisher) | `Assets/ThirdParty/Synty/SidekickCharacters/` |
+
+> **Note Mixamo :** les animations de personnage (Idle, Walk, Run, Jump) sont téléchargées depuis [mixamo.com](https://www.mixamo.com) (Adobe, gratuit avec compte) en FBX `Humanoid` `In Place` et **versionnées** dans `Assets/Animation/Mixamo/` (les `.fbx` sont en Git LFS). Pas de réimport individuel à faire après clone.
 
 **Procédure d'import :**
 

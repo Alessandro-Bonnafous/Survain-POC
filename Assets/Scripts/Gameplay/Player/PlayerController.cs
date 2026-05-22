@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
@@ -41,6 +42,14 @@ namespace Survain.Gameplay.Player
         private const string MoveActionName = "Move";
         private const string JumpActionName = "Jump";
         private const string SprintActionName = "Sprint";
+
+        // ─── Events ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Déclenché au frame exact du décollage (saut effectif, pas seulement l'input).
+        /// Consommé par PlayerVisualAnimator pour déclencher l'anim de jump.
+        /// </summary>
+        public event Action Jumped;
 
         // ─── État runtime ───────────────────────────────────────────────────
 
@@ -172,6 +181,7 @@ namespace Survain.Gameplay.Player
                 {
                     // v0 tel que h_max = v0² / (2g) → v0 = sqrt(2 * h * |g|)
                     _velocity.y = Mathf.Sqrt(2f * _config.JumpHeight * -_config.Gravity);
+                    Jumped?.Invoke();
                 }
             }
 

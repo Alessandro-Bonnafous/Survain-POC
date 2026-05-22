@@ -2,10 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(git -C c:/dev/repositories/Survain-POC/ status)",
-      "Bash(git -C c:/dev/repositories/Survain-POC/ branch --show-current)"
+      "Bash(git -C c:/dev/repositories/Survain-POC/ branch --show-current)",
+      "Bash(gh auth *)",
+      "Bash(gh --version)",
+      "Bash(gh issue *)",
+      "Bash(git checkout *)",
+      "Bash(git check-attr *)",
+      "Bash(rm -rf Assets/ThirdParty/Synty/PolygonStarter Assets/ThirdParty/Synty/PolygonStarter.meta && ls Assets/ThirdParty/Synty/)",
+      "Bash(git add *)"
     ],
     "additionalDirectories": [
-      "c:\\dev\\repositories\\Survain-POC\\Assets\\Scripts"
+      "c:\\dev\\repositories\\Survain-POC\\Assets\\Scripts",
+      "C:\\dev\\repositories\\Survain-POC\\Assets\\ThirdParty\\Synty\\PolygonStarter"
     ]
   }
 }
