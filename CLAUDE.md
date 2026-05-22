@@ -85,7 +85,7 @@
 - [x] Système d'items et ScriptableObjects (issue #5)
 - [x] Nœuds de ressources et système de récolte (issue #6)
 - [x] Avatar joueur Synty Sidekick + anims Mixamo (issue #33, ajoutée en cours de sprint)
-- [/] Inventaire joueur (issue #7) — phase 1/3 (cœur fonctionnel) terminée
+- [/] Inventaire joueur (issue #7) — phases 1/3 et 2/3 terminées, drag&drop + drop manuel à venir
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
 
 **Livrable du sprint :** build où le joueur peut couper un arbre / miner une roche, voir les ressources dans son inventaire, et crafter un outil de base via une mécanique non-répétitive.
@@ -196,6 +196,42 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-22 — Inventaire joueur phase 2/3 : UI hotbar + panel inventaire (Sprint 1, issue #7 partiel)
+
+**Contexte.** Phase 2 de l'issue #7 : matérialiser l'inventaire data layer de la phase 1 en interface uGUI. Hotbar visible en permanence en bas d'écran (4 slots), panel inventaire ouvrable Tab/I (24 slots en grille 6×4). Phase 3 (drag & drop + drop d'items depuis l'inventaire) à enchaîner. **Validation Pascal sur le pickup auto reportée volontairement par Aless** (responsabilité assumée) — basculer en pickup manuel reste possible sans refonte si Pascal arbitre dans ce sens en phase 3.
+
+**Décisions.**
+1. **3 composants C# distincts, SRP strict.** `InventorySlotView` (vue d'un slot unique, s'abonne à `Inventory.OnSlotChanged` et filtre sur son index), `HotbarUI` (binding hotbar + matérialisation slot équipé via `PlayerEquipment.OnCurrentToolChanged`), `InventoryUI` (binding backpack + toggle panel + gestion curseur). Pattern MVVM léger : la data (`Inventory`) ignore la vue, la vue s'abonne ponctuellement. Permet de remplacer toute la couche UI plus tard (UI Toolkit, mod, console UI) sans toucher au data.
+2. **uGUI Canvas (confirmé)** — décision phase 1 §4 maintenue. Cohérent avec `InteractionPrompt` (uGUI, cf. 2026-05-21 phase 3 §3). `Canvas` Screen Space Overlay + `CanvasScaler` Scale With Screen Size (1920×1080 ref, match 0.5).
+3. **Pas de prefab Slot template.** Aless construit le premier slot dans la scène puis duplique (`Ctrl+D × N`) — `Horizontal Layout Group` (hotbar) et `Grid Layout Group` (backpack) gèrent le placement auto. Tradeoff : un prefab serait plus DRY pour modifications futures mais demande un workflow Unity supplémentaire ; le `Ctrl+D` reste pragmatique au POC. Si la phase 3 demande de toucher au visuel des slots, on reprefabricera à ce moment.
+4. **Fallback visuel quand `ItemData.Icon` est null** (décision 2026-05-17 §8 conservée : icônes vides au POC). Le `InventorySlotView` calcule :
+   - **Couleur** : `Color.HSVToRGB(hash(id) / 65535f, 0.55f, 0.8f)` — saturation/luminosité fixes pour lisibilité, teinte distribuée sur tout le cercle. Déterministe (même item = même couleur cross-session).
+   - **Texte 3 lettres** : prend la partie après le dernier tiret de l'Id (`stone-axe` → "AXE", `raw-wood` → "WOO", `raw-stone` → "STO"). Première version naïve "3 premières lettres" donnait "STO"/"STO" indistinguable pour `stone-axe`/`stone-pickaxe` ; le pivot après le dernier tiret exploite la convention kebab-case `domaine-nom` où le nom est plus discriminant que le domaine.
+5. **Input : touches numériques directes 1-4 pour la hotbar** (et non Previous/Next molette/flèches). Standard FPS/survie, simple à binder. Les actions `Previous`/`Next` ont été **supprimées de l'`InputActionAsset`**, remplacées par `EquipSlot1`/`EquipSlot2`/`EquipSlot3`/`EquipSlot4` (1 action par slot, bindée sur `<Keyboard>/N`). Implémentation `PlayerHarvester` : tableau de 4 `InputAction` + tableau de 4 `Action<CallbackContext>` (delegate cached pour pouvoir désabonner) avec capture de l'index dans une lambda. Pattern à répliquer si on a un jour 10+ slots.
+6. **Toggle inventaire = `ToggleInventory` avec 2 bindings (Tab + I).** L'utilisateur peut utiliser l'une ou l'autre touche — pratique pour les habitudes différentes (Tab = MMO, I = Minecraft). Stocké comme 1 action dans la map `Player` avec 2 bindings sur la même action (et non 2 actions séparées). Évite le code de coalescing côté script.
+7. **Curseur libéré quand panel ouvert.** `InventoryUI.SetOpen(true)` met `Cursor.lockState = None` + `Cursor.visible = true` ; `SetOpen(false)` re-locke. Décision CLAUDE.md 2026-04-26 §6 (PlayerCameraRig autorité du curseur) **assouplie** : InventoryUI prend l'autorité temporairement quand le panel est ouvert, PlayerCameraRig la reprend implicitement à la fermeture (pas d'appel mutuel — chacun écrit ce qu'il veut, le dernier écrit gagne). Convention à formaliser quand on aura plus de menus (UI menu pause, menu craft, dialogue) : créer un `CursorOwnershipStack` si nécessaire.
+8. **Pas de pause du jeu pendant inventaire ouvert** (survie temps réel). Le joueur reste vulnérable. À reconsidérer pour les futurs sous-menus stratégiques (carte du royaume Sprint 4) qui demandent de figer le temps.
+9. **Bug désabonnement OnDisable** (rencontré pendant le dev) : `InventorySlotView` désabonnait `OnSlotChanged` dans `OnDisable`. Au `Start` de `InventoryUI`, on fait `Bind` puis `SetActive(false)` du panel → tous les slots reçoivent OnDisable → désabonnement immédiat → les slots ne sont plus jamais notifiés. Fix : désabonner uniquement dans `OnDestroy`. Les `RefreshFromSlot` continuent à tourner sur GameObject désactivé sans souci. **Pattern à retenir** : si un composant a besoin de rester abonné en arrière-plan (panel caché mais data à jour pour le re-open), désabonner à `OnDestroy` plutôt qu'à `OnDisable`.
+
+**Alternatives écartées.**
+- **UI Toolkit (UIElements)** : déjà rejeté en phase 1 §4. Cohérence uGUI maintenue.
+- **Prefab Slot réutilisé** : trop de plomberie POC, le `Ctrl+D` suffit. À reprefabricer en phase 3 si on touche au visuel.
+- **Slot avec `Image` jaune full-cover + alpha bas pour la sélection** : alternative au `SelectionFrame` outline. Choisie au final pour sa simplicité visuelle et la facilité de setup (pas de sprite custom à fabriquer).
+- **CanvasGroup + alpha 0 au lieu de SetActive(false)** pour le panel : aurait évité le bug désabonnement mais demande un setup supplémentaire. Le fix OnDestroy est plus propre côté code.
+- **Cycle hotbar via molette en complément des touches** : option discutée et écartée. À ré-ajouter si Pascal trouve le confort manquant.
+- **Pause du jeu pendant inventaire ouvert** : option écartée (cohérent survie temps réel).
+- **`Previous`/`Next` conservés en complément** : retirés totalement de l'InputActionAsset. Si besoin futur, ré-ajouter proprement.
+
+**Conséquences.**
+- L'API publique `Inventory.OnSlotChanged` est désormais consommée par 2 systèmes en aval (`PlayerEquipment` côté gameplay, `InventorySlotView` côté UI). Pattern fan-out validé : un event C# `Action` peut alimenter N consommateurs sans coupler les consommateurs entre eux.
+- `InventoryUI` est le **premier composant UI** du projet à manipuler le curseur. Convention assouplie « le dernier qui écrit gagne, pas de stack formel tant qu'on n'en a pas besoin ». À surveiller quand on ajoutera d'autres menus.
+- Convention « désabonnement à OnDestroy plutôt qu'OnDisable » pour les composants UI dont la data doit rester à jour même en arrière-plan. Pattern à répliquer pour les futurs HUD craft, dialogue, journal.
+- L'`InputActionAsset` perd 2 actions (`Previous`, `Next`) et en gagne 5 (`ToggleInventory`, `EquipSlot1-4`). Net +3 actions. Pas de breaking change côté code consommateur car `PlayerHarvester` est le seul à les utiliser et il a été refondu en même temps.
+- Phase 2 termine la couche "voir l'état". Phase 3 ajoutera la couche "modifier l'état via interaction UI" (drag & drop, drop au monde).
+- Issue #7 reste OPEN, phase 3 à enchaîner. Décision « pickup auto » toujours en attente d'arbitrage Pascal (non bloquant).
+
+---
 
 ### 2026-05-22 — Inventaire joueur phase 1/3 : data model + pickup (Sprint 1, issue #7 partiel)
 
@@ -662,4 +698,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-22 (Sprint 1 — inventaire phase 1/3 / issue #7 partiel)*
+*Dernière mise à jour : 2026-05-22 (Sprint 1 — inventaire phase 2/3 / issue #7 partiel)*
