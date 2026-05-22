@@ -292,11 +292,9 @@ Get-Content Builds/build.log -Wait -Tail 30
 
 ---
 
-## 🏷️ Versioning et tags
+## 🏷️ Versioning et release
 
-On utilise **SemVer** avec préfixe `v` : `vMAJOR.MINOR.PATCH`.
-
-Pendant le POC, on tague à la fin de chaque sprint :
+On utilise **SemVer** avec préfixe `v` : `vMAJOR.MINOR.PATCH`. Pendant le POC, on tague à la fin de chaque sprint :
 
 | Tag | Signification |
 |---|---|
@@ -307,14 +305,76 @@ Pendant le POC, on tague à la fin de chaque sprint :
 | `v0.5.0` | Fin Sprint 4 — Combat & Zone Sauvage |
 | `v1.0.0-poc` | Fin Sprint 5 — POC complet |
 
-Créer et pousser un tag :
+Des **builds intermédiaires** (preview de fin d'issue, validation visuelle avec le PO) peuvent être taggués avec un suffixe : `v0.1.1-preview`, `v0.2.0-rc1`, etc.
 
-```bash
-git tag -a v0.1.0 -m "Sprint 0 — Fondations"
-git push origin v0.1.0
+### Procédure de release (manuelle)
+
+End-to-end, du build local à la GitHub Release avec binaire attaché. **L'éditeur Unity doit être fermé** pendant tout le processus (cf. section précédente).
+
+#### 1. Bumper la version
+
+Ouvrir Unity → `Edit` → `Project Settings` → `Player` → `Version` → entrer la nouvelle valeur (ex: `0.2.0`). Sauver (`Ctrl+S` de la scène ou Project Settings auto-save). Commit le diff `ProjectSettings/ProjectSettings.asset` :
+
+```powershell
+git add ProjectSettings/ProjectSettings.asset
+git commit -m "chore(release): bump version 0.2.0"
+git push
 ```
 
-Une **GitHub Release** est créée à chaque tag, avec notes de version et build attaché quand pertinent.
+#### 2. Lancer le build batch mode
+
+Fermer Unity. Depuis PowerShell, à la racine du repo :
+
+```powershell
+& "C:\Program Files\Unity\Hub\Editor\<version-unity>\Editor\Unity.exe" `
+  -batchmode -nographics -quit `
+  -projectPath "." `
+  -buildTarget Win64 `
+  -executeMethod Survain.Editor.BuildScript.BuildWindows `
+  -logFile Builds/build.log
+```
+
+Vérifier en fin de build : `Builds/win64/<version>/SURVAIN.exe` doit exister.
+
+#### 3. Zipper le dossier de build
+
+```powershell
+$version = "0.2.0"  # adapter
+Compress-Archive -Path "Builds/win64/$version/*" `
+                 -DestinationPath "Builds/SURVAIN-v$version-win64.zip" `
+                 -Force
+```
+
+⚠️ Inclure **tout le dossier** `Builds/win64/<version>/` (pas seulement le `.exe`) — Unity génère aussi un dossier `*_Data/` et des DLLs nécessaires au runtime.
+
+#### 4. Tagger et pousser
+
+```powershell
+git tag -a "v0.2.0" -m "Sprint 1 — Récolte & Craft"
+git push origin v0.2.0
+```
+
+#### 5. Créer la GitHub Release avec le binaire
+
+```powershell
+gh release create v0.2.0 `
+  --title "v0.2.0 — Sprint 1 (Récolte & Craft)" `
+  --notes-file Builds/RELEASE_NOTES.md `
+  Builds/SURVAIN-v0.2.0-win64.zip
+```
+
+Variantes utiles :
+- `--draft` : la release n'est visible que par les collaborateurs du repo (utile pour partager un build privé avec le PO sans le rendre public).
+- `--prerelease` : marque la release comme « pre-release » dans GitHub UI (utile pour les `*-preview`, `*-rc*`).
+- `--notes "Texte court"` : remplace `--notes-file` si tu veux passer les notes inline.
+
+#### 6. (Optionnel) Tester le téléchargement
+
+Aller sur la page Release → cliquer le `.zip` → extraire → lancer `SURVAIN.exe`. Le jeu doit démarrer comme en éditeur.
+
+### Pourquoi pas (encore) de CI ?
+
+La convention CLAUDE.md acte : *« CI/CD : à discuter à partir du Sprint 2 »*. Une fois le projet stabilisé, l'idée est de **basculer cette procédure vers GitHub Actions** (build cloud déclenché sur push de tag, release auto). Issue de suivi : voir le board GitHub (label `tech / infra`).
 
 ---
 
