@@ -84,6 +84,7 @@
 **Objectifs du sprint** : boucle minimale de survie — récolter dans le monde, gérer un inventaire, transformer la matière par un craft engageant non-répétitif.
 - [x] Système d'items et ScriptableObjects (issue #5)
 - [x] Nœuds de ressources et système de récolte (issue #6)
+- [x] Avatar joueur Synty Sidekick + anims Mixamo (issue #33, ajoutée en cours de sprint)
 - [ ] Inventaire joueur (issue #7)
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
 
@@ -194,6 +195,41 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-22 — Avatar joueur Synty Sidekick + anims Mixamo + punch de récolte (Sprint 1, issue #33)
+
+**Contexte.** Issue #33 ajoutée en cours de Sprint 1 pour remplacer la capsule placeholder du `_Player` par un avatar visuel humanoïde animé. Périmètre initial : locomotion (idle/walk/run) + saut. Élargi en cours d'implémentation à une anim de récolte (punch générique) pour avoir un feedback visuel immédiat sur la mécanique de #6 — coût marginal très faible vu que le pipeline animator était déjà ouvert. Anim d'attaque combat (Sprint 4) reste hors scope.
+
+**Décisions.**
+1. **Avatar = Synty Sidekick Characters** (Asset Store, gratuit). Pivot en cours d'implémentation depuis l'idée initiale du POLYGON Starter Pack mentionnée dans l'issue : Sidekick est plus modulaire (parts détachées : tête/torse/jambes/outfit), avatar Humanoid pré-configuré dans le pack (`Starter_NN-avatar.asset`), perso `Starter_01` à `Starter_04` directement utilisables comme prefab. POLYGON Starter a été désinstallé une fois Sidekick validé. Coût du pivot : ~10 min (un seul ré-export du Source Avatar par FBX). Bénéfice : meilleur visuel + base de customisation pour plus tard. Le pack `PolygonGeneric` (décors/bâtiments) reste importé localement pour le Sprint 2 (construction) mais pas exploité maintenant.
+2. **Animations gameplay = Mixamo** (Adobe, gratuit). 5 anims téléchargées en `In Place` + rig `Humanoid` : `Idle`, `Walking`, `Running`, `Jumping`, `Punching`. Versionnées dans `Assets/Animation/Mixamo/` (FBX en Git LFS via `*.fbx` du `.gitattributes`). **Pas dans `ThirdParty/`** car ce ne sont pas des assets Unity Store mais des téléchargements depuis un site web qu'on peut redistribuer dans le projet. Sidekick n'apporte AUCUNE anim gameplay (juste des FaceCycles/FacePoses faciales), donc Mixamo reste indispensable.
+3. **Retargeting Humanoid : `Avatar Definition = Create From This Model`** sur chaque FBX Mixamo (PAS `Copy From Other Avatar`). Les rigs Mixamo (`mixamorig:Hips`, `mixamorig:Spine`, ...) et Sidekick (`pelvis`, `spine_01`, ...) ont des noms de bones différents ; `Copy` plante avec "Transform 'pelvis' for human bone 'Hips' not found". `Create From This Model` génère un avatar Humanoid par FBX → Unity retargete au runtime via les deux avatars (anim → Humanoid abstrait → perso). Pattern à appliquer pour toute future anim Mixamo destinée à un perso non-Mixamo. À retenir pour les futurs PNJ : si on importe un perso d'un autre pack que Synty, même règle — chaque source d'anim a son propre avatar.
+4. **Apply Root Motion = OFF** sur l'Animator. Le `CharacterController` reste la seule source de vérité pour la position (décision 2026-04-26 §1 conservée). L'anim est purement visuelle. Conséquence directe : Mixamo doit être téléchargé en `In Place`, sinon la translation racine est ignorée mais le cycle de pied reste calibré sur une vitesse différente de notre `WalkSpeed=5`.
+5. **`Loop Time` activé manuellement sur Idle/Walking/Running** (au niveau du clip dans l'onglet Animation du FBX). Mixamo n'active **pas** ce flag à l'import, ce qui produit un freeze caractéristique : l'anim joue une fois puis se fige sur la dernière frame pendant que le `CharacterController` continue à déplacer le perso → « personne se fige et glisse ». Première étape de troubleshooting à activer pour toute future anim Mixamo loopable. `Jumping` et `Punching` restent **non-loopées** (one-shots).
+6. **Pattern event-driven sur `PlayerController` et `PlayerHarvester`** pour piloter le visuel. Deux events C# publics : `PlayerController.Jumped` (raisé au frame du décollage réel, pas à l'input du saut) et `PlayerHarvester.HitLanded` (raisé après `node.TryHit` réussi, avant le cooldown). Le `PlayerVisualAnimator` satellite s'abonne aux deux pour déclencher les triggers `isJumping` et `isHarvesting`. La locomotion (`speed`, `isGrounded`) reste en polling chaque frame depuis `CharacterController.velocity`/`isGrounded` — valeurs continues, pas besoin d'event. Pattern à répliquer pour le futur combat (events `Attacked`, `Damaged`, etc. consommés par un visual animator enrichi).
+7. **Composant `PlayerVisualAnimator` distinct du `PlayerController` et du `PlayerHarvester`** (SRP). Les owners gameplay gardent leur scope ; le visuel est piloté par un satellite qu'on peut désactiver/échanger sans toucher au gameplay. Cohérent avec le pattern `ResourceNodeJuice` ↔ `ResourceNode` (2026-05-21 phase 2). Référence aux events optionnelle (`_harvester` est nullable : si absent, l'anim de récolte n'est juste pas déclenchée — pas d'erreur).
+8. **Animator Controller versionné** (`Assets/Animation/PlayerAvatar.controller`, format YAML). Architecture : (a) Blend Tree 1D sur `speed` avec thresholds `(Idle=0, Walking=5, Running=8)` calibrés sur `PlayerMovementConfig.WalkSpeed=5` × `SprintMultiplier=1.6` = 8 ; (b) state `Jump` déclenché par trigger `isJumping` depuis n'importe où, retour au Blend Tree quand `isGrounded=true` ; (c) state `Punch` déclenché par trigger `isHarvesting` via `Any State → Punch` (`Has Exit Time` off, `Can Transition To Self` off pour éviter re-trigger parasite si spam), sortie sur `Punch → Blend Tree` via `Has Exit Time = 0.9` (laisse l'anim se terminer).
+9. **`com.unity.shadergraph` + autres deps tirées par Sidekick** ajoutées au manifest automatiquement. **Ne change pas** la décision 2026-04-19 §3 : on continue à écrire nos propres shaders en HLSL pur. Shader Graph est juste présent comme dépendance d'un asset tiers.
+10. **`.gitignore` enrichi** : ajout de `/Assets/Synty/` (Sidekick force son installation à ce path absolu, hors `ThirdParty/`) et `/Assets/DownloadCache/` (cache de `.unitypackage` du Package Manager). Conservation de la convention « assets Unity Store gitignored ».
+
+**Alternatives écartées.**
+- **POLYGON Starter Pack** (plan initial de l'issue) : fonctionnel mais Sidekick offre un perso plus stylé et un avatar Humanoid déjà calibré. Pivot vers Sidekick fait à mi-parcours sans gros coût.
+- **Garder Mixamo + le PolygonStarter rig pour Copy From Other Avatar** : casse au moindre changement de perso. `Create From This Model` est plus robuste et permet de swap le perso cible sans toucher aux FBX d'anim.
+- **Synty Sidekick anims natives** : pas d'anims de locomotion/combat dans le pack — uniquement des FaceCycles/FacePoses pour les expressions faciales. Mixamo reste indispensable.
+- **Anim Punch dédiée hache/pioche** : reportée au Sprint 4 (combat) avec les vrais outils visibles. Punch générique main nue suffit au POC tant qu'on ne voit pas encore les outils.
+- **Root Motion ON** : conflit avec `CharacterController.Move`. Incompatible avec le pattern de contrôle actuel.
+- **Wrapper C# pour les paramètres Animator** : pattern `static readonly int Hash = Animator.StringToHash("name")` suffit pour 4 paramètres, pas de génération de code.
+- **Reset complet de la scène pour repartir d'une base propre lors du pivot** : choisi car le bordel local d'Aless rendait le swap manuel plus risqué que `git checkout -- Main.unity` + refaire le setup avatar en 5 min. À retenir : quand on se perd dans la Hierarchy après plusieurs essais, le reset git est souvent plus rapide que le nettoyage manuel.
+
+**Conséquences.**
+- L'API publique `PlayerController.Jumped` et `PlayerHarvester.HitLanded` sont désormais des points d'extension officiels. Tout futur système qui réagit (juice caméra, audio, particules de poussière au saut, ricochets visuels à la récolte) s'y abonne sans polling.
+- Pattern « composant racine pilote la logique + composant satellite pilote le visuel via events + paramètres Animator hashés en `static readonly int` » devient le template pour les futurs avatars (PNJ recrutés au Sprint 3, ennemis sauvages au Sprint 4).
+- Convention checklist anti-patinage pour toute nouvelle anim Mixamo : (a) `In Place` coché à Mixamo ; (b) FBX → Rig → `Animation Type = Humanoid` + `Avatar Definition = Create From This Model` ; (c) FBX → Animation → `Loop Time` + `Loop Pose` cochés (sauf one-shots) ; (d) Apply puis tester via la preview FBX avant de l'utiliser dans le Blend Tree.
+- Le pivot Sidekick a montré qu'**on peut changer de perso cible sans toucher aux FBX d'anim** tant qu'ils sont en `Create From This Model`. Seul le Source Avatar de l'Animator du perso change. Bon pour la customisation future (PNJ variés partageant les mêmes anims).
+- Issue #33 close. Sprint 1 reste à `#7` (inventaire) et `#8` (craft, en attente d'arbitrage Pascal sur la mécanique d'engagement).
+- `PlayerCameraConfig.PivotHeightOffset` n'a pas eu besoin d'être ajusté (le perso Sidekick est de taille proche de la capsule placeholder, ~1.6m).
+
+---
 
 ### 2026-05-21 — Récolte : phase 3 / respawn + prompt UI (Sprint 1, issue #6 complète)
 
@@ -593,4 +629,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-21 (Sprint 1 — récolte phase 3 / clôture issue #6)*
+*Dernière mise à jour : 2026-05-22 (Sprint 1 — avatar Sidekick + anims Mixamo + punch / clôture issue #33)*
