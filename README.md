@@ -263,7 +263,7 @@ Le script `Assets/Scripts/Editor/BuildScript.cs` expose une méthode statique `B
   -batchmode -nographics -quit `
   -projectPath "." `
   -buildTarget Win64 `
-  -executeMethod BuildScript.BuildWindows `
+  -executeMethod Survain.Editor.BuildScript.BuildWindows `
   -logFile Builds/build.log
 ```
 
@@ -274,11 +274,19 @@ Le script `Assets/Scripts/Editor/BuildScript.cs` expose une méthode statique `B
   -batchmode -nographics -quit \
   -projectPath "." \
   -buildTarget Win64 \
-  -executeMethod BuildScript.BuildWindows \
+  -executeMethod Survain.Editor.BuildScript.BuildWindows \
   -logFile Builds/build.log
 ```
 
-Remplace `<version>` par la version Unity installée localement (ex: `6000.0.32f1`). Les logs détaillés du build atterrissent dans `Builds/build.log` (gitignored). Le dossier `Builds/` lui-même est gitignored.
+Remplace `<version>` par la version Unity installée localement (ex: `6000.4.3f1`). Les logs détaillés du build atterrissent dans `Builds/build.log` (gitignored). Le dossier `Builds/` lui-même est gitignored.
+
+⚠️ **Important : ferme l'éditeur Unity avant de lancer la commande.** Unity batch mode pose son propre lock sur `Temp/UnityLockfile` ; si l'éditeur graphique est ouvert, le batch quitte immédiatement avec exit code 1 et un log très court qui se termine par `Exiting without the bug reporter`. Vérifie aussi dans le Task Manager qu'aucun processus `Unity.exe` orphelin ne traîne.
+
+Le build met **1 à 5 minutes** la première fois (recompile shaders + scripts) ; le terminal paraît figé — c'est normal en batch mode. Pour suivre la progression en temps réel, ouvre une autre fenêtre et lance :
+
+```powershell
+Get-Content Builds/build.log -Wait -Tail 30
+```
 
 > **Note :** ce script utilise volontairement `UnityEngine.Debug.Log/LogError` (et non le wrapper `SurvainLog`) car il tourne en batch mode où les defines `UNITY_EDITOR`/`DEVELOPMENT_BUILD` ne sont pas garantis. C'est l'unique exception autorisée à la convention de logging du projet — réservée au code Editor de build pipeline.
 
