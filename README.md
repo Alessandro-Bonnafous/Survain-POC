@@ -246,18 +246,41 @@ Labels : `sprint:*`, `type:*` (feature, bug, architecture, docs…), `priority:*
 4. `Build` → choisir un dossier de destination (ex: `Builds/win64/vX.Y.Z/`)
 5. Unity produit un exécutable `SURVAIN.exe` et ses dépendances
 
-### Build en ligne de commande (pour CI future)
+### Build en ligne de commande
 
-```bash
-"C:\Program Files\Unity\Hub\Editor\<version>\Editor\Unity.exe" \
-  -batchmode -nographics -quit \
-  -projectPath "<chemin>/Survain-POC" \
-  -buildTarget Win64 \
-  -executeMethod BuildScript.BuildWindows \
-  -logFile build.log
+Le script `Assets/Scripts/Editor/BuildScript.cs` expose une méthode statique `BuildScript.BuildWindows()` invocable en batch mode Unity (sans ouverture de l'éditeur graphique).
+
+**Comportement :**
+- Lit la version depuis `PlayerSettings.bundleVersion` (configurable dans `Edit` → `Project Settings` → `Player`)
+- Produit `Builds/win64/<version>/SURVAIN.exe`
+- Inclut la scène `Assets/Scenes/Main.unity`
+- Exit code `0` si succès, `1` si échec (utilisable en CI)
+
+**Commande type (PowerShell, depuis la racine du repo) :**
+
+```powershell
+& "C:\Program Files\Unity\Hub\Editor\<version>\Editor\Unity.exe" `
+  -batchmode -nographics -quit `
+  -projectPath "." `
+  -buildTarget Win64 `
+  -executeMethod BuildScript.BuildWindows `
+  -logFile Builds/build.log
 ```
 
-> Le script `BuildScript.cs` reste à créer dans `Assets/Editor/` (prévu au Sprint 0).
+**Équivalent Bash / Git Bash :**
+
+```bash
+"/c/Program Files/Unity/Hub/Editor/<version>/Editor/Unity.exe" \
+  -batchmode -nographics -quit \
+  -projectPath "." \
+  -buildTarget Win64 \
+  -executeMethod BuildScript.BuildWindows \
+  -logFile Builds/build.log
+```
+
+Remplace `<version>` par la version Unity installée localement (ex: `6000.0.32f1`). Les logs détaillés du build atterrissent dans `Builds/build.log` (gitignored). Le dossier `Builds/` lui-même est gitignored.
+
+> **Note :** ce script utilise volontairement `UnityEngine.Debug.Log/LogError` (et non le wrapper `SurvainLog`) car il tourne en batch mode où les defines `UNITY_EDITOR`/`DEVELOPMENT_BUILD` ne sont pas garantis. C'est l'unique exception autorisée à la convention de logging du projet — réservée au code Editor de build pipeline.
 
 ---
 
