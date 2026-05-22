@@ -60,9 +60,15 @@ namespace Survain.Gameplay.Items
             cube.transform.localScale = Vector3.one * _scale;
 
             var rend = cube.GetComponent<Renderer>();
-            if (rend != null && rend.sharedMaterial != null)
+            if (rend != null)
             {
-                var mat = new Material(rend.sharedMaterial) { color = _color };
+                // CreatePrimitive utilise le shader Standard Built-in → rose en URP.
+                // On force un shader URP Lit (avec fallback) pour réagir à l'éclairage day/night.
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null) shader = Shader.Find("Sprites/Default");
+                var mat = new Material(shader);
+                mat.SetColor("_BaseColor", _color);
+                mat.color = _color; // alias pour shaders qui n'exposent pas _BaseColor
                 rend.sharedMaterial = mat;
             }
 
