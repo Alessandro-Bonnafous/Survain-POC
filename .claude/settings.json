@@ -15,7 +15,8 @@
       "Bash(git branch *)",
       "Bash(git push *)",
       "Bash(gh pr create --title 'chore\\(build\\): BuildScript.cs pour build Windows batch mode \\(#35\\)' --body ' *)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(git mv *)"
     ],
     "additionalDirectories": [
       "c:\\dev\\repositories\\Survain-POC\\Assets\\Scripts",
