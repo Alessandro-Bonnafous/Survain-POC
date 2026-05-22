@@ -10,7 +10,9 @@
       "Bash(git check-attr *)",
       "Bash(rm -rf Assets/ThirdParty/Synty/PolygonStarter Assets/ThirdParty/Synty/PolygonStarter.meta && ls Assets/ThirdParty/Synty/)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git stash *)",
+      "Bash(git branch *)"
     ],
     "additionalDirectories": [
       "c:\\dev\\repositories\\Survain-POC\\Assets\\Scripts",
