@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using Survain.Core;
+using Survain.Gameplay.Inventories;
 using Survain.Items;
 
 namespace Survain.Gameplay.Items
@@ -24,7 +25,7 @@ namespace Survain.Gameplay.Items
         [Tooltip("SO décrivant le type de nœud (item produit, outil requis, etc.).")]
         [SerializeField] private ResourceNodeData _data;
 
-        [Tooltip("Prefab du drop spawné quand le nœud est épuisé. Si null, un cube placeholder est utilisé.")]
+        [Tooltip("Prefab du drop spawné quand le nœud est épuisé. Si null, un WorldItem générique est créé en code.")]
         [SerializeField] private GameObject _dropPrefab;
 
         [Header("Visuel placeholder (fallback si data.VisualPrefab est null)")]
@@ -205,18 +206,18 @@ namespace Survain.Gameplay.Items
             if (_dropPrefab != null)
             {
                 var drop = Instantiate(_dropPrefab, dropPos, Quaternion.identity);
-                var placeholder = drop.GetComponent<WorldItemDropPlaceholder>();
-                if (placeholder != null)
+                var worldItem = drop.GetComponent<WorldItem>();
+                if (worldItem != null)
                 {
-                    placeholder.Configure(_data.ProducedItem, _data.ProducedQuantity);
+                    worldItem.Configure(_data.ProducedItem, _data.ProducedQuantity);
                 }
                 return;
             }
 
-            // Fallback : on génère un drop placeholder en code, sans prefab.
-            var go = new GameObject($"Drop_{_data.ProducedItem?.Id ?? "unknown"}");
+            // Fallback : on génère un WorldItem en code, sans prefab.
+            var go = new GameObject($"WorldItem_{_data.ProducedItem?.Id ?? "unknown"}");
             go.transform.position = dropPos;
-            var drop2 = go.AddComponent<WorldItemDropPlaceholder>();
+            var drop2 = go.AddComponent<WorldItem>();
             drop2.Configure(_data.ProducedItem, _data.ProducedQuantity);
         }
     }

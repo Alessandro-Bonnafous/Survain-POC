@@ -1,68 +1,87 @@
 using UnityEngine;
 using Survain.Core;
+using Survain.Gameplay.Inventories;
 using Survain.Items;
 
 namespace Survain.Gameplay.Player
 {
     /// <summary>
-    /// Système d'équipement provisoire pour le POC (phase 1 de #6, en attendant
-    /// l'inventaire #7). Expose un ToolData courant que les systèmes de récolte
-    /// peuvent lire. Sera piloté plus tard par l'inventaire — l'API publique
-    /// (CurrentTool, OnCurrentToolChanged) reste stable.
+    /// Outil équipé du joueur, dérivé du slot actif de la hotbar.
     ///
-    /// API d'écriture : SetTool(int slotIndex) pour basculer via le PlayerController
-    /// qui consomme les actions Previous/Next de l'InputActionAsset.
+    /// Refondu au sprint #7 : ne porte plus sa propre liste d'outils. La hotbar (instance
+    /// d'Inventory, capacité 4 par convention) est la source de vérité. PlayerEquipment
+    /// pointe vers un slot index de cette hotbar et expose le ToolData qui s'y trouve
+    /// (ou null si le slot est vide / ne contient pas un ToolData).
+    ///
+    /// L'API publique (CurrentTool, CurrentSlotIndex, SetTool, OnCurrentToolChanged) reste
+    /// stable : PlayerHarvester n'a aucune raison d'être touché.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerEquipment : MonoBehaviour
     {
-        [Header("Outils disponibles (POC)")]
-        [Tooltip("Liste ordonnée des outils accessibles. Slots 0..N-1 correspondent aux touches 1..N.")]
-        [SerializeField] private ToolData[] _toolSlots;
+        [Tooltip("Inventaire 'hotbar' du joueur. Chaque slot peut porter un ToolData équipable.")]
+        [SerializeField] private Inventory _hotbar;
 
-        [Tooltip("Index de l'outil équipé au démarrage. -1 = aucun.")]
+        [Tooltip("Index du slot équipé au démarrage. -1 = aucun.")]
         [SerializeField] private int _initialSlotIndex = 0;
 
         public ToolData CurrentTool { get; private set; }
         public int CurrentSlotIndex { get; private set; } = -1;
 
-        /// <summary>
-        /// Émis quand l'outil courant change. Signature : (previous, current).
-        /// </summary>
+        /// <summary>Émis quand l'outil courant change. Signature : (previous, current).</summary>
         public event System.Action<ToolData, ToolData> OnCurrentToolChanged;
 
         private void Awake()
         {
-            if (_toolSlots == null || _toolSlots.Length == 0)
+            if (_hotbar == null)
             {
-                SurvainLog.Warn(SurvainLog.Category.Gameplay,
-                    "PlayerEquipment : aucun outil configuré. La récolte sera limitée à ToolType.None.",
-                    this);
+                SurvainLog.Error(SurvainLog.Category.Gameplay,
+                    "PlayerEquipment : _hotbar non assigné.", this);
+                enabled = false;
                 return;
             }
+        }
 
-            if (_initialSlotIndex >= 0 && _initialSlotIndex < _toolSlots.Length)
+        private void OnEnable()
+        {
+            if (_hotbar != null) _hotbar.OnSlotChanged += OnHotbarSlotChanged;
+        }
+
+        private void OnDisable()
+        {
+            if (_hotbar != null) _hotbar.OnSlotChanged -= OnHotbarSlotChanged;
+        }
+
+        private void Start()
+        {
+            // Sélection initiale tentée au Start (après que tous les Awake aient peuplé la hotbar).
+            if (_initialSlotIndex >= 0 && _initialSlotIndex < _hotbar.Capacity)
             {
                 SetTool(_initialSlotIndex);
             }
         }
 
         /// <summary>
-        /// Équipe l'outil au slot donné. Index hors plage = unequip (CurrentTool=null).
+        /// Sélectionne un slot de la hotbar. L'outil exposé devient le ToolData du slot
+        /// (ou null si vide / item non-Tool). Index hors plage = unequip.
         /// </summary>
         public void SetTool(int slotIndex)
         {
             ToolData target = null;
-            if (_toolSlots != null && slotIndex >= 0 && slotIndex < _toolSlots.Length)
+            if (_hotbar != null && slotIndex >= 0 && slotIndex < _hotbar.Capacity)
             {
-                target = _toolSlots[slotIndex];
+                target = _hotbar.Get(slotIndex).Item as ToolData;
+                CurrentSlotIndex = slotIndex;
+            }
+            else
+            {
+                CurrentSlotIndex = -1;
             }
 
             if (target == CurrentTool) return;
 
             var previous = CurrentTool;
             CurrentTool = target;
-            CurrentSlotIndex = target != null ? slotIndex : -1;
 
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Outil équipé : '{(target != null ? target.Id : "aucun")}' (slot {CurrentSlotIndex}).",
@@ -71,9 +90,27 @@ namespace Survain.Gameplay.Player
             OnCurrentToolChanged?.Invoke(previous, CurrentTool);
         }
 
-        /// <summary>
-        /// Nombre de slots d'outils configurés.
-        /// </summary>
-        public int SlotCount => _toolSlots != null ? _toolSlots.Length : 0;
+        /// <summary>Nombre de slots de la hotbar (proxy direct).</summary>
+        public int SlotCount => _hotbar != null ? _hotbar.Capacity : 0;
+
+        // ─── Réaction aux changements de la hotbar ──────────────────────────
+
+        private void OnHotbarSlotChanged(int index, InventorySlot before, InventorySlot after)
+        {
+            if (index != CurrentSlotIndex) return;
+
+            // L'item du slot équipé a changé → reéquiper le bon ToolData.
+            var newTool = after.Item as ToolData;
+            if (newTool == CurrentTool) return;
+
+            var previous = CurrentTool;
+            CurrentTool = newTool;
+
+            SurvainLog.Info(SurvainLog.Category.Gameplay,
+                $"Outil équipé mis à jour suite à changement de slot : '{(newTool != null ? newTool.Id : "aucun")}'.",
+                this);
+
+            OnCurrentToolChanged?.Invoke(previous, CurrentTool);
+        }
     }
 }
