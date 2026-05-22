@@ -85,7 +85,7 @@
 - [x] Système d'items et ScriptableObjects (issue #5)
 - [x] Nœuds de ressources et système de récolte (issue #6)
 - [x] Avatar joueur Synty Sidekick + anims Mixamo (issue #33, ajoutée en cours de sprint)
-- [ ] Inventaire joueur (issue #7)
+- [/] Inventaire joueur (issue #7) — phase 1/3 (cœur fonctionnel) terminée
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
 
 **Livrable du sprint :** build où le joueur peut couper un arbre / miner une roche, voir les ressources dans son inventaire, et crafter un outil de base via une mécanique non-répétitive.
@@ -110,6 +110,7 @@
 
 - **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
 - **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
+- **Pickup auto vs manuel pour les drops (issue #7 phase 1)** — phase 1 livrée avec **pickup auto au contact** via trigger sphérique 1.5m. Toggle `_autoPickup` exposé sur `InventoryPickupZone` permet le bascule en manuel sans refonte si Pascal préfère (~30 min : ajouter touche E + raycast). À arbitrer **avant la phase 2** (UI inventaire) pour éviter de re-câbler les feedbacks UI.
 
 ---
 
@@ -195,6 +196,38 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-22 — Inventaire joueur phase 1/3 : data model + pickup (Sprint 1, issue #7 partiel)
+
+**Contexte.** Phase 1 de l'issue #7 : poser la fondation fonctionnelle de l'inventaire (data model + pickup auto + équipement via hotbar) **sans UI**, observable via Console et Inspector. Phases 2 (UI inventaire + hotbar visible) et 3 (drag & drop + drop d'items depuis l'inventaire) à enchaîner sur la même issue. Découpage en phases validé pour permettre des validations intermédiaires.
+
+**Décisions.**
+1. **Structure inventaire : capacité fixe en slots, paramétrée par instance.** `Inventory : MonoBehaviour` avec `_capacity` sérialisé. Backpack = capacité 24, Hotbar = capacité 4. Pattern Minecraft/Terraria — la même classe sert les deux usages, pas de sous-classe. Stack max lu sur `ItemData.MaxStackSize` (champ existant depuis #5). Alternative écartée : capacité par poids/volume (immersif survie, mais UI moins intuitive et sur-engineering POC).
+2. **Hotbar et backpack = deux instances distinctes d'`Inventory`** (pas un seul conteneur avec slots 0-3 réservés). Chaque instance vit sur un GameObject enfant dédié (`_Player/Backpack/`, `_Player/Hotbar/`) pour pouvoir cohabiter sans conflit `GetComponent`. Permet le transfert via `Inventory.Transfer(slot, target)` qui réutilise `TryAdd` côté cible (stacking automatique).
+3. **`InventorySlot` struct readonly top-level dans le namespace** (et non `Inventory.Slot` nested). Évite l'ambiguïté C# entre le type `Inventory` et le namespace `Survain.Gameplay.Inventories` quand on écrit `Inventory.Slot` depuis un autre fichier. Pattern à répliquer si on a d'autres types nested utilisés cross-namespace.
+4. **Namespace `Survain.Gameplay.Inventories` au pluriel** (et non `Inventory` singulier) pour éviter le conflit avec la classe `Inventory`. Convention dégagée : *quand un type a un nom qui pourrait servir de namespace, on pluralise le namespace* (cf. `System.Collections` qui contient `Dictionary`/`List`/`Queue`...). Dossier physique `Assets/Scripts/Gameplay/Inventories/` aligné. Pattern à répliquer pour les futurs domaines (ex: `Survain.Gameplay.Buildings` contiendrait un type `Building`).
+5. **Pickup auto via trigger sphérique 1.5m** sur `_Player/PickupZone/` (GameObject enfant car la racine porte déjà un `CharacterController` non-trigger). `InventoryPickupZone.OnTriggerEnter` détecte un `WorldItem`, tente `TryAdd`, appelle `WorldItem.Consume(absorbé)`. Si tout est rentré → `Destroy(WorldItem)` ; sinon reste au sol avec quantité réduite (cas inventaire plein partiel). **Toggle `_autoPickup` exposé en Inspector** : permet de basculer en pickup manuel (touche E + raycast) sans refonte si Pascal arbitre dans ce sens. Cf. décisions en attente.
+6. **`PlayerEquipment` refondu pour consommer la hotbar.** L'API publique (`CurrentTool`, `CurrentSlotIndex`, `SetTool`, `OnCurrentToolChanged`) reste identique → `PlayerHarvester` n'a pas eu à être touché (pattern API stable / impl libre). Le `_toolSlots[]` interne disparaît au profit d'une référence vers un `Inventory` (la hotbar). `OnCurrentToolChanged` est re-émis quand la hotbar change son slot équipé (cas : future drag & drop).
+7. **`WorldItem` remplace `WorldItemDropPlaceholder`.** Visuel cube URP/Lit (réutilise le pattern du fix drop URP de #36). API : `Configure(item, qty)` (init après Instantiate), `Consume(int)` (retrait partiel par PickupZone). Destruction auto quand quantité tombe à 0. `ResourceNode.SpawnDrop` modifié pour instancier `WorldItem` au lieu du placeholder.
+8. **`HotbarBootstrap` provisoire pour pré-injecter les outils de base** (hache + pioche dans `_Player/Hotbar`). `[DefaultExecutionOrder(-50)]` pour tourner avant `PlayerEquipment.Start` qui équipe le slot initial. À supprimer en phase 3 (drop d'items depuis l'inventaire) ou à reconvertir en *save loader* quand on aura la sauvegarde.
+9. **Pas d'UI en phase 1.** Validation via Console (logs `Pickup: ...`, `Outil équipé: ...`) et menu `⋮ → Log inventory state` sur le composant `Inventory` dans l'Inspector. La phase 2 introduira le panel ouvrable Tab/I + la hotbar visible bas d'écran.
+
+**Alternatives écartées.**
+- **Capacité par poids/volume** : immersif survie mais sur-engineering POC, UI moins intuitive. À reconsidérer post-POC si la direction artistique survie devient core.
+- **Un seul conteneur Inventory avec slots 0-3 = hotbar** : économise une instance mais demande 2 vues sur le même data, complique la sémantique de transferts. Le coût d'une 2e instance est négligeable.
+- **Pickup manuel via touche E + raycast** : cohérent avec la récolte (même action) mais alourdit le flow (chaque drop = pression E). Risque de conflit avec la récolte si nœud et drop sont proches. Reportable sans refonte via le toggle `_autoPickup`.
+- **UI Toolkit (UIElements)** : moderne mais casse la cohérence avec `InteractionPrompt` (uGUI, cf. 2026-05-21 phase 3 §3). À reconsidérer Sprint 5 (polish) si justifié.
+- **`Inventory.Slot` nested** : a déclenché l'erreur compile `'Inventory' is a namespace but is used like a type`. Sortir `InventorySlot` top-level dans le namespace résout sans alias ni refactor utilisateur.
+
+**Conséquences.**
+- L'API publique `Inventory.TryAdd/TryRemove/Get/Swap/Transfer + OnSlotChanged/OnInventoryChanged` est le contrat sur lequel l'UI de phase 2 va se brancher. Stable, pas de mutation prévue.
+- L'API publique `PlayerEquipment` est inchangée → tout code existant qui lisait `CurrentTool` (PlayerHarvester, futurs systèmes combat) continue de fonctionner sans modif.
+- Pattern « event C# pur `Action<int, before, after>` sur l'Inventory + composant satellite (PlayerEquipment) qui s'y abonne pour invalider son état dérivé » devient le template pour les futurs systèmes qui dérivent leur état d'un conteneur (ex: futur HUD qui montre la quantité d'un item spécifique).
+- Convention « namespace pluriel pour éviter le conflit avec le type principal » dégagée. À appliquer dès qu'un nouveau domaine a un type cardinal éponyme.
+- `WorldItemDropPlaceholder` supprimé. Le pattern « MonoBehaviour code-only avec Rigidbody + visuel URP/Lit créé en code » est consolidé entre `WorldItem` et le fix du drop URP de #36.
+- Issue #7 reste OPEN : phases 2 et 3 à enchaîner. Le statut « critical » de l'issue est conservé.
+
+---
 
 ### 2026-05-22 — Avatar joueur Synty Sidekick + anims Mixamo + punch de récolte (Sprint 1, issue #33)
 
@@ -629,4 +662,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-22 (Sprint 1 — avatar Sidekick + anims Mixamo + punch / clôture issue #33)*
+*Dernière mise à jour : 2026-05-22 (Sprint 1 — inventaire phase 1/3 / issue #7 partiel)*
