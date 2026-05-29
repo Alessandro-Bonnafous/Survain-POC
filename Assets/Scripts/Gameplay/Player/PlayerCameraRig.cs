@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 using Survain.Core;
 using Survain.Data;
+using Survain.Gameplay.Buildings;
 
 namespace Survain.Gameplay.Player
 {
@@ -33,6 +34,9 @@ namespace Survain.Gameplay.Player
         [Tooltip("Cible suivie (typiquement le Transform du joueur).")]
         [FormerlySerializedAs("target")]
         [SerializeField] private Transform _target;
+
+        [Tooltip("Mode construction (optionnel). Quand il est actif, la molette change de structure au lieu de zoomer.")]
+        [SerializeField] private BuildModeController _buildMode;
 
         [Header("Collision")]
         [Tooltip("Layers contre lesquels la caméra recule pour éviter le clipping.")]
@@ -154,6 +158,11 @@ namespace Survain.Gameplay.Player
 
         private void OnZoomPerformed(InputAction.CallbackContext ctx)
         {
+            // En mode construction, la molette est consommée par BuildModeController pour
+            // changer de structure : on neutralise le zoom caméra (exclusion mutuelle,
+            // même pattern que le gating de la récolte).
+            if (_buildMode != null && _buildMode.IsActive) return;
+
             // Scroll up (delta positif) = zoom in (distance diminue). Inversion par signe.
             float delta = ctx.ReadValue<float>();
             _targetDistance = Mathf.Clamp(

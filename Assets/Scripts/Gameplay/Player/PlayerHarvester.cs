@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Survain.Core;
+using Survain.Gameplay.Buildings;
 using Survain.Gameplay.Items;
 using Survain.UI;
 
@@ -37,6 +38,9 @@ namespace Survain.Gameplay.Player
 
         [Tooltip("Racine du joueur (ses colliders seront ignorés par le raycast). Si null = self.")]
         [SerializeField] private Transform _playerRoot;
+
+        [Tooltip("Mode construction (optionnel). Quand il est actif, la récolte est suspendue : le clic gauche sert à poser une structure, pas à frapper un nœud.")]
+        [SerializeField] private BuildModeController _buildMode;
 
         [Header("Récolte")]
         [Tooltip("Portée maximum du raycast de récolte (mètres).")]
@@ -153,6 +157,19 @@ namespace Survain.Gameplay.Player
 
         private void Update()
         {
+            // En mode construction, la récolte est suspendue (clic gauche = poser).
+            // On lâche la cible courante et le prompt pour ne pas laisser de surbrillance.
+            if (_buildMode != null && _buildMode.IsActive)
+            {
+                if (_currentTarget != null)
+                {
+                    _currentTarget.SetHighlighted(false);
+                    _currentTarget = null;
+                    InteractionPrompt.Instance.Hide();
+                }
+                return;
+            }
+
             // Met à jour la cible courante via raycast continu.
             var target = RaycastForNode();
             if (target != _currentTarget)
@@ -221,6 +238,8 @@ namespace Survain.Gameplay.Player
 
         private void TryHarvest()
         {
+            // Le clic gauche est consommé par le mode construction quand il est actif.
+            if (_buildMode != null && _buildMode.IsActive) return;
             if (Time.time < _nextHitAllowedAt) return;
 
             var node = _currentTarget;
