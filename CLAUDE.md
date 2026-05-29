@@ -79,28 +79,26 @@
 
 ## 📊 État actuel
 
-**Sprint en cours :** Sprint 1 — Récolte & Craft
+**Sprint en cours :** Sprint 2 — Construction
+_(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
-**Objectifs du sprint** : boucle minimale de survie — récolter dans le monde, gérer un inventaire, transformer la matière par un craft engageant non-répétitif.
-- [x] Système d'items et ScriptableObjects (issue #5)
-- [x] Nœuds de ressources et système de récolte (issue #6)
-- [x] Avatar joueur Synty Sidekick + anims Mixamo (issue #33, ajoutée en cours de sprint)
-- [x] Inventaire joueur (issue #7) — 3 phases complètes (data model + UI + drag&drop)
-- [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
+**Objectifs du sprint** : permettre au joueur de bâtir son campement — placer des structures, gérer leur construction puis leur entretien.
+- [x] Système de placement et construction (issue #9) — modèle **chantier** (blueprint + dépôt de ressources). Livré.
+- [ ] Structures de base et bâtiments fonctionnels (issue #10) — catalogue de bâtiments entiers + coffre / feu de camp (atelier = coque, fonction après #8 ; lit/respawn déplacé vers #19)
+- [ ] Système de destruction et réparation (issue #11)
+- [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 
-**Livrable du sprint :** build où le joueur peut couper un arbre / miner une roche, voir les ressources dans son inventaire, et crafter un outil de base via une mécanique non-répétitive.
+**Livrable du sprint :** build où le joueur pose un chantier, y dépose ses ressources récoltées et voit le bâtiment se construire ; structures destructibles/réparables.
 
-**Sprint précédent — Sprint 0 — Fondations (clôturé le 2026-05-16) :**
-- [x] Setup projet Unity (issue #1)
-- [x] Architecture dossiers et scripts fondateurs (issue #1)
-- [x] Génération procédurale de terrain — 1 biome forêt tempérée (issue #2)
-- [x] Contrôleur joueur 3D, 3e personne (issue #3)
-- [x] Système de caméra 3e personne — zoom, smoothing, lock rotation (issue #4)
-- [x] Cycle jour/nuit basique (issue #28)
+**Sprint 1 — Récolte & Craft (en cours, 4/5) :**
+- [x] Items & ScriptableObjects (#5), récolte (#6), avatar Synty + Mixamo (#33), inventaire (#7)
+- [ ] Craft basique tier gris (#8) — ⚠️ bloqué arbitrage Pascal (mécanique d'engagement non-répétitive, pilier clé)
+
+**Sprint 0 — Fondations (clôturé le 2026-05-16) :** setup Unity (#1), terrain forêt tempérée (#2), contrôleur 3e personne (#3), caméra (#4), cycle jour/nuit (#28).
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** Sprint 2 (à définir — probablement Combat & Construction d'après la vision).
+**Prochain milestone :** Sprint 3 — PNJ & Village (le `ConstructionSite` de #9 est le crochet prévu pour les PNJ bâtisseurs).
 
 ---
 
@@ -110,6 +108,8 @@
 
 - **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
 - **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
+- **Modèle de construction « chantier » (issue #9)** — tranché par Aless (la construction n'est pas un pilier non-négociable), **à valider a posteriori par Pascal**. Si le PO préfère un autre modèle, le `ConstructionSite` reste le socle le plus flexible (la pose instantanée en est un cas dégénéré). Non bloquant.
+- **Ratios économiques de construction** — coût des bâtiments (`building-hut` = 8 bois + 4 pierre, `building-shed` = 6 bois) et futur % remboursé à la destruction (#11). Placeholders paramétrables en `.asset`. À arbitrer par Pascal au pass d'équilibrage (levier « économie fermée », non bloquant).
 
 ---
 
@@ -195,6 +195,29 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-29 — Système de construction : modèle chantier (Sprint 2, issue #9)
+
+**Contexte.** Démarrage du Sprint 2. Première implémentation en **placement libre pièce-par-pièce** (grille 1 m, fantôme vert/rouge, snap, rotation 90°, validation pente/collision/ressources). Jugée trop fastidieuse en test et contraire à la vision (« assisté », city-builder, pas un bac-à-sable Minecraft). Pivot en cours de session vers un modèle **chantier** (blueprint + dépôt de ressources), tranché par Aless (la construction n'est pas un pilier non-négociable ; validation Pascal a posteriori — cf. Décisions en attente). Le code de placement a été réutilisé quasi tel quel.
+
+**Décisions.**
+1. **Modèle « chantier ».** Poser une structure ne consomme/n'exige **pas** de ressources : ça crée un `ConstructionSite` (fantôme bleu→vert qui réserve l'emplacement). Le joueur dépose ensuite les ressources (touche E, visée caméra) jusqu'à complétion → le bâtiment fini apparaît. Choisi pour l'UX assistée **et** parce que c'est le crochet direct des PNJ bâtisseurs du Sprint 3 : `ConstructionSite.Deposit(Inventory)` sera appelable depuis un stock de village. La pose instantanée (consommation immédiate) est un cas dégénéré du chantier → aucune porte fermée.
+2. **Bâtiments entiers** au catalogue (hutte, abri de stockage), pas de micro-pièces. 1 bâtiment = 1 chantier = 1 prefab. L'idée « demi-bâtiments à accoler » a été écartée (snap fin inutile).
+3. **Namespace `Survain.Gameplay.Buildings`** (pluriel — type cardinal `Building` éponyme, cf. convention `Inventories`). Dossier miroir `Assets/Scripts/Gameplay/Buildings/`.
+4. **`BuildModeController` owner du mode** ; expose `IsActive`. **Exclusion mutuelle** du clic gauche (récolte) et de la molette (zoom caméra) via le pattern « flag lu, pas d'appel mutuel » : `PlayerHarvester` suspend la récolte et `PlayerCameraRig` neutralise le zoom tant que `IsActive`.
+5. **Input** : `ToggleBuildMode` (B), `RotateBuild` (Q/E, 1D axis), `CancelBuild` (clic droit + Échap), molette = cycle de structure (zoom gaté), `[ / ]` en alternative clavier (la molette est le moyen principal — `[ / ]` sont introuvables en AZERTY). Action `Interact` ajoutée sur **E** = touche d'interaction générique réservée (cf. 2026-05-22 §2), utilisée ici pour le dépôt dans un chantier.
+6. **Visuels code-only.** `BuildingVisualFactory` génère un cube URP/Lit dimensionné par `BuildingData.Size` (placeholder avant les vrais prefabs modulaires de #10). Ghost de placement et blueprint de chantier en URP **transparent** appliqué via `Renderer.material` (jamais `sharedMaterial`). Grille au sol générée en code (`BuildGridVisual` : quad + texture de grille tuilée).
+7. **Snap = grille 1 m** (alignement naturel des bâtiments voisins) ; pas de snap par sockets (reporté post-POC).
+8. **Données.** `BuildingData` enrichi (catégorie, `Size`, `BuildCost[]`, prefab optionnel). `BuildCost` = struct sérialisable top-level (même raison qu'`InventorySlot`). `BuildCategory` enum. Bootstrap Editor idempotent qui crée les bâtiments et les ajoute au Registry **sans écraser** les items existants.
+9. **Respawn cède aux constructions.** Un nœud épuisé a son collider désactivé → invisible au test de collision du placement, donc on pouvait bâtir sur un arbre coupé qui repoussait ensuite à travers le bâtiment. `ResourceNode.RespawnAfterDelay` teste désormais l'occupation (`Building`/`ConstructionSite` via `OverlapBox`) et **diffère** la réapparition tant qu'une structure occupe le lieu (re-check 5 s ; retour possible si la structure est détruite #11). Couplage assumé `Gameplay.Items → Gameplay.Buildings` (même assembly, pas de cycle).
+
+**Alternatives écartées.** Placement libre pièce-par-pièce (fastidieux, contre la vision) ; pose instantanée avec consommation immédiate (aucune prise pour les PNJ bâtisseurs Sprint 3) ; assemblage de demi-bâtiments (snap fin disproportionné) ; molette de cycle sans gating du zoom (zoom + cycle simultanés) ; `[ / ]` seuls (inaccessibles en AZERTY) ; bloquer la pose sur les nœuds épuisés (les colliders désactivés échappent à `OverlapBox` → mécanisme de détection séparé plus lourd, le respawn-cède couvre le cas).
+
+**Conséquences.**
+- `ConstructionSite` devient le **point d'extension officiel des PNJ bâtisseurs** (Sprint 3, #14) : un métier « bâtisseur » alimentera `Deposit` depuis un stock de village.
+- **#9 re-scopé** : les critères « snap entre pièces » / « rotation de murs » disparaissent au profit du modèle chantier. **#10 devient** « catalogue de bâtiments entiers + bâtiments fonctionnels (coffre, feu de camp) » plutôt que pièces modulaires ; l'atelier reste une coque (fonction craft après #8) ; le lit/point de respawn est déplacé vers #19 (Sprint 4).
+- Pattern **gating par `IsActive`** (flag lu par les consommateurs, pas d'appel mutuel) à répliquer pour les futurs modes exclusifs (combat, dialogue).
+- Les visuels placeholder code-only sont à **remplacer par de vrais prefabs en #10** ; il suffira de brancher le champ `Prefab` de chaque `BuildingData`, sans toucher au système.
 
 ### 2026-05-22 — Polish input : clic gauche récolte, F pickup manuel, surbrillance nœuds + items (Sprint 5 anticipé, issue #40 close)
 
@@ -768,4 +791,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-22 (Sprint 5 anticipé — polish input / issue #40 close)*
+*Dernière mise à jour : 2026-05-29 (Sprint 2 — système de construction / modèle chantier / issue #9)*
