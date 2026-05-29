@@ -32,10 +32,16 @@ namespace Survain.Gameplay.Items
         [Tooltip("Couleur de la primitive placeholder si aucun prefab visuel n'est fourni.")]
         [SerializeField] private Color _placeholderColor = new Color(0.3f, 0.6f, 0.2f);
 
+        [Header("Surbrillance")]
+        [Tooltip("Couleur émissive appliquée quand le joueur vise le nœud avec son raycast caméra.")]
+        [SerializeField] private Color _highlightEmission = new Color(1f, 0.85f, 0.4f) * 0.6f;
+
         // État runtime
         private int _currentHits;
         private GameObject _visualInstance;
         private Coroutine _respawnRoutine;
+        private Renderer[] _visualRenderers;
+        private bool _highlighted;
 
         public ResourceNodeData Data => _data;
         public int CurrentHits => _currentHits;
@@ -84,6 +90,52 @@ namespace Survain.Gameplay.Items
 
             _currentHits = _data.Hits;
             SpawnVisual();
+            CacheVisualRenderers();
+        }
+
+        /// <summary>
+        /// Active ou désactive la surbrillance émissive sur tous les Renderers du visuel.
+        /// Appelé par PlayerHarvester quand le joueur vise (ou cesse de viser) le nœud.
+        ///
+        /// Utilise <c>Renderer.material</c> (et non <c>sharedMaterial</c>) qui clone
+        /// automatiquement le material au premier accès — chaque ResourceNode obtient une
+        /// instance dédiée. Évite la corruption globale qu'on a quand on modifie un
+        /// sharedMaterial partagé entre toutes les instances du même prefab Synty (cas
+        /// rencontré pendant le dev : EnableKeyword sur sharedMaterial = tous les arbres
+        /// deviennent blancs car la nouvelle variant du shader cherche une _EmissionMap absente).
+        ///
+        /// Coût : 1 material cloné par Renderer par node au premier survol. Pour les nœuds
+        /// courants (1-3 Renderers chacun), c'est négligeable mémoire. Unity nettoie les
+        /// clones automatiquement à la destruction du GameObject.
+        /// </summary>
+        public void SetHighlighted(bool highlighted)
+        {
+            if (_highlighted == highlighted) return;
+            _highlighted = highlighted;
+            if (_visualRenderers == null || _visualRenderers.Length == 0) return;
+
+            Color emission = highlighted ? _highlightEmission : Color.black;
+            for (int i = 0; i < _visualRenderers.Length; i++)
+            {
+                var rend = _visualRenderers[i];
+                if (rend == null) continue;
+
+                // rend.material clone le sharedMaterial au premier accès → instance dédiée.
+                // Les accès suivants retournent toujours la même instance (pas de double clone).
+                var mat = rend.material;
+                if (mat == null || !mat.HasProperty("_EmissionColor")) continue;
+
+                if (highlighted) mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", emission);
+            }
+        }
+
+        private void CacheVisualRenderers()
+        {
+            if (_visualInstance == null) return;
+            _visualRenderers = _visualInstance.GetComponentsInChildren<Renderer>(includeInactive: true);
+            // NB : on ne touche PAS aux materials ici. Le clonage est différé au premier
+            // SetHighlighted via Renderer.material (cf. doc plus haut).
         }
 
         // ─── API publique ───────────────────────────────────────────────────

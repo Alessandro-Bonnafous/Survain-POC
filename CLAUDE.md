@@ -110,7 +110,6 @@
 
 - **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
 - **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
-- **Pickup auto vs manuel pour les drops (issue #7)** — Aless a assumé la responsabilité de continuer en auto sans validation Pascal. Le toggle `_autoPickup` reste basculable en manuel (~30 min de bascule). Repris dans l'issue #40 (Sprint 5 polish) qui traque la refonte input globale (clic gauche récolte, E/F pickup, surbrillance items).
 
 ---
 
@@ -196,6 +195,40 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-22 — Polish input : clic gauche récolte, F pickup manuel, surbrillance nœuds + items (Sprint 5 anticipé, issue #40 close)
+
+**Contexte.** Issue #40 attaquée en avance (planifiée Sprint 5) pendant que le craft #8 reste bloqué sur arbitrage Pascal. Refonte des interactions monde pour tendre vers le standard FPS/survie : clic gauche pour frapper/récolter, F pour ramasser, surbrillance émissive pour signaler ce qui est interactable. Rentable immédiatement (gros confort UX) sans dépendance scope critique.
+
+**Décisions.**
+1. **Action `Interact` (touche E) renommée `Attack` (clic gauche)**. Sémantique cohérente : `Attack` couvre à la fois la frappe d'un nœud (Sprint 1) et le combat avec un ennemi (Sprint 4) — c'est la même action gameplay « frapper avec l'outil/arme équipé ». Quand le dialogue PNJ arrivera (Sprint 3), on créera un `Interact` ou `Talk` dédié sur une autre touche, sans conflit avec `Attack`.
+2. **Nouvelle action `PickupItem` bindée sur `F`** (un seul binding, pas E+F comme initialement envisagé). Le choix de Aless : E sera réservé aux futures interactions génériques (parler, ouvrir, lire). F dédié au pickup pour pas avoir à le partager.
+3. **`InventoryPickupZone` refondu en mode manuel** : `_autoPickup = false` par défaut, lit l'action `PickupItem`, maintient un `HashSet<WorldItem>` des items en zone, et affiche le prompt `"[F] Ramasser X"` pour l'item le plus proche. Le toggle `_autoPickup` reste en option pour bascule rapide vers le mode auto (legacy phase 1 de #7).
+4. **Décision « pickup auto vs manuel » résolue en faveur du manuel.** Aless avait assumé la responsabilité du choix auto en phase 1 de #7 ; ici il l'arbitre vers manuel + F. Cohérent avec la convention FPS/survie. La décision est retirée de la section « Décisions en attente ».
+5. **Surbrillance émissive (`_EmissionColor` URP Lit)** sur deux cibles :
+   - `WorldItem` (items au sol) : activée à l'entrée dans la zone de pickup, désactivée à la sortie. Comme le material est créé en code (cf. décision 2026-05-22 phase 1 §7), on peut le modifier directement sans cloner.
+   - `ResourceNode` (arbres, roches) : activée au survol via le raycast caméra de `PlayerHarvester`, désactivée au changement de cible. Les prefabs Synty ont leur sharedMaterial partagé entre toutes les instances, donc on utilise `Renderer.material` (clone auto au premier accès) au lieu de `sharedMaterial` pour ne pas corrompre les autres nœuds.
+6. **Pattern `Renderer.material` (clone auto) au lieu de `MaterialPropertyBlock`** pour ResourceNode. Le MPB avait du sens initialement (pas de copie GPU) mais il ne supporte pas l'activation de keywords — et activer `_EMISSION` sur un sharedMaterial Synty produit un bug catastrophique : tous les prefabs partageant ce material deviennent blancs au prochain Play (la nouvelle variant du shader cherche une `_EmissionMap` absente). `Renderer.material` clone à la volée, instance par renderer, zéro corruption. Coût mémoire négligeable (1-3 materials par nœud × ~50-100 nœuds = <1 MB).
+7. **Bug `Destroy(gameObject)` différé** : Unity ne détruit pas immédiatement l'objet, il le marque pour destruction et nettoie à la fin de la frame. Après pickup, le `HashSet<WorldItem>` contenait un WorldItem « fantôme » techniquement non-null, ce qui maintenait le prompt visible jusqu'à un second appui F. Fix : filtrer le `RemoveWhere` sur `item == null OR item.Quantity <= 0` (l'item est considéré consommé même si pas encore détruit).
+8. **Prompts UI** : `PlayerHarvester` affiche `"[Clic gauche] Récolter X"` au survol d'un nœud ; `InventoryPickupZone` affiche `"[F] Ramasser X"` quand un item est en zone. Pas de gestion de priorité — si les deux conditions sont vraies simultanément, le dernier qui écrit dans `InteractionPrompt` gagne. Acceptable POC ; à raffiner si conflit récurrent observé.
+
+**Alternatives écartées.**
+- **Keyword `_EMISSION` activé au Awake sur sharedMaterial** : tentative initiale qui corrompt tous les prefabs au démarrage (rendu blanc). Persiste même après Stop/Play car Unity Editor cache les modifs aux assets.
+- **Lazy keyword activation au premier survol** : améliorait le bug initial mais le corrompait au premier survol (tous les prefabs deviennent blancs et restent corrompus).
+- **MaterialPropertyBlock pur (sans toucher au keyword)** : marche en théorie si les materials Synty ont déjà `_EMISSION` activé, mais cas non garanti. `Renderer.material` est plus safe.
+- **Pickup via raycast caméra (comme la récolte)** : alternative au trigger sphérique. Plus précis mais demande un visement, peu pratique pour des items au sol qui peuvent être petits. Le trigger sphérique 1.5m reste plus ergonomique pour un POC.
+- **Outline shader custom (Renderer Feature URP)** : alternative à l'émissive pour la surbrillance. Plus joli mais demande de coder un shader custom et de configurer une Renderer Feature dans Project Settings. Disproportionné pour POC, à reconsidérer si Pascal trouve l'émissive trop subtile.
+- **Prompt prioritarisé (PlayerHarvester > PickupZone ou inverse)** : reporté tant qu'on n'observe pas le conflit en jeu.
+
+**Conséquences.**
+- **Issue #40 close** — refonte input livrée en avance de phase (initialement Sprint 5 polish).
+- L'API publique `WorldItem.SetHighlighted(bool)` et `ResourceNode.SetHighlighted(bool)` est posée. **Pattern dégagé** : pour highlighter un objet de jeu, on expose une méthode `SetHighlighted(bool)` qui modifie l'émissive via `Renderer.material` (clone auto). À répliquer pour les futurs objets interactables (PNJ ciblables Sprint 3, bâtiments construisibles Sprint 2, ennemis Sprint 4).
+- Convention **`Renderer.material` (et non `sharedMaterial`)** acquise pour toute modification runtime d'un material partagé. À signaler en revue de code si du `.sharedMaterial = ...` ou `EnableKeyword(...)` sur sharedMaterial apparaît.
+- Convention **`Destroy()` différé** : filtrer sur l'état logique (`Quantity`, `IsDepleted`, etc.) plutôt que sur `item == null` quand on parcourt une collection qui peut contenir des objets en attente de destruction. Pattern à répliquer pour les futurs systèmes qui maintiennent des listes d'entités potentiellement destroyed.
+- L'`InputActionAsset` perd `Interact`, gagne `Attack` (clic gauche) et `PickupItem` (F). `PlayerHarvester` et `InventoryPickupZone` sont les seuls consommateurs ; mis à jour en même temps. Pas de breaking change côté autres systèmes.
+- Sprint 1 reste à `#8` (craft, en attente Pascal). Le reste du polish est en place avant le craft (récolte propre, pickup propre, inventaire complet, drag & drop).
+
+---
 
 ### 2026-05-22 — Inventaire joueur phase 3/3 : drag & drop + drop manuel (Sprint 1, issue #7 close)
 
@@ -735,4 +768,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-22 (Sprint 1 — inventaire phase 3/3 / issue #7 close)*
+*Dernière mise à jour : 2026-05-22 (Sprint 5 anticipé — polish input / issue #40 close)*

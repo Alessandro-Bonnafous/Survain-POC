@@ -63,14 +63,14 @@ namespace Survain.Gameplay.Player
         // ─── Constantes ─────────────────────────────────────────────────────
 
         private const string ActionMapName = "Player";
-        private const string InteractActionName = "Interact";
+        private const string AttackActionName = "Attack";
         private const int HotbarSize = 4;
         private static readonly string[] EquipSlotActionNames =
             { "EquipSlot1", "EquipSlot2", "EquipSlot3", "EquipSlot4" };
 
         // ─── État runtime ───────────────────────────────────────────────────
 
-        private InputAction _interactAction;
+        private InputAction _attackAction;
         private InputAction[] _equipSlotActions;
         private Action<InputAction.CallbackContext>[] _equipSlotHandlers;
         private float _nextHitAllowedAt; // Time.time minimal pour le prochain coup
@@ -91,7 +91,7 @@ namespace Survain.Gameplay.Player
             if (_playerRoot == null) _playerRoot = transform;
 
             var map = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
-            _interactAction = map?.FindAction(InteractActionName, throwIfNotFound: false);
+            _attackAction = map?.FindAction(AttackActionName, throwIfNotFound: false);
 
             _equipSlotActions = new InputAction[HotbarSize];
             _equipSlotHandlers = new Action<InputAction.CallbackContext>[HotbarSize];
@@ -102,10 +102,10 @@ namespace Survain.Gameplay.Player
                 _equipSlotHandlers[i] = _ => _equipment.SetTool(slotIndex);
             }
 
-            if (_interactAction == null)
+            if (_attackAction == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
-                    "PlayerHarvester : action 'Interact' introuvable dans la map 'Player'.", this);
+                    "PlayerHarvester : action 'Attack' introuvable dans la map 'Player'.", this);
                 enabled = false;
                 return;
             }
@@ -124,8 +124,8 @@ namespace Survain.Gameplay.Player
         private void OnEnable()
         {
             // On utilise 'started' (pression initiale) plutôt que 'performed' pour bypass
-            // l'interaction Hold de l'asset Interact (qui imposerait un délai de 0.4s par défaut).
-            if (_interactAction != null) _interactAction.started += OnInteractStarted;
+            // les interactions custom potentielles (Hold, Tap, etc.) qui ajouteraient un délai.
+            if (_attackAction != null) _attackAction.started += OnAttackStarted;
 
             if (_equipSlotActions != null)
             {
@@ -138,7 +138,7 @@ namespace Survain.Gameplay.Player
 
         private void OnDisable()
         {
-            if (_interactAction != null) _interactAction.started -= OnInteractStarted;
+            if (_attackAction != null) _attackAction.started -= OnAttackStarted;
 
             if (_equipSlotActions != null)
             {
@@ -157,15 +157,22 @@ namespace Survain.Gameplay.Player
             var target = RaycastForNode();
             if (target != _currentTarget)
             {
+                if (_currentTarget != null) _currentTarget.SetHighlighted(false);
                 _currentTarget = target;
+                if (_currentTarget != null) _currentTarget.SetHighlighted(true);
                 UpdatePrompt();
             }
         }
 
         private void OnDestroy()
         {
-            // Sécurité : si le harvester disparaît, on cache le prompt résiduel.
-            if (_currentTarget != null) InteractionPrompt.Instance.Hide();
+            // Sécurité : si le harvester disparaît, on cache le prompt résiduel
+            // et on retire la surbrillance du nœud visé.
+            if (_currentTarget != null)
+            {
+                _currentTarget.SetHighlighted(false);
+                InteractionPrompt.Instance.Hide();
+            }
         }
 
         private void UpdatePrompt()
@@ -175,12 +182,12 @@ namespace Survain.Gameplay.Player
                 InteractionPrompt.Instance.Hide();
                 return;
             }
-            InteractionPrompt.Instance.Show($"[E] Récolter {_currentTarget.Data.DisplayName}");
+            InteractionPrompt.Instance.Show($"[Clic gauche] Récolter {_currentTarget.Data.DisplayName}");
         }
 
         // ─── Input handlers ─────────────────────────────────────────────────
 
-        private void OnInteractStarted(InputAction.CallbackContext _) => TryHarvest();
+        private void OnAttackStarted(InputAction.CallbackContext _) => TryHarvest();
 
         // ─── Logique de récolte ─────────────────────────────────────────────
 

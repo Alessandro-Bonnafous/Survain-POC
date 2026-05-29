@@ -35,10 +35,16 @@ namespace Survain.Gameplay.Inventories
         [Range(0f, 10f)]
         [SerializeField] private float _spawnUpwardForce = 3f;
 
+        [Header("Surbrillance")]
+        [Tooltip("Couleur émissive appliquée quand l'item est survolé par la zone de pickup.")]
+        [SerializeField] private Color _highlightEmission = new Color(1f, 0.85f, 0.4f) * 0.6f;
+
         private ItemData _item;
         private int _quantity;
         private bool _configured;
         private GameObject _visualCube;
+        private Material _runtimeMaterial;
+        private bool _highlighted;
 
         public ItemData Item => _item;
         public int Quantity => _quantity;
@@ -53,6 +59,28 @@ namespace Survain.Gameplay.Inventories
             _quantity = Mathf.Max(0, quantity);
             _configured = true;
             name = $"WorldItem_{(_item != null ? _item.Id : "null")}_x{_quantity}";
+        }
+
+        /// <summary>
+        /// Active ou désactive la surbrillance (émissive URP Lit) sur le visuel.
+        /// Appelé par InventoryPickupZone à l'entrée/sortie du WorldItem dans la zone.
+        /// </summary>
+        public void SetHighlighted(bool highlighted)
+        {
+            if (_highlighted == highlighted) return;
+            _highlighted = highlighted;
+            if (_runtimeMaterial == null) return;
+
+            if (highlighted)
+            {
+                _runtimeMaterial.EnableKeyword("_EMISSION");
+                _runtimeMaterial.SetColor("_EmissionColor", _highlightEmission);
+            }
+            else
+            {
+                _runtimeMaterial.SetColor("_EmissionColor", Color.black);
+                _runtimeMaterial.DisableKeyword("_EMISSION");
+            }
         }
 
         /// <summary>
@@ -107,10 +135,10 @@ namespace Survain.Gameplay.Inventories
                 // Shader URP Lit (CreatePrimitive utilise le shader Standard → rose en URP).
                 var shader = Shader.Find("Universal Render Pipeline/Lit");
                 if (shader == null) shader = Shader.Find("Sprites/Default");
-                var mat = new Material(shader);
-                mat.SetColor("_BaseColor", _fallbackColor);
-                mat.color = _fallbackColor;
-                rend.sharedMaterial = mat;
+                _runtimeMaterial = new Material(shader);
+                _runtimeMaterial.SetColor("_BaseColor", _fallbackColor);
+                _runtimeMaterial.color = _fallbackColor;
+                rend.sharedMaterial = _runtimeMaterial;
             }
         }
 
