@@ -214,11 +214,8 @@ namespace Survain.Gameplay.Items
                 return;
             }
 
-            // Fallback : on génère un WorldItem en code, sans prefab.
-            var go = new GameObject($"WorldItem_{_data.ProducedItem?.Id ?? "unknown"}");
-            go.transform.position = dropPos;
-            var drop2 = go.AddComponent<WorldItem>();
-            drop2.Configure(_data.ProducedItem, _data.ProducedQuantity);
+            // Fallback : génération en code via le spawner partagé (cf. WorldItemSpawner).
+            WorldItemSpawner.Spawn(_data.ProducedItem, _data.ProducedQuantity, dropPos);
         }
     }
 }
