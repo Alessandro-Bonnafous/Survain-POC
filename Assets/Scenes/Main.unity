@@ -3130,7 +3130,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Inventories.InventoryPickupZone
   _targetInventory: {fileID: 1753112046}
-  _autoPickup: 1
+  _inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  _autoPickup: 0
 --- !u!135 &411353173
 SphereCollider:
   m_ObjectHideFlags: 0
