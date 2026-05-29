@@ -5,22 +5,23 @@ using Survain.Items;
 namespace Survain.Gameplay.Inventories
 {
     /// <summary>
-    /// Outil de bootstrap qui pré-injecte une liste d'items dans un Inventory au démarrage.
+    /// Pré-injecte une liste d'items dans un Inventory au démarrage.
     ///
-    /// Utilisé en phase 1 du sprint #7 pour peupler la hotbar avec les outils de base
-    /// (hache + pioche) en attendant l'UI inventaire (phase 2) qui permettra l'équipement
-    /// par l'utilisateur depuis l'inventaire vers la hotbar.
+    /// Successeur de HotbarBootstrap (phase 1) — renommé en phase 3 car la cible n'est
+    /// plus la hotbar mais le backpack : l'utilisateur peut désormais équiper depuis
+    /// l'inventaire vers la hotbar via drag & drop. La hotbar démarre vide, le joueur
+    /// équipe ses outils initiaux en glissant depuis le backpack.
     ///
     /// Tourne AVANT PlayerEquipment.Start (via DefaultExecutionOrder = -50) pour que
-    /// l'outil du slot initial soit déjà présent au moment où PlayerEquipment.SetTool
-    /// est appelé en Start.
+    /// les items soient présents au moment où PlayerEquipment lit la hotbar (cas où
+    /// quelqu'un voudrait quand même pointer cet InventoryBootstrap vers la hotbar).
     ///
-    /// À supprimer en phase 3 (drop d'items depuis l'inventaire) ou à reconvertir en
-    /// "save loader" quand on aura le système de sauvegarde.
+    /// À supprimer à terme quand on aura le système de sauvegarde — il fera le job de
+    /// peupler l'inventaire au load.
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(-50)]
-    public sealed class HotbarBootstrap : MonoBehaviour
+    public sealed class InventoryBootstrap : MonoBehaviour
     {
         [System.Serializable]
         public struct InitialEntry
@@ -33,7 +34,7 @@ namespace Survain.Gameplay.Inventories
             public int Quantity;
         }
 
-        [Tooltip("Inventaire cible à pré-remplir au démarrage.")]
+        [Tooltip("Inventaire cible à pré-remplir au démarrage (typiquement le Backpack).")]
         [SerializeField] private Inventory _target;
 
         [Tooltip("Liste d'items à injecter dans l'ordre. L'ordre détermine les slots remplis.")]
@@ -44,14 +45,14 @@ namespace Survain.Gameplay.Inventories
             if (_target == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
-                    "HotbarBootstrap : _target non assigné.", this);
+                    "InventoryBootstrap : _target non assigné.", this);
                 return;
             }
 
             if (_entries == null || _entries.Length == 0)
             {
                 SurvainLog.Warn(SurvainLog.Category.Gameplay,
-                    "HotbarBootstrap : aucune entrée à injecter.", this);
+                    "InventoryBootstrap : aucune entrée à injecter.", this);
                 return;
             }
 
@@ -66,13 +67,13 @@ namespace Survain.Gameplay.Inventories
                 if (added > 0)
                 {
                     SurvainLog.Info(SurvainLog.Category.Gameplay,
-                        $"HotbarBootstrap : {added}x '{entry.Item.Id}' injecté dans '{_target.name}'.",
+                        $"InventoryBootstrap : {added}x '{entry.Item.Id}' injecté dans '{_target.name}'.",
                         this);
                 }
                 if (notAdded > 0)
                 {
                     SurvainLog.Warn(SurvainLog.Category.Gameplay,
-                        $"HotbarBootstrap : {notAdded}x '{entry.Item.Id}' non injecté (slots insuffisants).",
+                        $"InventoryBootstrap : {notAdded}x '{entry.Item.Id}' non injecté (slots insuffisants).",
                         this);
                 }
             }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Survain.Core;
 using Survain.Gameplay.Inventories;
@@ -22,7 +23,8 @@ namespace Survain.UI
     /// elle masque le bg.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class InventorySlotView : MonoBehaviour
+    public sealed class InventorySlotView : MonoBehaviour,
+        IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler
     {
         [Header("Icône & fallback")]
         [Tooltip("Image qui affiche l'icône de l'item (Sprite). Cachée si l'item n'a pas d'icône.")]
@@ -74,6 +76,39 @@ namespace Survain.UI
         public void SetSelected(bool selected)
         {
             if (_selectionFrame != null) _selectionFrame.enabled = selected;
+        }
+
+        /// <summary>Inventaire pointé par ce slot (lu par InventoryDragController).</summary>
+        public Inventory Inventory => _inventory;
+
+        /// <summary>Index du slot dans son inventaire (lu par InventoryDragController).</summary>
+        public int SlotIndex => _slotIndex;
+
+        // ─── Drag & drop (phase 3) ──────────────────────────────────────────
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (_inventory == null) return;
+            if (InventoryDragController.Instance == null) return;
+            InventoryDragController.Instance.BeginDrag(this);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            // Le controller met à jour la position du ghost via son propre Update.
+            // Cette méthode est requise par l'interface IDragHandler mais ne fait rien.
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            if (InventoryDragController.Instance == null) return;
+            InventoryDragController.Instance.EndDrag();
+        }
+
+        public void OnDrop(PointerEventData eventData)
+        {
+            if (InventoryDragController.Instance == null) return;
+            InventoryDragController.Instance.OnDropOnSlot(this);
         }
 
         private void OnDestroy()

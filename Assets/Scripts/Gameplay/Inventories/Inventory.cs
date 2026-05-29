@@ -170,6 +170,30 @@ namespace Survain.Gameplay.Inventories
         }
 
         /// <summary>
+        /// Échange le contenu d'un slot de CET inventaire avec un slot d'un AUTRE inventaire.
+        /// Utilisé par le drag & drop UI pour déplacer un item entre backpack et hotbar.
+        ///
+        /// Note : aucune validation de MaxStackSize côté destination — on suppose que les
+        /// slots échangés ont été créés par TryAdd (qui respecte MaxStackSize) et sont donc
+        /// valides par construction. Si other == this, délègue à Swap classique.
+        /// </summary>
+        public bool SwapAcross(int thisIndex, Inventory other, int otherIndex)
+        {
+            if (other == null) return false;
+            if (other == this) return Swap(thisIndex, otherIndex);
+            if (thisIndex < 0 || thisIndex >= _capacity) return false;
+            if (otherIndex < 0 || otherIndex >= other._capacity) return false;
+
+            var slotHere = _slots[thisIndex];
+            var slotThere = other._slots[otherIndex];
+            SetSlot(thisIndex, slotThere);
+            other.SetSlot(otherIndex, slotHere);
+            OnInventoryChanged?.Invoke();
+            other.OnInventoryChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>
         /// Transfère le contenu d'un slot source vers la première place dispo dans `target`.
         /// Réutilise TryAdd côté cible pour gérer le stacking. Retourne true si au moins
         /// une unité a été déplacée.
