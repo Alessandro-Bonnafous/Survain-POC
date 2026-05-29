@@ -85,7 +85,7 @@
 - [x] Système d'items et ScriptableObjects (issue #5)
 - [x] Nœuds de ressources et système de récolte (issue #6)
 - [x] Avatar joueur Synty Sidekick + anims Mixamo (issue #33, ajoutée en cours de sprint)
-- [/] Inventaire joueur (issue #7) — phases 1/3 et 2/3 terminées, drag&drop + drop manuel à venir
+- [x] Inventaire joueur (issue #7) — 3 phases complètes (data model + UI + drag&drop)
 - [ ] Système de craft basique tier gris (issue #8) — ⚠️ **point de design critique** : la mécanique d'engagement non-répétitive (QTE/timing/autre) doit être validée avec Pascal AVANT implémentation. Différenciateur clé du jeu.
 
 **Livrable du sprint :** build où le joueur peut couper un arbre / miner une roche, voir les ressources dans son inventaire, et crafter un outil de base via une mécanique non-répétitive.
@@ -110,7 +110,7 @@
 
 - **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
 - **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
-- **Pickup auto vs manuel pour les drops (issue #7 phase 1)** — phase 1 livrée avec **pickup auto au contact** via trigger sphérique 1.5m. Toggle `_autoPickup` exposé sur `InventoryPickupZone` permet le bascule en manuel sans refonte si Pascal préfère (~30 min : ajouter touche E + raycast). À arbitrer **avant la phase 2** (UI inventaire) pour éviter de re-câbler les feedbacks UI.
+- **Pickup auto vs manuel pour les drops (issue #7)** — Aless a assumé la responsabilité de continuer en auto sans validation Pascal. Le toggle `_autoPickup` reste basculable en manuel (~30 min de bascule). Repris dans l'issue #40 (Sprint 5 polish) qui traque la refonte input globale (clic gauche récolte, E/F pickup, surbrillance items).
 
 ---
 
@@ -196,6 +196,43 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-22 — Inventaire joueur phase 3/3 : drag & drop + drop manuel (Sprint 1, issue #7 close)
+
+**Contexte.** Phase 3 et dernière de l'issue #7 : ajouter la couche "modifier l'état via interaction UI" par-dessus la couche "voir l'état" de la phase 2. Le joueur peut maintenant drag des items entre slots du backpack, entre backpack et hotbar, et drop des items au monde depuis l'inventaire. Issue #7 close.
+
+**Décisions.**
+1. **Drag & drop natif uGUI** via `IBeginDragHandler` / `IDragHandler` / `IEndDragHandler` / `IDropHandler` sur `InventorySlotView`. Pas de plugin, pas de système custom. Cohérent avec le choix uGUI Canvas (cf. phases 1 §4 et 2 §2).
+2. **`InventoryDragController` singleton** posé sur le Canvas `UI`. Pilote le ghost visuel (suit la souris pendant le drag) + l'état du drag courant (source slot, item dragué, `_droppedOnSlot` flag). Au `EndDrag` sans `OnDrop` → drop hors UI → spawn `WorldItem` près du joueur. Pattern singleton + référence locale (drag de la racine UI) pour ne pas dépendre de `FindObjectOfType`.
+3. **`Inventory.SwapAcross(int, Inventory, int)` ajouté** pour le swap inter-conteneur (backpack ↔ hotbar). Pas de validation MaxStackSize côté destination (les slots échangés ont été créés par `TryAdd` qui respecte déjà la contrainte). Si source == destination, délègue à `Swap` classique. L'API publique `Inventory` passe à 9 méthodes (`TryAdd`/`TryRemove`/`Get`/`Count`/`Contains`/`Swap`/`SwapAcross`/`Transfer` + `OnSlotChanged`/`OnInventoryChanged`).
+4. **`WorldItemSpawner` static helper** introduit pour factoriser la création d'un `WorldItem` au monde. Utilisé par `ResourceNode.SpawnDrop` (fallback sans prefab) ET par `InventoryDragController.EndDrag` (drop manuel). Évite la duplication "new GameObject + AddComponent<WorldItem> + Configure".
+5. **Drop hors UI = stack entier** (pas 1 unité). Cohérent Minecraft/Terraria, plus simple côté code, et le joueur peut re-ramasser le drop si besoin. Modal "split quantity" reporté post-POC si nécessaire.
+6. **Drop sur slot occupé = swap des deux slots** (et non annulation du drag). Réutilise `Swap`/`SwapAcross`. Si les deux slots contiennent le même item stackable, on aurait pu faire un merge intelligent ; ici on fait un swap simple — c'est légèrement sous-optimal mais cohérent.
+7. **Transfer libre backpack ↔ hotbar** (pas de filtre type). Le joueur peut mettre un `raw-wood` dans la hotbar si ça lui chante. Standard sandbox. Si Pascal veut restreindre la hotbar aux outils plus tard, on ajoutera un prédicat `CanAccept(ItemData)` côté `Inventory`.
+8. **`HotbarBootstrap` renommé `InventoryBootstrap`** (générique). La pré-injection se fait désormais dans le **Backpack** (et non plus la Hotbar) : le joueur démarre avec hache + pioche dans son sac à dos, et les drag vers la hotbar via UI. Plus naturel pédagogiquement (le joueur voit l'inventaire dès le 1er Tab). À supprimer définitivement quand le save loader sera en place.
+9. **`Mouse.current.position.ReadValue()` (Input System Package)** pour récupérer la position souris dans `Update`. `UnityEngine.Input.mousePosition` plante au runtime car le projet est sur le new Input System depuis l'origine. Convention : tout accès souris/clavier passe par `Mouse.current` / `Keyboard.current`, pas par l'ancien API.
+10. **Ordre Hierarchy UI critique** : `HotbarPanel` doit être listé **après** `InventoryPanel` sous le Canvas `UI` pour que les drops sur la hotbar (quand le panel inventaire est ouvert) ne soient pas interceptés par le dim noir fullscreen de l'`InventoryPanel`. Bug rencontré pendant le dev, fixé en réordonnant les enfants. **Pattern à retenir** : dans uGUI, l'ordre des enfants du Canvas définit le z-order rendu ET le z-order raycast — un `Image` fullscreen avec `Raycast Target ✅` placé après les autres éléments les rend incliquables.
+11. **`CanvasGroup` sur `DragGhost` avec `Blocks Raycasts = false`** pour que le ghost ne bloque pas les events de drop alors qu'il suit la souris. Pattern standard uGUI pour les overlays dynamiques.
+
+**Alternatives écartées.**
+- **Drop 1 unité à la fois (ou split modal)** : trop POC, pattern stack-entier suffit. À ré-évaluer post-MVP si le confort le demande.
+- **Slot occupé = annuler le drag** : frustrant pour l'utilisateur. Swap est plus ergonomique.
+- **Filtre hotbar = outils/armes uniquement** : restreint la flexibilité, complique le code. Standard sandbox = transfer libre.
+- **Garder `HotbarBootstrap` tel quel** : nom ne reflète plus la réalité (cible Backpack désormais). Rename `InventoryBootstrap` pour générique.
+- **Ghost visuel piloté par `OnDrag` côté slot** au lieu d'`Update` du controller : OnDrag est appelé seulement quand la souris bouge, donc moins fluide. `Update` lit la position chaque frame, plus régulier.
+- **Drop modal "voulez-vous vraiment drop ?"** : friction utilisateur inutile pour le POC.
+- **Décocher `Raycast Target` sur `InventoryPanel.Image`** au lieu de réordonner la Hierarchy : marche aussi mais perd le pattern "dim noir bloque les clics sur la scène 3D quand le panel est ouvert" (utile plus tard pour les menus modaux).
+
+**Conséquences.**
+- **Issue #7 close** — 3 phases livrées en une journée. Statut `priority:critical` levé.
+- L'API publique `Inventory` est stabilisée (9 méthodes + 2 events). Contrat sur lequel les futurs systèmes UI/save/multi-joueur peuvent se brancher sans risque de refactor.
+- `WorldItemSpawner` devient le **point d'entrée standard pour faire apparaître un item dans le monde**. À utiliser pour : drops PNJ tués (Sprint 4), drops bâtiments détruits (Sprint 2), récompenses de quête (post-POC).
+- Pattern **uGUI `IDragHandler`/`IDropHandler` + Controller singleton + ghost CanvasGroup** validé. À répliquer pour : panneau de craft (drag ingrédient → slot recette), échange avec PNJ marchand (Sprint 3), partage entre joueurs (Sprint 5 multi).
+- Convention **`Mouse.current` / `Keyboard.current` (Input System Package)** acquise pour le projet. Pas de `UnityEngine.Input.*` autorisé. À signaler en revue de code.
+- Convention **ordre Hierarchy UI Canvas dicte le raycast** acquise. À surveiller quand on ajoute des panels overlays (menu pause, menu craft).
+- Sprint 1 : reste seulement **#8 craft** (en attente d'arbitrage Pascal sur la mécanique d'engagement non-répétitive). Une fois #8 livré → Sprint 1 clôturable → release `v0.2.0`.
+
+---
 
 ### 2026-05-22 — Inventaire joueur phase 2/3 : UI hotbar + panel inventaire (Sprint 1, issue #7 partiel)
 
@@ -698,4 +735,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-22 (Sprint 1 — inventaire phase 2/3 / issue #7 partiel)*
+*Dernière mise à jour : 2026-05-22 (Sprint 1 — inventaire phase 3/3 / issue #7 close)*
