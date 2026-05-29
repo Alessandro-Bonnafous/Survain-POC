@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using Survain.Core;
+using Survain.Gameplay.Buildings;
 using Survain.Gameplay.Inventories;
 using Survain.Items;
 
@@ -42,6 +43,9 @@ namespace Survain.Gameplay.Items
         private Coroutine _respawnRoutine;
         private Renderer[] _visualRenderers;
         private bool _highlighted;
+
+        // Intervalle de re-test quand le respawn est bloqué par une construction.
+        private const float RespawnOccupiedRetrySeconds = 5f;
 
         public ResourceNodeData Data => _data;
         public int CurrentHits => _currentHits;
@@ -237,6 +241,20 @@ namespace Survain.Gameplay.Items
         {
             yield return new WaitForSeconds(delay);
 
+            // Un nœud ne réapparaît pas à travers une construction posée entre-temps
+            // (issue #9) : tant qu'un Building/ConstructionSite occupe l'emplacement, on
+            // re-teste périodiquement. Le nœud finira par revenir si la structure est
+            // détruite (#11).
+            if (IsSpawnBlockedByBuilding())
+            {
+                SurvainLog.Info(SurvainLog.Category.Gameplay,
+                    $"Nœud '{_data.Id}' : respawn différé, emplacement occupé par une construction.", this);
+                while (IsSpawnBlockedByBuilding())
+                {
+                    yield return new WaitForSeconds(RespawnOccupiedRetrySeconds);
+                }
+            }
+
             _currentHits = _data.Hits;
 
             if (_visualInstance != null) _visualInstance.SetActive(true);
@@ -248,6 +266,27 @@ namespace Survain.Gameplay.Items
 
             OnRespawned?.Invoke();
             _respawnRoutine = null;
+        }
+
+        /// <summary>
+        /// Teste si l'emplacement du nœud est occupé par une construction (Building ou
+        /// ConstructionSite). Utilisé pour différer le respawn et éviter qu'un arbre/rocher
+        /// ne réapparaisse à travers un bâtiment posé pendant que le nœud était épuisé.
+        /// </summary>
+        private bool IsSpawnBlockedByBuilding()
+        {
+            Vector3 center = transform.position + Vector3.up * 1f;
+            Vector3 halfExtents = new Vector3(0.6f, 1f, 0.6f);
+            var overlaps = Physics.OverlapBox(
+                center, halfExtents, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+
+            for (int i = 0; i < overlaps.Length; i++)
+            {
+                var t = overlaps[i].transform;
+                if (t.GetComponentInParent<Building>() != null) return true;
+                if (t.GetComponentInParent<ConstructionSite>() != null) return true;
+            }
+            return false;
         }
 
         private void SpawnDrop()
