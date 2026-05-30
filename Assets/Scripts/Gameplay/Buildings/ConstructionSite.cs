@@ -202,6 +202,13 @@ namespace Survain.Gameplay.Buildings
                 storage.Initialize(_target.StorageCapacity, _target.DisplayName);
             }
 
+            // Bâtiment lumineux (feu de camp, torche…) : source de lumière ponctuelle.
+            if (_target.EmitsLight)
+            {
+                var light = go.AddComponent<BuildingLight>();
+                light.Initialize(_target.LightColor, _target.LightRange, _target.LightIntensity, _target.LightHeight);
+            }
+
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Bâtiment '{_target.Id}' construit en {transform.position}.", go);
 
