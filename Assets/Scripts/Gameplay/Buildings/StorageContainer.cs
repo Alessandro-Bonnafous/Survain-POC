@@ -2,6 +2,7 @@ using UnityEngine;
 using Survain.Core;
 using Survain.Gameplay.Interaction;
 using Survain.Gameplay.Inventories;
+using Survain.UI;
 
 namespace Survain.Gameplay.Buildings
 {
@@ -53,15 +54,15 @@ namespace Survain.Gameplay.Buildings
 
         public void Interact(Inventory actorInventory)
         {
-            // Phase 1b branchera ici l'ouverture du panneau container. En 1a on logge l'état
-            // pour valider que le coffre existe et porte bien son inventaire.
-            int used = 0;
-            for (int i = 0; i < _inventory.Capacity; i++)
+            if (ContainerUI.Instance != null)
             {
-                if (!_inventory.Get(i).IsEmpty) used++;
+                ContainerUI.Instance.Open(_inventory, _label);
             }
-            SurvainLog.Info(SurvainLog.Category.Gameplay,
-                $"Coffre '{_label}' ouvert — {used}/{_inventory.Capacity} slots occupés (UI en phase 1b).", this);
+            else
+            {
+                SurvainLog.Warn(SurvainLog.Category.Gameplay,
+                    $"Coffre '{_label}' : ContainerUI absent de la scène, impossible d'ouvrir le panneau.", this);
+            }
         }
 
         public void SetHighlighted(bool highlighted)
