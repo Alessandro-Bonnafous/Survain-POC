@@ -69,13 +69,30 @@ namespace Survain.Editor.Buildings
                 cost: new[] { (rawWood, 4) },
                 storageCapacity: 12);
 
-            AppendToRegistry(new ItemData[] { hut, shed, chest });
+            var campfire = CreateOrGetBuilding(
+                id: "building-campfire",
+                displayName: "Feu de camp",
+                description: "Source de lumière et de chaleur. Permettra la cuisson plus tard.",
+                category: BuildCategory.Functional,
+                size: new Vector3(1f, 0.6f, 1f),
+                cost: new[] { (rawWood, 3), (rawStone, 2) },
+                emitsLight: true);
+
+            var workshop = CreateOrGetBuilding(
+                id: "building-workshop",
+                displayName: "Atelier",
+                description: "Établi de fabrication. Coque seule pour l'instant — la fonction de craft arrivera avec #8.",
+                category: BuildCategory.Functional,
+                size: new Vector3(2f, 1.5f, 2f),
+                cost: new[] { (rawWood, 6), (rawStone, 4) });
+
+            AppendToRegistry(new ItemData[] { hut, shed, chest, campfire, workshop });
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             SurvainLog.Info(SurvainLog.Category.System,
-                "BuildingsBootstrap : 3 bâtiments créés ou rafraîchis, registry à jour.");
+                "BuildingsBootstrap : 5 bâtiments créés ou rafraîchis, registry à jour.");
 
             var registry = AssetDatabase.LoadAssetAtPath<ItemRegistry>(RegistryPath);
             if (registry != null)
@@ -88,7 +105,7 @@ namespace Survain.Editor.Buildings
         private static BuildingData CreateOrGetBuilding(
             string id, string displayName, string description,
             BuildCategory category, Vector3 size, (ResourceData item, int amount)[] cost,
-            int storageCapacity = 0)
+            int storageCapacity = 0, bool emitsLight = false)
         {
             var path = $"{BuildingsFolder}/{id}.asset";
             var existing = AssetDatabase.LoadAssetAtPath<BuildingData>(path);
@@ -105,6 +122,7 @@ namespace Survain.Editor.Buildings
             so.FindProperty("_category").enumValueIndex = (int)category;
             so.FindProperty("_size").vector3Value = size;
             so.FindProperty("_storageCapacity").intValue = storageCapacity;
+            so.FindProperty("_emitsLight").boolValue = emitsLight;
 
             var costProp = so.FindProperty("_cost");
             costProp.arraySize = cost.Length;
