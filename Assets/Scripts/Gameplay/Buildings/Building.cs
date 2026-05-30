@@ -24,6 +24,9 @@ namespace Survain.Gameplay.Buildings
         [Tooltip("Couleur émissive quand le joueur vise le bâtiment (outil de démolition).")]
         [SerializeField] private Color _highlightEmission = new Color(1f, 0.6f, 0.4f) * 0.5f;
 
+        [Tooltip("Teinte vers laquelle le bâtiment vire quand il est très endommagé (0 HP).")]
+        [SerializeField] private Color _damagedColor = new Color(0.25f, 0.2f, 0.18f);
+
         public BuildingData Data => _data;
 
         public int MaxHp { get; private set; }
@@ -33,6 +36,8 @@ namespace Survain.Gameplay.Buildings
         public event Action<int, int> OnHpChanged;
 
         private Renderer[] _renderers;
+        private Color[] _baseColors;
+        private bool _materialsCached;
         private bool _highlighted;
         private bool _destroyed;
 
@@ -58,6 +63,7 @@ namespace Survain.Gameplay.Buildings
             CurrentHp = Mathf.Max(0, CurrentHp - amount);
             OnHpChanged?.Invoke(CurrentHp, MaxHp);
             if (CurrentHp == 0) DestroyBuilding();
+            else ApplyDamageTint();
         }
 
         /// <summary>Répare (clampé au max).</summary>
@@ -66,6 +72,7 @@ namespace Survain.Gameplay.Buildings
             if (amount <= 0 || CurrentHp >= MaxHp) return;
             CurrentHp = Mathf.Min(MaxHp, CurrentHp + amount);
             OnHpChanged?.Invoke(CurrentHp, MaxHp);
+            ApplyDamageTint();
         }
 
         /// <summary>Active/désactive la surbrillance émissive (visée par l'outil de démolition).</summary>
@@ -73,17 +80,56 @@ namespace Survain.Gameplay.Buildings
         {
             if (_highlighted == highlighted) return;
             _highlighted = highlighted;
-            if (_renderers == null) _renderers = GetComponentsInChildren<Renderer>(includeInactive: true);
+            EnsureMaterialCache();
 
             Color emission = highlighted ? _highlightEmission : Color.black;
             for (int i = 0; i < _renderers.Length; i++)
             {
                 var rend = _renderers[i];
                 if (rend == null) continue;
-                var mat = rend.material; // clone auto par renderer (convention ResourceNode)
+                var mat = rend.material; // même clone que la teinte de dégâts (un par renderer)
                 if (mat == null || !mat.HasProperty("_EmissionColor")) continue;
                 if (highlighted) mat.EnableKeyword("_EMISSION");
                 mat.SetColor("_EmissionColor", emission);
+            }
+        }
+
+        /// <summary>
+        /// Cache les Renderers et leur couleur de base (au premier accès). Le clone de
+        /// material via Renderer.material est partagé entre la surbrillance (émissive) et la
+        /// teinte de dégâts (couleur de base) — un seul clone par renderer.
+        /// </summary>
+        private void EnsureMaterialCache()
+        {
+            if (_materialsCached) return;
+            _materialsCached = true;
+            _renderers = GetComponentsInChildren<Renderer>(includeInactive: true);
+            _baseColors = new Color[_renderers.Length];
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                var rend = _renderers[i];
+                if (rend == null) continue;
+                var mat = rend.material;
+                _baseColors[i] = mat != null && mat.HasProperty("_BaseColor")
+                    ? mat.GetColor("_BaseColor")
+                    : (mat != null ? mat.color : Color.white);
+            }
+        }
+
+        /// <summary>Teinte le bâtiment de sa couleur de base (plein HP) vers _damagedColor (0 HP).</summary>
+        private void ApplyDamageTint()
+        {
+            EnsureMaterialCache();
+            float frac = MaxHp > 0 ? (float)CurrentHp / MaxHp : 1f;
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                var rend = _renderers[i];
+                if (rend == null) continue;
+                var mat = rend.material;
+                if (mat == null) continue;
+                Color c = Color.Lerp(_damagedColor, _baseColors[i], frac);
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
+                mat.color = c;
             }
         }
 

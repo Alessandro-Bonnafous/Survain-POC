@@ -1,8 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Survain.Core;
 using Survain.Gameplay.Buildings;
 using Survain.Gameplay.Interaction;
+using Survain.Gameplay.Inventories;
+using Survain.Items;
 using Survain.UI;
 
 namespace Survain.Gameplay.Player
@@ -34,6 +37,9 @@ namespace Survain.Gameplay.Player
         [Tooltip("Mode construction (optionnel). Quand il est actif, la démolition est suspendue.")]
         [SerializeField] private BuildModeController _buildMode;
 
+        [Tooltip("Sac à dos : source des ressources consommées pour la réparation.")]
+        [SerializeField] private Inventory _backpack;
+
         [Header("Démolition")]
         [Tooltip("Portée maximale du raycast (mètres).")]
         [Range(1f, 20f)]
@@ -47,10 +53,16 @@ namespace Survain.Gameplay.Player
         [Min(0f)]
         [SerializeField] private float _hitCooldown = 0.4f;
 
+        [Tooltip("Facteur de coût de réparation : coût = coût de construction × (dégâts) × ce facteur.")]
+        [Min(0f)]
+        [SerializeField] private float _repairCostFactor = 1f;
+
         private const string ActionMapName = "Player";
         private const string AttackActionName = "Attack";
+        private const string RepairActionName = "Repair";
 
         private InputAction _attackAction;
+        private InputAction _repairAction;
         private Building _currentTarget;
         private bool _showingPrompt;
         private float _nextHitAllowedAt;
@@ -69,6 +81,7 @@ namespace Survain.Gameplay.Player
 
             var map = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
             _attackAction = map?.FindAction(AttackActionName, throwIfNotFound: false);
+            _repairAction = map?.FindAction(RepairActionName, throwIfNotFound: false);
             if (_attackAction == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
@@ -80,11 +93,13 @@ namespace Survain.Gameplay.Player
         private void OnEnable()
         {
             if (_attackAction != null) _attackAction.started += OnAttack;
+            if (_repairAction != null) _repairAction.started += OnRepair;
         }
 
         private void OnDisable()
         {
             if (_attackAction != null) _attackAction.started -= OnAttack;
+            if (_repairAction != null) _repairAction.started -= OnRepair;
         }
 
         private void Update()
@@ -121,10 +136,16 @@ namespace Survain.Gameplay.Player
             bool shouldShow = _currentTarget != null && !HasInteractable(_currentTarget);
             if (shouldShow)
             {
-                var d = _currentTarget.Data;
+                var b = _currentTarget;
+                var d = b.Data;
                 string label = d != null ? d.DisplayName : "Structure";
-                InteractionPrompt.Instance.Show(
-                    $"[Clic gauche] Démolir {label}  ·  {_currentTarget.CurrentHp}/{_currentTarget.MaxHp} PV");
+                string prompt = $"[Clic gauche] Démolir {label}  ·  {b.CurrentHp}/{b.MaxHp} PV";
+                if (b.CurrentHp < b.MaxHp)
+                {
+                    string costStr = RepairCostLabel(b);
+                    prompt += $"  ·  [R] Réparer ({costStr})";
+                }
+                InteractionPrompt.Instance.Show(prompt);
                 _showingPrompt = true;
             }
             else if (_showingPrompt)
@@ -143,6 +164,68 @@ namespace Survain.Gameplay.Player
             _nextHitAllowedAt = Time.time + _hitCooldown;
             _currentTarget.TakeDamage(_damagePerHit);
             // Le Building gère sa destruction à 0 HP ; le prochain raycast lâchera la cible.
+        }
+
+        private void OnRepair(InputAction.CallbackContext _)
+        {
+            if (_buildMode != null && _buildMode.IsActive) return;
+            if (_currentTarget == null) return;
+
+            var b = _currentTarget;
+            if (b.CurrentHp >= b.MaxHp) return; // pas endommagé
+
+            if (_backpack == null)
+            {
+                SurvainLog.Warn(SurvainLog.Category.Gameplay,
+                    "PlayerBuildingTool : backpack non assigné, réparation impossible.", this);
+                return;
+            }
+
+            var cost = ComputeRepairCost(b);
+            foreach (var c in cost)
+            {
+                if (_backpack.Count(c.item) < c.amount)
+                {
+                    SurvainLog.Info(SurvainLog.Category.Gameplay,
+                        "Réparation : ressources manquantes.", this);
+                    return;
+                }
+            }
+            foreach (var c in cost) _backpack.TryRemove(c.item, c.amount);
+
+            b.Repair(b.MaxHp - b.CurrentHp); // réparation complète
+            SurvainLog.Info(SurvainLog.Category.Gameplay,
+                $"Bâtiment '{(b.Data != null ? b.Data.Id : "?")}' réparé.", this);
+        }
+
+        /// <summary>Coût de réparation : coût de construction × fraction de dégâts × facteur.</summary>
+        private List<(ItemData item, int amount)> ComputeRepairCost(Building b)
+        {
+            var result = new List<(ItemData, int)>();
+            var data = b.Data;
+            if (data == null || data.Cost == null) return result;
+
+            float missingFrac = b.MaxHp > 0 ? 1f - (float)b.CurrentHp / b.MaxHp : 0f;
+            foreach (var c in data.Cost)
+            {
+                if (c.Item == null) continue;
+                int need = Mathf.CeilToInt(c.Amount * missingFrac * _repairCostFactor);
+                if (need > 0) result.Add((c.Item, need));
+            }
+            return result;
+        }
+
+        private string RepairCostLabel(Building b)
+        {
+            var cost = ComputeRepairCost(b);
+            if (cost.Count == 0) return "gratuit";
+            var parts = new List<string>(cost.Count);
+            foreach (var c in cost)
+            {
+                string l = string.IsNullOrEmpty(c.item.DisplayName) ? c.item.Id : c.item.DisplayName;
+                parts.Add($"{c.amount} {l}");
+            }
+            return string.Join(", ", parts);
         }
 
         private Building RaycastForBuilding()
