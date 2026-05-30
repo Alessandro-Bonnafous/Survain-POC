@@ -24,4 +24,12 @@ MonoBehaviour:
   _cost:
   - _item: {fileID: 11400000, guid: 2bd964ae371b6af4988194fc261472ec, type: 2}
     _amount: 6
-  _prefab: {fileID: 0}
+  _prefab: {fileID: 1783928212515269426, guid: ce45bfecb3faf534ba271a0189ad5c44, type: 3}
+  _maxHp: 100
+  _refundRatio: 0.5
+  _storageCapacity: 0
+  _emitsLight: 0
+  _lightColor: {r: 1, g: 0.6, b: 0.25, a: 1}
+  _lightRange: 8
+  _lightIntensity: 3
+  _lightHeight: 1
