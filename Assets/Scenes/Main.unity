@@ -14295,9 +14295,11 @@ MonoBehaviour:
   _cameraTransform: {fileID: 330585546}
   _playerRoot: {fileID: 1792158199}
   _buildMode: {fileID: 1758828408940234226}
+  _backpack: {fileID: 1753112046}
   _maxReach: 6
   _damagePerHit: 25
   _hitCooldown: 0.4
+  _repairCostFactor: 1
 --- !u!1001 &4243485049165841187
 PrefabInstance:
   m_ObjectHideFlags: 0
