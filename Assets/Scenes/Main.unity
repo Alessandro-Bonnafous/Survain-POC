@@ -13551,7 +13551,7 @@ PrefabInstance:
       addedObject: {fileID: 1758828408940234226}
     - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1758828408940234229}
+      addedObject: {fileID: 1758828408940234232}
   m_SourcePrefab: {fileID: 100100000, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
 --- !u!1 &1758828408940234214 stripped
 GameObject:
@@ -13647,12 +13647,13 @@ MonoBehaviour:
   _buildables:
   - {fileID: 11400000, guid: deb6efc2e226c1a44bc50e43dec0fbad, type: 2}
   - {fileID: 11400000, guid: 55205a8912cb44c4882cc5f9f8e2e6fc, type: 2}
+  - {fileID: 11400000, guid: 7eabc0e352dfb20469cdc1481fbeb7b4, type: 2}
   _gridSize: 1
   _maxPlaceDistance: 8
   _maxGroundSlope: 30
   _validColor: {r: 0.3, g: 1, b: 0.4, a: 0.45}
   _invalidColor: {r: 1, g: 0.3, b: 0.3, a: 0.45}
---- !u!114 &1758828408940234229
+--- !u!114 &1758828408940234232
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -13661,9 +13662,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1758828408940234214}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cd613b4a58d99c3438632c2e6b2efe58, type: 3}
+  m_Script: {fileID: 11500000, guid: bca576d620da26343b914d7999fd3838, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerConstructionInteractor
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerInteractor
   _inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   _cameraTransform: {fileID: 330585546}
   _playerRoot: {fileID: 1792158199}
