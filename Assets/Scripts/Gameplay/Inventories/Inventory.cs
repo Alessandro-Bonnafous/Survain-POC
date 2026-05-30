@@ -63,6 +63,19 @@ namespace Survain.Gameplay.Inventories
             for (int i = 0; i < _capacity; i++) _slots[i] = InventorySlot.Empty;
         }
 
+        /// <summary>
+        /// (Re)configure la capacité et réinitialise les slots. Utilisé quand l'inventaire
+        /// est créé en code (AddComponent) — typiquement le coffre de stockage, dont la
+        /// capacité vient de la BuildingData et n'est connue qu'au runtime. À appeler juste
+        /// après l'ajout du composant, avant tout abonnement à OnSlotChanged.
+        /// </summary>
+        public void ConfigureCapacity(int capacity)
+        {
+            _capacity = Mathf.Max(1, capacity);
+            _slots = new InventorySlot[_capacity];
+            for (int i = 0; i < _capacity; i++) _slots[i] = InventorySlot.Empty;
+        }
+
         // ─── Lecture ────────────────────────────────────────────────────────
 
         public InventorySlot Get(int slotIndex)

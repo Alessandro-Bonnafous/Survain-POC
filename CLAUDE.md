@@ -188,6 +188,7 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 - **ScriptableObjects pour la config** : recettes, biomes, métiers de PNJ, stats d'armes sont des data assets éditables sans code.
 - **Singleton pattern pour le `GameManager`** : uniquement pour le `GameManager` global (états du jeu). Le reste évite les singletons.
 - **Pas de DOTS/ECS pour le POC** : MonoBehaviour classique. DOTS uniquement si un bottleneck perf nous y force.
+- **Construction NON-MODULAIRE (bâtiments entiers)** : on pose des structures **finies en un bloc**, jamais de construction pièce-par-pièce (mur/sol/toit) façon Valheim/Rust. Pas de système de sockets/snap entre pièces. Le détail et les raisons : cf. journal 2026-05-30. Les catégories `Foundation/Wall/Roof/Door/Window` de `BuildCategory` restent inertes (réservées si T3 était un jour réactivé).
 
 ---
 
@@ -195,6 +196,33 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-30 — Granularité de construction : on reste NON-MODULAIRE (bâtiments entiers)
+
+**Contexte.** En explorant l'import d'un asset visuel pour les bâtiments (issue #10, prefabs), la question de fond a resurgi : faut-il basculer vers de la construction **modulaire pièce-par-pièce** (le joueur compose ses structures à partir de murs/sols/toits avec snap par sockets, façon Valheim/Rust), qui offre plus de liberté ? L'analyse a dégagé que « modulaire vs entier » est un **faux binaire** : il y a en réalité deux axes indépendants — la **granularité de pose** (décor pré-fait → bloc fini → pièces à assembler) et le **modèle d'interaction** (externe : on s'approche + UI ; interne : on entre dans le bâtiment). Notamment, « grand bâtiment où l'on entre » (le marché, une halle à PNJ) **n'implique pas** « construit pièce par pièce » : c'est un **bloc fini avec un intérieur creux**, posé en un coup.
+
+**Taxonomie dégagée (4 niveaux).**
+- **T0 — Décor** : maisons lointaines, ruines, monuments de la Capitale. Posé par le worldgen / level design (prefab fini). Aucun système de construction.
+- **T1 — Petit fonctionnel** : forge, coffre, feu de camp, établi. Le joueur pose **un bloc fini** ; interaction **externe** (E → UI). **= le système chantier actuel, déjà livré (#9).**
+- **T2 — Grand habitable** : marché, longhouse à PNJ. Le joueur pose (ou pré-fab) **un bloc fini** ; interaction **interne** (on entre physiquement, on parle aux PNJ). Pose identique à T1 ; la différence est dans le **contenu du prefab** (intérieur + porte traversable, fade du toit éventuel) et les systèmes de jeu à l'intérieur (habitation PNJ = Sprint 3).
+- **T3 — Modulaire** : abri/maison/fort **composé par le joueur** à partir de pièces, avec snap par sockets. **Le seul niveau** qui exige le sous-système de sockets.
+
+**Décision.** **On reste sur du NON-MODULAIRE** : le POC (et le jeu tant que rien ne le remet en cause) ne livre que **T0, T1 et T2**, tous sur le système de pose de **bâtiments entiers existant**. **T3 (construction pièce-par-pièce) est abandonné pour le POC** — non développé, pas de système de sockets. Décision prise par Aless, cohérente avec la vision « assisté / city-builder, pas un bac-à-sable Minecraft » (cf. journal 2026-05-29) et avec le fait que la construction n'est pas un pilier non-négociable.
+
+**Raisons.**
+1. **3 niveaux sur 4 ne nécessitent aucun système modulaire.** T0 = art d'environnement, T1 = déjà fait, T2 = système actuel + prefab à intérieur. Seul T3 coûterait le sous-système de sockets (~un sprint : snap-points, placement vertical, refonte de la validation collision).
+2. **Cohérence vision.** SURVAIN vise une expérience assistée façon city-builder ; le marché central est une structure **fixe/pré-faite à la Capitale** (pilier économie fermée), pas un objet que le joueur brique lui-même. La forge est un T1 classique.
+3. **Précédents du genre.** Beaucoup de jeux survie-village (Going Medieval, Foundation, Manor Lords) ne font que du placement de blocs finis, jamais du brique-à-brique, sans nuire à la profondeur.
+4. **Coût/risque maîtrisé.** Le sous-système de sockets est le seul vrai morceau d'ingénierie nouveau ; l'éviter garde le scope de construction borné et le système actuel (générique sur `BuildingData`) suffit.
+
+**Alternatives écartées.** Migration complète vers le modulaire pièce-par-pièce (T3) : plus de liberté joueur mais c'est un **choix de game design structurant** (sandbox de construction) non aligné sur la vision assistée, et le seul qui impose le sous-système de sockets — disproportionné pour le POC. Approche hybride (T3 optionnel activable plus tard) : la porte n'est pas définitivement fermée côté données (`BuildCategory` garde les familles de pièces), mais **aucun code T3 n'est écrit** tant que le sandbox de construction n'est pas validé comme pilier par Pascal.
+
+**Conséquences.**
+- **#10 reste cadré sur des bâtiments entiers** (T1/T2) : catalogue de structures finies + bâtiments fonctionnels (coffre, forge…), prefabs Synty branchés via le champ `BuildingData.Prefab`. Pas de pièces modulaires à assembler.
+- Le **système de pose actuel** (`BuildModeController` + `ConstructionSite` + `Building`), déjà générique sur `BuildingData`, **suffit pour T0/T1/T2 sans refonte**. Pas de système de sockets à développer.
+- **T2 « enterable »** : à traiter quand on l'abordera comme du **contenu de prefab** (intérieur creux, porte traversable, éventuel fade du toit via volume trigger) + l'habitation PNJ (Sprint 3) — **pas** comme une évolution du système de construction.
+- Affinage data possible plus tard (non requis maintenant) : un champ `InteractionMode { External, Enterable }` sur `BuildingData` pour distinguer T1/T2 proprement.
+- Choix de **pack visuel** (cf. exploration du jour) : un pack Synty cohérent — Vikings Pack (~30 $) couvre T0/T1/T2 ; reste un **arbitrage budget + direction artistique pour Pascal**, indépendant de cette décision de granularité.
 
 ### 2026-05-29 — Système de construction : modèle chantier (Sprint 2, issue #9)
 
@@ -791,4 +819,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-29 (Sprint 2 — système de construction / modèle chantier / issue #9)*
+*Dernière mise à jour : 2026-05-30 (Sprint 2 — granularité de construction figée NON-MODULAIRE / taxonomie T0–T3)*

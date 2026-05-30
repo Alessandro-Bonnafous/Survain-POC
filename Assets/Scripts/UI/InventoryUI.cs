@@ -88,12 +88,22 @@ namespace Survain.UI
             SetOpen(false);
         }
 
+        /// <summary>Vrai quand le panneau backpack est ouvert.</summary>
+        public bool IsOpen => _isOpen;
+
         private void OnTogglePerformed(InputAction.CallbackContext _)
         {
+            // Si un coffre est ouvert, c'est ContainerUI qui possède la touche (fermeture) :
+            // on ne toggle pas le backpack indépendamment pour éviter le double-handling.
+            if (ContainerUI.Instance != null && ContainerUI.Instance.IsOpen) return;
             SetOpen(!_isOpen);
         }
 
-        private void SetOpen(bool open)
+        /// <summary>
+        /// Ouvre/ferme le panneau backpack (libère/relock le curseur). Public car ContainerUI
+        /// l'ouvre en même temps que le coffre pour permettre le drag entre les deux.
+        /// </summary>
+        public void SetOpen(bool open)
         {
             _isOpen = open;
             _panel.SetActive(open);
