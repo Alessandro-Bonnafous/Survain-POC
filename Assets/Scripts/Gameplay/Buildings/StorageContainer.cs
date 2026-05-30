@@ -33,6 +33,23 @@ namespace Survain.Gameplay.Buildings
         public string Label => _label;
 
         /// <summary>
+        /// Déverse tout le contenu du coffre au sol (WorldItem). Appelé à la destruction
+        /// du bâtiment (#11) pour ne pas faire disparaître silencieusement les items stockés.
+        /// </summary>
+        public void SpillContents()
+        {
+            if (_inventory == null) return;
+            Vector3 basePos = transform.position + Vector3.up * 0.5f;
+            for (int i = 0; i < _inventory.Capacity; i++)
+            {
+                var slot = _inventory.Get(i);
+                if (slot.IsEmpty) continue;
+                WorldItemSpawner.Spawn(slot.Item, slot.Quantity, basePos);
+                _inventory.TryRemove(slot.Item, slot.Quantity);
+            }
+        }
+
+        /// <summary>
         /// Crée et configure l'Inventory du coffre. Appelé juste après l'ajout du composant
         /// (la BuildingVisualFactory a déjà créé le visuel enfant, d'où le cache des renderers).
         /// </summary>
