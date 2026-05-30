@@ -27,8 +27,9 @@ MonoBehaviour:
     _amount: 6
   - _item: {fileID: 11400000, guid: 65c66688fa5c5924e9fdadfa8d896b45, type: 2}
     _amount: 4
-  _prefab: {fileID: 0}
+  _prefab: {fileID: 919132149155446097, guid: d94d1978592aa30479b0a7e6f32e1d2f, type: 3}
   _maxHp: 100
+  _refundRatio: 0.5
   _storageCapacity: 0
   _emitsLight: 0
   _lightColor: {r: 1, g: 0.6, b: 0.25, a: 1}
