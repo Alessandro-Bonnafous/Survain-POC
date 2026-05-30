@@ -15,7 +15,7 @@ namespace Survain.Gameplay.Buildings
     ///
     /// Modèle « chantier » : poser une structure ne consomme PAS les ressources et n'en
     /// exige aucune — ça crée un ConstructionSite (fantôme qui réserve l'emplacement). Le
-    /// joueur dépose ensuite les ressources dans le chantier (PlayerConstructionInteractor)
+    /// joueur dépose ensuite les ressources dans le chantier (PlayerInteractor, touche E)
     /// jusqu'à complétion, où le bâtiment fini apparaît. Le placement valide ne dépend donc
     /// que de la faisabilité physique (pente + collision).
     ///

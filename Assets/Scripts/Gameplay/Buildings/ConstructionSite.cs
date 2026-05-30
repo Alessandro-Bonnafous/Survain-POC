@@ -1,6 +1,7 @@
 using System.Text;
 using UnityEngine;
 using Survain.Core;
+using Survain.Gameplay.Interaction;
 using Survain.Gameplay.Inventories;
 using Survain.Items;
 
@@ -10,7 +11,7 @@ namespace Survain.Gameplay.Buildings
     /// Chantier de construction : matérialise un bâtiment « en cours ». Posé par le
     /// BuildModeController, il réserve l'emplacement (collider) et affiche un fantôme
     /// translucide du bâtiment cible. Le joueur y dépose les ressources requises (via
-    /// PlayerConstructionInteractor / touche E) ; quand le coût est entièrement couvert,
+    /// PlayerInteractor, touche E) ; quand le coût est entièrement couvert,
     /// le chantier se transforme en bâtiment fini (« paf »).
     ///
     /// C'est le point d'extension prévu pour le Sprint 3 : un PNJ « bâtisseur » appellera
@@ -20,7 +21,7 @@ namespace Survain.Gameplay.Buildings
     /// donner un retour de progression immédiat.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class ConstructionSite : MonoBehaviour
+    public sealed class ConstructionSite : MonoBehaviour, IInteractable
     {
         [Tooltip("Couleur émissive ajoutée quand le joueur vise le chantier.")]
         [SerializeField] private Color _highlightEmission = new Color(1f, 0.9f, 0.5f) * 0.5f;
@@ -150,6 +151,23 @@ namespace Survain.Gameplay.Buildings
             }
         }
 
+        // ─── IInteractable ──────────────────────────────────────────────────
+
+        public bool IsInteractable => !IsComplete;
+
+        public string GetInteractionPrompt() => $"[E] Construire — {ProgressLabel()}";
+
+        public void Interact(Inventory actorInventory)
+        {
+            if (IsComplete) return;
+            int deposited = Deposit(actorInventory);
+            SurvainLog.Info(SurvainLog.Category.Gameplay,
+                deposited > 0
+                    ? $"Dépôt de {deposited} ressource(s) dans le chantier '{(_target != null ? _target.Id : "?")}'."
+                    : "Rien à déposer (sac vide pour ce chantier ?).",
+                this);
+        }
+
         // ─── Internals ──────────────────────────────────────────────────────
 
         private void CheckComplete()
@@ -175,6 +193,14 @@ namespace Survain.Gameplay.Buildings
             var building = go.AddComponent<Building>();
             building.Initialize(_target);
             BuildingVisualFactory.Create(_target, go.transform);
+
+            // Bâtiment fonctionnel : si la data déclare une capacité de stockage, le bâtiment
+            // devient un coffre (Inventory secondaire + interaction d'ouverture).
+            if (_target.StorageCapacity > 0)
+            {
+                var storage = go.AddComponent<StorageContainer>();
+                storage.Initialize(_target.StorageCapacity, _target.DisplayName);
+            }
 
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Bâtiment '{_target.Id}' construit en {transform.position}.", go);

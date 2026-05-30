@@ -2,27 +2,24 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Survain.Core;
 using Survain.Gameplay.Buildings;
+using Survain.Gameplay.Interaction;
 using Survain.Gameplay.Inventories;
 using Survain.UI;
 
 namespace Survain.Gameplay.Player
 {
     /// <summary>
-    /// Interaction du joueur avec les chantiers (ConstructionSite). Vise un chantier avec
-    /// la caméra, appuie sur E (action Interact) → dépose dans le chantier les ressources
-    /// correspondantes du sac à dos. Quand le chantier est complet, il se transforme tout
-    /// seul en bâtiment fini.
+    /// Interaction générique du joueur (touche E). Vise un IInteractable avec la caméra,
+    /// affiche son prompt, et déclenche son Interact sur E — dépôt dans un chantier, ouverture
+    /// d'un coffre, plus tard dialogue PNJ / portes. Un seul interacteur pour toutes les cibles
+    /// (évite la multiplication d'interacteurs concurrents sur la même touche).
     ///
     /// Même pattern que PlayerHarvester (raycast caméra + surbrillance + prompt) ; suspendu
-    /// quand le mode construction est actif (le prompt de pose prime alors). L'action E est
-    /// la touche d'interaction générique réservée (cf. CLAUDE.md 2026-05-22 §2) — dépôt de
-    /// chantier aujourd'hui, dialogue/ouverture demain.
-    ///
-    /// Ne touche pas au cycle Enable/Disable de la map "Player" (PlayerController en est
-    /// propriétaire).
+    /// quand le mode construction est actif (le prompt de pose prime alors). Ne touche pas au
+    /// cycle Enable/Disable de la map "Player" (propriété de PlayerController).
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class PlayerConstructionInteractor : MonoBehaviour
+    public sealed class PlayerInteractor : MonoBehaviour
     {
         [Header("Dépendances")]
         [Tooltip("Asset Input System partagé. La map 'Player' doit exposer 'Interact'.")]
@@ -34,14 +31,14 @@ namespace Survain.Gameplay.Player
         [Tooltip("Racine du joueur (ses colliders sont ignorés par le raycast). Si null = self.")]
         [SerializeField] private Transform _playerRoot;
 
-        [Tooltip("Sac à dos : source des ressources déposées dans le chantier.")]
+        [Tooltip("Sac à dos : inventaire de l'acteur passé aux interactions (dépôt chantier, transferts coffre).")]
         [SerializeField] private Inventory _backpack;
 
-        [Tooltip("Mode construction (optionnel). Quand il est actif, l'interaction chantier est suspendue.")]
+        [Tooltip("Mode construction (optionnel). Quand il est actif, l'interaction est suspendue.")]
         [SerializeField] private BuildModeController _buildMode;
 
         [Header("Interaction")]
-        [Tooltip("Portée maximale du raycast de dépôt (mètres).")]
+        [Tooltip("Portée maximale du raycast d'interaction (mètres).")]
         [Range(1f, 20f)]
         [SerializeField] private float _maxReach = 6f;
 
@@ -49,14 +46,14 @@ namespace Survain.Gameplay.Player
         private const string InteractActionName = "Interact";
 
         private InputAction _interactAction;
-        private ConstructionSite _currentTarget;
+        private IInteractable _currentTarget;
 
         private void Awake()
         {
             if (_inputActions == null || _cameraTransform == null || _backpack == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
-                    "PlayerConstructionInteractor : inputActions, cameraTransform ou backpack non assigné.", this);
+                    "PlayerInteractor : inputActions, cameraTransform ou backpack non assigné.", this);
                 enabled = false;
                 return;
             }
@@ -68,7 +65,7 @@ namespace Survain.Gameplay.Player
             if (_interactAction == null)
             {
                 SurvainLog.Error(SurvainLog.Category.Gameplay,
-                    $"PlayerConstructionInteractor : action '{InteractActionName}' introuvable dans la map '{ActionMapName}'.", this);
+                    $"PlayerInteractor : action '{InteractActionName}' introuvable dans la map '{ActionMapName}'.", this);
                 enabled = false;
             }
         }
@@ -92,17 +89,17 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            var target = RaycastForSite();
-            if (target != _currentTarget)
+            var target = RaycastForInteractable();
+            if (!ReferenceEquals(target, _currentTarget))
             {
                 if (_currentTarget != null) _currentTarget.SetHighlighted(false);
                 _currentTarget = target;
                 if (_currentTarget != null) _currentTarget.SetHighlighted(true);
-                UpdatePrompt(); // shows si cible, masque si null (transition)
+                UpdatePrompt();
             }
             else if (_currentTarget != null)
             {
-                UpdatePrompt(); // rafraîchit le décompte de progression chaque frame
+                UpdatePrompt(); // rafraîchit le prompt (ex. décompte de progression d'un chantier)
             }
         }
 
@@ -130,27 +127,18 @@ namespace Survain.Gameplay.Player
                 InteractionPrompt.Instance.Hide();
                 return;
             }
-            InteractionPrompt.Instance.Show($"[E] Construire — {_currentTarget.ProgressLabel()}");
+            InteractionPrompt.Instance.Show(_currentTarget.GetInteractionPrompt());
         }
 
         private void OnInteract(InputAction.CallbackContext _)
         {
             if (_buildMode != null && _buildMode.IsActive) return;
-            if (_currentTarget == null || _currentTarget.IsComplete) return;
+            if (_currentTarget == null || !_currentTarget.IsInteractable) return;
 
-            int deposited = _currentTarget.Deposit(_backpack);
-            if (deposited <= 0)
-            {
-                SurvainLog.Info(SurvainLog.Category.Gameplay,
-                    "Aucune ressource à déposer (sac vide pour ce chantier ?).", this);
-                return;
-            }
+            _currentTarget.Interact(_backpack);
 
-            SurvainLog.Info(SurvainLog.Category.Gameplay,
-                $"Dépôt de {deposited} ressource(s) dans le chantier.", this);
-
-            // Le chantier peut s'être complété (et détruit) pendant le dépôt → on rafraîchit.
-            if (_currentTarget == null || _currentTarget.IsComplete)
+            // La cible peut être devenue inactive (chantier terminé) → on réévalue.
+            if (_currentTarget == null || !_currentTarget.IsInteractable)
             {
                 _currentTarget = null;
                 InteractionPrompt.Instance.Hide();
@@ -161,7 +149,7 @@ namespace Survain.Gameplay.Player
             }
         }
 
-        private ConstructionSite RaycastForSite()
+        private IInteractable RaycastForInteractable()
         {
             var hits = Physics.RaycastAll(
                 _cameraTransform.position, _cameraTransform.forward,
@@ -174,9 +162,9 @@ namespace Survain.Gameplay.Player
                 var t = hits[i].collider.transform;
                 if (t == _playerRoot || t.IsChildOf(_playerRoot)) continue;
 
-                var site = hits[i].collider.GetComponentInParent<ConstructionSite>();
-                if (site != null && !site.IsComplete) return site;
-                return null; // premier hit non-joueur n'est pas un chantier → vue obstruée
+                var interactable = hits[i].collider.GetComponentInParent<IInteractable>();
+                if (interactable != null && interactable.IsInteractable) return interactable;
+                return null; // premier hit non-joueur n'est pas interactable → vue obstruée
             }
             return null;
         }

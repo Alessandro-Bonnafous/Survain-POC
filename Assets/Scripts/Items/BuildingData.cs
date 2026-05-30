@@ -33,10 +33,21 @@ namespace Survain.Items
         [Tooltip("Prefab du visuel à instancier. Optionnel : si null, un placeholder coloré dimensionné par Size est généré (POC, avant les prefabs modulaires de #10).")]
         [SerializeField] private GameObject _prefab;
 
+        [Header("Solidité & fonction")]
+        [Tooltip("Points de vie de la structure une fois construite (socle de la destruction/réparation #11).")]
+        [Min(1)]
+        [SerializeField] private int _maxHp = 100;
+
+        [Tooltip("Capacité de stockage en slots. 0 = pas un conteneur. >0 = la structure devient un coffre (Inventory secondaire).")]
+        [Min(0)]
+        [SerializeField] private int _storageCapacity = 0;
+
         public BuildCategory Category => _category;
         public Vector3 Size => _size;
         public BuildCost[] Cost => _cost;
         public GameObject Prefab => _prefab;
+        public int MaxHp => _maxHp;
+        public int StorageCapacity => _storageCapacity;
 
         public override ItemType Type => ItemType.Building;
     }

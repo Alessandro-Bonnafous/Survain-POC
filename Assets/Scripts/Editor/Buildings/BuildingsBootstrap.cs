@@ -55,18 +55,27 @@ namespace Survain.Editor.Buildings
             var shed = CreateOrGetBuilding(
                 id: "building-shed",
                 displayName: "Abri de stockage",
-                description: "Petite remise en bois. Accueillera un coffre (Sprint 2 #10).",
+                description: "Petite remise en bois.",
                 category: BuildCategory.Storage,
                 size: new Vector3(2f, 2f, 2f),
                 cost: new[] { (rawWood, 6) });
 
-            AppendToRegistry(new ItemData[] { hut, shed });
+            var chest = CreateOrGetBuilding(
+                id: "building-chest",
+                displayName: "Coffre",
+                description: "Coffre de stockage. Range tes ressources en sécurité.",
+                category: BuildCategory.Functional,
+                size: new Vector3(1f, 1f, 1f),
+                cost: new[] { (rawWood, 4) },
+                storageCapacity: 12);
+
+            AppendToRegistry(new ItemData[] { hut, shed, chest });
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             SurvainLog.Info(SurvainLog.Category.System,
-                "BuildingsBootstrap : 2 bâtiments créés ou rafraîchis, registry à jour.");
+                "BuildingsBootstrap : 3 bâtiments créés ou rafraîchis, registry à jour.");
 
             var registry = AssetDatabase.LoadAssetAtPath<ItemRegistry>(RegistryPath);
             if (registry != null)
@@ -78,7 +87,8 @@ namespace Survain.Editor.Buildings
 
         private static BuildingData CreateOrGetBuilding(
             string id, string displayName, string description,
-            BuildCategory category, Vector3 size, (ResourceData item, int amount)[] cost)
+            BuildCategory category, Vector3 size, (ResourceData item, int amount)[] cost,
+            int storageCapacity = 0)
         {
             var path = $"{BuildingsFolder}/{id}.asset";
             var existing = AssetDatabase.LoadAssetAtPath<BuildingData>(path);
@@ -94,6 +104,7 @@ namespace Survain.Editor.Buildings
             so.FindProperty("_maxStackSize").intValue = 1;
             so.FindProperty("_category").enumValueIndex = (int)category;
             so.FindProperty("_size").vector3Value = size;
+            so.FindProperty("_storageCapacity").intValue = storageCapacity;
 
             var costProp = so.FindProperty("_cost");
             costProp.arraySize = cost.Length;
