@@ -38,6 +38,10 @@ namespace Survain.Items
         [Min(1)]
         [SerializeField] private int _maxHp = 100;
 
+        [Tooltip("Fraction du coût rendue à la destruction (0..1). Placeholder POC, à arbitrer par Pascal (économie fermée).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _refundRatio = 0.5f;
+
         [Tooltip("Capacité de stockage en slots. 0 = pas un conteneur. >0 = la structure devient un coffre (Inventory secondaire).")]
         [Min(0)]
         [SerializeField] private int _storageCapacity = 0;
@@ -65,6 +69,7 @@ namespace Survain.Items
         public BuildCost[] Cost => _cost;
         public GameObject Prefab => _prefab;
         public int MaxHp => _maxHp;
+        public float RefundRatio => _refundRatio;
         public int StorageCapacity => _storageCapacity;
         public bool EmitsLight => _emitsLight;
         public Color LightColor => _lightColor;

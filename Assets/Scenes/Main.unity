@@ -14155,6 +14155,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1758828408940234232}
+    - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1758828408940234233}
   m_SourcePrefab: {fileID: 100100000, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
 --- !u!1 &1758828408940234214 stripped
 GameObject:
@@ -14276,6 +14279,27 @@ MonoBehaviour:
   _backpack: {fileID: 1753112046}
   _buildMode: {fileID: 1758828408940234226}
   _maxReach: 6
+--- !u!114 &1758828408940234233
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d006882381484e542acbb7207b5f7d3b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerBuildingTool
+  _inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  _cameraTransform: {fileID: 330585546}
+  _playerRoot: {fileID: 1792158199}
+  _buildMode: {fileID: 1758828408940234226}
+  _backpack: {fileID: 1753112046}
+  _maxReach: 6
+  _damagePerHit: 25
+  _hitCooldown: 0.4
+  _repairCostFactor: 1
 --- !u!1001 &4243485049165841187
 PrefabInstance:
   m_ObjectHideFlags: 0
