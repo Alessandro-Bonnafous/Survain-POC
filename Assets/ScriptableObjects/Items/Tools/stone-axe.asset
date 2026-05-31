@@ -16,10 +16,14 @@ MonoBehaviour:
   _displayName: Hache en pierre
   _description: "Une lame de pierre attach\xE9e \xE0 un manche de bois. Permet d'abattre
     les arbres."
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: 027da6a4cac78564d813048be6475000, type: 3}
   _tier: 0
   _isStackable: 0
   _maxStackSize: 1
   _toolType: 1
   _harvestSpeed: 1
   _maxDurability: 80
+  _heldPrefab: {fileID: 936837361358885588, guid: c037a3d7cf0b14449a2efc99e7a8f759, type: 3}
+  _gripLocalPosition: {x: 0.1, y: 0.02, z: 0}
+  _gripLocalEuler: {x: -90, y: 0, z: 0}
+  _gripLocalScale: {x: 1, y: 1, z: 1}

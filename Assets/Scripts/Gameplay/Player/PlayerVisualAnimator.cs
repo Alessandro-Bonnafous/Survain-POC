@@ -1,5 +1,6 @@
 using UnityEngine;
 using Survain.Core;
+using Survain.Items;
 
 namespace Survain.Gameplay.Player
 {
@@ -32,16 +33,21 @@ namespace Survain.Gameplay.Player
         [Tooltip("Système de récolte. Auto-récupéré sur le même GameObject si non assigné. Optionnel : si absent, l'anim de récolte ne sera pas déclenchée.")]
         [SerializeField] private PlayerHarvester _harvester;
 
+        [Tooltip("Équipement joueur. Auto-récupéré sur le même GameObject si non assigné. Optionnel : renseigne harvestType pour choisir l'anim de récolte selon le type d'outil (hache/pioche/...).")]
+        [SerializeField] private PlayerEquipment _equipment;
+
         private static readonly int SpeedHash = Animator.StringToHash("speed");
         private static readonly int IsGroundedHash = Animator.StringToHash("isGrounded");
         private static readonly int IsJumpingHash = Animator.StringToHash("isJumping");
         private static readonly int IsHarvestingHash = Animator.StringToHash("isHarvesting");
+        private static readonly int HarvestTypeHash = Animator.StringToHash("harvestType");
 
         private void Awake()
         {
             if (_playerController == null) _playerController = GetComponent<PlayerController>();
             if (_characterController == null) _characterController = GetComponent<CharacterController>();
             if (_harvester == null) _harvester = GetComponent<PlayerHarvester>();
+            if (_equipment == null) _equipment = GetComponentInChildren<PlayerEquipment>();
 
             if (_animator == null)
             {
@@ -66,18 +72,31 @@ namespace Survain.Gameplay.Player
                 enabled = false;
                 return;
             }
+
+            // Optionnel mais sans lui harvestType reste à 0 → aucune anim de récolte ne se déclenche.
+            // On prévient explicitement plutôt que de dégrader en silence.
+            if (_equipment == null)
+                SurvainLog.Warn(SurvainLog.Category.Gameplay,
+                    "PlayerVisualAnimator : PlayerEquipment introuvable — l'anim de récolte ne sera pas " +
+                    "routée selon le type d'outil (harvestType reste à 0).", this);
         }
 
         private void OnEnable()
         {
             _playerController.Jumped += OnJumped;
             if (_harvester != null) _harvester.HitLanded += OnHitLanded;
+            if (_equipment != null)
+            {
+                _equipment.OnCurrentToolChanged += OnEquippedToolChanged;
+                SetHarvestType(_equipment.CurrentTool);
+            }
         }
 
         private void OnDisable()
         {
             _playerController.Jumped -= OnJumped;
             if (_harvester != null) _harvester.HitLanded -= OnHitLanded;
+            if (_equipment != null) _equipment.OnCurrentToolChanged -= OnEquippedToolChanged;
         }
 
         private void Update()
@@ -97,6 +116,15 @@ namespace Survain.Gameplay.Player
         private void OnHitLanded()
         {
             _animator.SetTrigger(IsHarvestingHash);
+        }
+
+        private void OnEquippedToolChanged(ToolData previous, ToolData current) => SetHarvestType(current);
+
+        // Renseigne harvestType = valeur de ToolType (hache=1, pioche=2, ...), 0 si aucun outil.
+        // L'Animator s'en sert pour router le trigger isHarvesting vers la bonne anim (Chop/Mine/...).
+        private void SetHarvestType(ToolData tool)
+        {
+            _animator.SetInteger(HarvestTypeHash, tool != null ? (int)tool.ToolType : 0);
         }
     }
 }
