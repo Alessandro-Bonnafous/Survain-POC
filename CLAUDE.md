@@ -84,9 +84,10 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Objectifs du sprint** : permettre au joueur de bâtir son campement — placer des structures, gérer leur construction puis leur entretien.
 - [x] Système de placement et construction (issue #9) — modèle **chantier** (blueprint + dépôt de ressources). Livré.
-- [ ] Structures de base et bâtiments fonctionnels (issue #10) — catalogue de bâtiments entiers + coffre / feu de camp (atelier = coque, fonction après #8 ; lit/respawn déplacé vers #19)
-- [ ] Système de destruction et réparation (issue #11)
+- [x] Structures de base et bâtiments fonctionnels (issue #10) — coffre, feu de camp, atelier coque. Livré (vrais prefabs → #46, gated Pascal).
+- [x] Système de destruction et réparation (issue #11) — démolition au clic, remboursement, dégradation visuelle, réparation. Livré.
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
+- [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
 
 **Livrable du sprint :** build où le joueur pose un chantier, y dépose ses ressources récoltées et voit le bâtiment se construire ; structures destructibles/réparables.
 
@@ -109,7 +110,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 - **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
 - **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
 - **Modèle de construction « chantier » (issue #9)** — tranché par Aless (la construction n'est pas un pilier non-négociable), **à valider a posteriori par Pascal**. Si le PO préfère un autre modèle, le `ConstructionSite` reste le socle le plus flexible (la pose instantanée en est un cas dégénéré). Non bloquant.
-- **Ratios économiques de construction** — coût des bâtiments (`building-hut` = 8 bois + 4 pierre, `building-shed` = 6 bois) et futur % remboursé à la destruction (#11). Placeholders paramétrables en `.asset`. À arbitrer par Pascal au pass d'équilibrage (levier « économie fermée », non bloquant).
+- **Ratios économiques de construction** — coût des bâtiments (`building-hut` = 8 bois + 4 pierre, `building-shed` = 6 bois, `building-chest` = 4 bois, `building-campfire` = 3 bois + 2 pierre, `building-workshop` = 6 bois + 4 pierre), **% remboursé à la destruction** (`BuildingData.RefundRatio`, défaut **50%**) et **facteur de coût de réparation** (`PlayerBuildingTool._repairCostFactor`, défaut 1). Tous placeholders paramétrables en `.asset`/Inspector. À arbitrer par Pascal au pass d'équilibrage (levier « économie fermée », non bloquant).
 
 ---
 
@@ -196,6 +197,29 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-30 — Bâtiments fonctionnels + destruction/réparation (Sprint 2, issues #10 & #11)
+
+**Contexte.** Suite du modèle chantier (#9). #10 = rendre les bâtiments *utiles* (coffre, feu de camp, atelier) + leur donner des HP ; #11 = les détruire et les réparer. Découpé en phases (data→UI, puis dégâts→réparation) comme #6/#7. Le combat n'existant pas encore (Sprint 4), la **source de dégâts du POC est le clic gauche** sur un bâtiment.
+
+**Décisions.**
+1. **Interaction générique `IInteractable` + `PlayerInteractor`** (touche E). Un seul interacteur vise par raycast caméra n'importe quel `IInteractable` et appelle son `Interact` : dépôt dans un chantier (`ConstructionSite`), ouverture d'un coffre (`StorageContainer`). Remplace `PlayerConstructionInteractor`. Évite la multiplication d'interacteurs concurrents sur la même touche. Pattern à réutiliser (PNJ dialogue Sprint 3, portes…).
+2. **Coffre de stockage** = `StorageContainer` sur le bâtiment + `Inventory` secondaire **créé en runtime** (`Inventory.ConfigureCapacity`, capacité depuis `BuildingData.StorageCapacity`). Persistant en session. À la destruction, `SpillContents()` déverse le contenu au sol (pas de perte silencieuse).
+3. **UI coffre** = `ContainerUI` (singleton) : panneau de slots **clonés depuis un template** au runtime, bindés à l'`Inventory` du coffre, + ouverture simultanée du backpack (`InventoryUI.SetOpen`). Le **drag inventaire ↔ coffre** réutilise tel quel `InventoryDragController`/`SwapAcross` de #7 (zéro code de transfert spécifique). Layout empilé (coffre haut / inventaire bas).
+4. **Feu de camp** = `BuildingLight` (point light + scintillement Perlin) créé en code à la complétion si `BuildingData.EmitsLight`. Toujours allumé — le gating jour/nuit viendra au Sprint 5.
+5. **HP & destruction** : `Building` porte HP + `TakeDamage`/`Repair`/`OnHpChanged`. Démolition = **clic gauche** via `PlayerBuildingTool` (raycast caméra, cooldown), qui **coexiste avec `PlayerHarvester`** sur la touche `Attack` — mutuellement exclusifs par le type de cible (nœud vs bâtiment), aucun double-effet. À 0 HP : remboursement partiel (`RefundRatio`) + déversement coffre + burst de particules **détaché** (`BuildingDestructionFx`, survit au `Destroy`, pattern `ResourceNodeJuice`).
+6. **Dégradation visuelle** = teinte progressive du matériau selon les HP (couleur d'origine → sombre), via le clone `Renderer.material` partagé avec la surbrillance. Vrais états de mesh = avec les prefabs (#46).
+7. **Réparation** = action **R** (`PlayerBuildingTool`) : consomme des ressources **proportionnelles aux dégâts** (coût construction × fraction × `_repairCostFactor`) depuis le sac, restaure les HP. Bindée sur **R** (pas E) pour ne pas entrer en conflit avec l'ouverture des coffres.
+8. **Prompt « last-writer-wins » contourné** : chaque système n'affiche le prompt que pour *sa* cible et ne le masque que s'il l'affichait lui-même (`_showingPrompt`). Sur un coffre, `PlayerInteractor` possède le prompt (« [E] Ouvrir ») et `PlayerBuildingTool` se tait (la démolition y reste fonctionnelle).
+9. **Pattern « champ fonctionnel sur `BuildingData` »** : `StorageCapacity`, `EmitsLight`(+params), `MaxHp`, `RefundRatio`. Le bon comportement est ajouté en code à la complétion selon ces champs. Suffisant au POC ; généralisable en « modules » si la liste grossit.
+
+**Alternatives écartées.** Plusieurs interacteurs E concurrents (un par type) ; réparation via E (conflit coffre) ; barre de vie flottante world-space (overhead UI/orientation par bâtiment, reportée) ; démolition instantanée via interaction (ne testerait ni dégradation ni réparation sans source de dégâts) ; panneau coffre avec ses propres slots backpack (re-setup lourd — on réutilise `InventoryUI`).
+
+**Conséquences.**
+- **#10 et #11 clos.** Reste **#46** (vrais prefabs Synty, gated arbitrage pack Pascal) : il suffira de brancher `BuildingData.Prefab`, sans toucher au code.
+- **Sprint 4 (combat)** alimentera `Building.TakeDamage` comme nouvelle source de dégâts ; la dégradation/réparation est déjà prête.
+- Ratio de remboursement (50%) et facteur de réparation (1) = placeholders → **décisions en attente** Pascal (économie fermée).
+- `IInteractable`/`PlayerInteractor` et `ContainerUI` (réemploi du drag #7) sont les briques pour les futurs conteneurs/interactions (marchand, dépôt de village pour PNJ bâtisseurs).
 
 ### 2026-05-30 — Granularité de construction : on reste NON-MODULAIRE (bâtiments entiers)
 
@@ -819,4 +843,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-30 (Sprint 2 — granularité de construction figée NON-MODULAIRE / taxonomie T0–T3)*
+*Dernière mise à jour : 2026-05-30 (Sprint 2 — bâtiments fonctionnels #10 + destruction/réparation #11 livrés)*
