@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 using Survain.Core;
 using Survain.Gameplay.Buildings;
 using Survain.Gameplay.Inventories;
@@ -46,6 +47,9 @@ namespace Survain.Gameplay.Items
 
         // Intervalle de re-test quand le respawn est bloqué par une construction.
         private const float RespawnOccupiedRetrySeconds = 5f;
+
+        // Obstacle NavMesh : creuse un trou pour que les PNJ contournent le nœud (#12).
+        private NavMeshObstacle _navObstacle;
 
         public ResourceNodeData Data => _data;
         public int CurrentHits => _currentHits;
@@ -95,6 +99,27 @@ namespace Survain.Gameplay.Items
             _currentHits = _data.Hits;
             SpawnVisual();
             CacheVisualRenderers();
+            SetupNavObstacle();
+        }
+
+        /// <summary>
+        /// Ajoute un NavMeshObstacle (carving) calé sur le CapsuleCollider du nœud, pour que
+        /// les PNJ (NavMeshAgent) contournent arbres/rochers/buissons. Build-safe (forme
+        /// primitive, pas de lecture de mesh — contrairement au bake des MeshColliders du pack).
+        /// Désactivé à l'épuisement, réactivé au respawn (cf. Deplete / RespawnAfterDelay).
+        /// </summary>
+        private void SetupNavObstacle()
+        {
+            var capsule = GetComponent<CapsuleCollider>();
+            if (capsule == null) return;
+
+            _navObstacle = gameObject.AddComponent<NavMeshObstacle>();
+            _navObstacle.shape = NavMeshObstacleShape.Capsule;
+            _navObstacle.center = capsule.center;
+            _navObstacle.radius = capsule.radius;
+            _navObstacle.height = capsule.height;
+            _navObstacle.carving = true;
+            _navObstacle.carveOnlyStationary = true; // nœud statique : creuse une fois
         }
 
         /// <summary>
@@ -230,6 +255,7 @@ namespace Survain.Gameplay.Items
             if (_visualInstance != null) _visualInstance.SetActive(false);
             var col = GetComponent<Collider>();
             if (col != null) col.enabled = false;
+            if (_navObstacle != null) _navObstacle.enabled = false; // libère le passage
 
             if (_data.RespawnSeconds > 0f)
             {
@@ -260,6 +286,7 @@ namespace Survain.Gameplay.Items
             if (_visualInstance != null) _visualInstance.SetActive(true);
             var col = GetComponent<Collider>();
             if (col != null) col.enabled = true;
+            if (_navObstacle != null) _navObstacle.enabled = true; // re-bloque le passage
 
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Nœud '{_data.Id}' réapparu.", this);
