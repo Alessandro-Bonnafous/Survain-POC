@@ -21,7 +21,7 @@ MonoBehaviour:
   _isStackable: 0
   _maxStackSize: 1
   _category: 2
-  _size: {x: 2, y: 1.5, z: 2}
+  _size: {x: 2, y: 1, z: 2}
   _cost:
   - _item: {fileID: 11400000, guid: 2bd964ae371b6af4988194fc261472ec, type: 2}
     _amount: 6
