@@ -32,6 +32,9 @@ namespace Survain.AI.Npc
         /// <summary>Perception du PNJ (peut être null = aucune détection de menace).</summary>
         public NpcPerception Perception { get; private set; }
 
+        /// <summary>Besoins du PNJ (peut être null = pas de faim/moral piloté).</summary>
+        public NpcNeeds Needs { get; private set; }
+
         /// <summary>Point d'origine (lieu de spawn), centre de l'errance.</summary>
         public Vector3 HomePosition { get; private set; }
 
@@ -44,6 +47,7 @@ namespace Survain.AI.Npc
         {
             Agent = GetComponent<NavMeshAgent>();
             Perception = GetComponent<NpcPerception>(); // optionnel
+            Needs = GetComponent<NpcNeeds>();           // optionnel
         }
 
         private void Start()
@@ -62,11 +66,20 @@ namespace Survain.AI.Npc
 
         private void Update()
         {
-            // Interruption globale prioritaire : une menace perçue force la fuite, quel que soit
-            // l'état courant (les états n'ont pas à tester la menace individuellement).
-            if (Perception != null && Perception.HasThreat && !(_currentState is FleeingState))
+            // Interruptions globales prioritaires (les états n'ont pas à les tester eux-mêmes).
+            // Ordre de priorité : fuite (survie) > désertion (terminal) > faim.
+            if (Perception != null && Perception.HasThreat)
             {
-                ChangeState(new FleeingState());
+                if (!(_currentState is FleeingState)) ChangeState(new FleeingState());
+            }
+            else if (Needs != null && Needs.IsDeserting)
+            {
+                if (!(_currentState is DesertingState)) ChangeState(new DesertingState());
+            }
+            else if (Needs != null && Needs.IsHungry && !(_currentState is EatingState)
+                     && EatingState.TryFindSpot(transform.position, out _)) // n'interrompt que si un feu existe
+            {
+                ChangeState(new EatingState());
             }
 
             _currentState?.Tick(this);

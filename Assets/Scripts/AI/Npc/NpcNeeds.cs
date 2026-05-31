@@ -78,12 +78,15 @@ namespace Survain.AI.Npc
             // Faim décroît avec le temps.
             _hunger = Mathf.Clamp01(_hunger - _data.HungerDecayPerSecond * dt);
 
-            // Moral converge vers sa cible pondérée (faim, abri, qualité de travail + événements).
+            // Moral cible : un socle de survie (moyenne pondérée faim + abri), modulé par la
+            // qualité de travail (multiplicateur, 1 = neutre) et décalé par les événements.
+            // Multiplicatif (et non additif) pour que des besoins au plus bas puissent réellement
+            // effondrer le moral jusqu'à la désertion (sinon plancher artificiel).
             float wH = _data.MoraleHungerWeight;
             float wS = _data.MoraleShelterWeight;
-            float wSum = wH + wS + 1f; // +1 = poids implicite de la qualité de travail
-            float target = (_hunger * wH + _shelter * wS + _workQuality) / wSum + _eventOffset;
-            target = Mathf.Clamp01(target);
+            float wSum = Mathf.Max(0.0001f, wH + wS);
+            float survival = (_hunger * wH + _shelter * wS) / wSum;
+            float target = Mathf.Clamp01(survival * _workQuality + _eventOffset);
             _morale = Mathf.MoveTowards(_morale, target, _data.MoraleLerpSpeed * dt);
 
             OnNeedsChanged?.Invoke(this);
@@ -94,5 +97,11 @@ namespace Survain.AI.Npc
             SurvainLog.Info(SurvainLog.Category.AI,
                 $"Besoins {name} : faim {_hunger:0.00} | abri {_shelter:0.00} | moral {_morale:0.00} " +
                 $"| prod ×{WorkSpeedMultiplier:0.00} (hungry={IsHungry}, deserting={IsDeserting})", this);
+
+        [ContextMenu("DEBUG/Vider la faim (test repas)")]
+        private void DebugEmptyHunger() => _hunger = 0f;
+
+        [ContextMenu("DEBUG/Effondrer le moral (test désertion)")]
+        private void DebugCollapseMorale() { _morale = 0f; _eventOffset = -1f; }
     }
 }
