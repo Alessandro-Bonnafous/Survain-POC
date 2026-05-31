@@ -79,17 +79,20 @@
 
 ## 📊 État actuel
 
-**Sprint en cours :** Sprint 2 — Construction
+**Sprint en cours :** Sprint 3 — PNJ & Village
 _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
-**Objectifs du sprint** : permettre au joueur de bâtir son campement — placer des structures, gérer leur construction puis leur entretien.
-- [x] Système de placement et construction (issue #9) — modèle **chantier** (blueprint + dépôt de ressources). Livré.
-- [x] Structures de base et bâtiments fonctionnels (issue #10) — coffre, feu de camp, atelier coque. Livré (vrais prefabs → #46, gated Pascal).
-- [x] Système de destruction et réparation (issue #11) — démolition au clic, remboursement, dégradation visuelle, réparation. Livré.
+**Objectifs du sprint** : faire vivre un village de PNJ — IA, besoins, métiers, routines.
+- [x] IA de base des PNJ — state machine (issue #12) — locomotion NavMesh + évitement (ph.1), avatar Synty animé + variété (ph.2a), états Working/Eating/Sleeping/Fleeing + perception (ph.2b). Livré.
+- [ ] Besoins PNJ : faim / moral / abri (issue #13)
+- [ ] Métiers : bûcheron (récolte), constructeur (alimente `ConstructionSite.Deposit`, ressources → coffre le plus proche) (issue #14)
+- [ ] Routines quotidiennes + recrutement (issue #15)
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 - [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
 
-**Livrable du sprint :** build où le joueur pose un chantier, y dépose ses ressources récoltées et voit le bâtiment se construire ; structures destructibles/réparables.
+**Livrable du sprint :** build où l'on gère un village vivant (PNJ aux métiers, besoins et routines).
+
+**Sprint 2 — Construction (clôturé) :** placement/chantier (#9), bâtiments fonctionnels (#10), destruction/réparation (#11), vrais prefabs (#46). **Release `v0.3.0` publiée.**
 
 **Sprint 1 — Récolte & Craft (en cours, 4/5) :**
 - [x] Items & ScriptableObjects (#5), récolte (#6), avatar Synty + Mixamo (#33), inventaire (#7)
@@ -99,7 +102,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** Sprint 3 — PNJ & Village (le `ConstructionSite` de #9 est le crochet prévu pour les PNJ bâtisseurs).
+**Prochain milestone :** #13 (besoins) puis #14 (métiers — le `ConstructionSite.Deposit` de #9 est le crochet des PNJ bâtisseurs).
 
 ---
 
@@ -197,6 +200,27 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-31 — IA des PNJ : state machine, avatar, perception (Sprint 3, issue #12)
+
+**Contexte.** Première brique du Sprint 3 : doter les PNJ d'une IA fondamentale extensible. Découpé comme #6/#7 : phase 1 (locomotion NavMesh), phase 2a (avatar visuel), phase 2b (états étendus + perception). 1 PR par phase (#50, #51, #52).
+
+**Décisions.**
+1. **Machine à états polymorphe** (`INpcState` + une classe par état : Idle/Wander/Working/Eating/Sleeping/Fleeing). Chaque état isole Enter/Tick/Exit → extensible sans toucher au `NpcController`. `ChangeState` orchestre Exit→Enter.
+2. **NavMesh baké au runtime** (`NavMeshRuntimeBaker`, ordre +150) : le terrain est généré au Play (mesh non versionné), impossible de baker en éditeur. Spawner en +200 (après bake). `NavMeshObstacle` (carving) sur les `ResourceNode` pour le contournement (désactivé à la récolte, réactivé au respawn).
+3. **Avatar = réemploi du setup #33** (Synty Sidekick + anims Mixamo). **`NpcAvatar.controller` dédié** (copie de `PlayerAvatar.controller`) : seuil Walking du blend tree recalé sur la vitesse d'errance des PNJ (sinon marche molle/glissée), seuil Running calé sur `FleeSpeed`. Chaque avatar Synty a son propre `-avatar.asset` humanoïde (pas de rig partagé). `NavMeshAgent` = autorité position (Apply Root Motion off).
+4. **Variété des villageois = liste de prefabs + tirage sans remise** (Fisher-Yates dans `NpcSpawner`) : villageois tous distincts tant qu'il y a assez de modèles, recyclage au-delà. 3 prefabs `NPC_Villager_02/03/04` (Starter_02/03/04). Pas de swap d'avatar au runtime (config self-contained par prefab).
+5. **Perception = interruption globale, pas par état** : `NpcPerception` (OverlapSphere throttlé 0.2 s sur un `LayerMask` de menaces, hystérésis 1.25× anti-flicker) ; `NpcController.Update` force `FleeingState` dès qu'une menace est perçue, quel que soit l'état. Les états ne testent pas la menace. Layer `Threat` créé (vide au POC ; ennemis Sprint 4).
+6. **`FleeingState` = seul état étendu réellement piloté en #12** ; Working/Eating/Sleeping sont des **squelettes** branchés en #13 (faim→Eating), #14 (métier→Working), #15 (nuit→Sleeping). `[ContextMenu]` DEBUG sur `NpcController` pour valider anim/transitions sans ces déclencheurs.
+7. **Anim de travail isolée** : `NpcWork.fbx` (copie du Punching, bouclée) plutôt que de modifier l'import du Punching one-shot du joueur. `NpcAnimParams` centralise les hashes (`speed`, `isWorking`).
+
+**Alternatives écartées.** Réemploi de `PlayerAvatar.controller` (polluerait le controller joueur) ; un seul avatar pour tous (village de clones) ; swap d'avatar au runtime (fragile vs prefabs self-contained) ; tirage avec remise (doublons) ; perception testée dans chaque état (duplication — l'interruption globale est plus simple) ; boucler le clip Punching partagé (casserait le one-shot joueur).
+
+**Conséquences.**
+- **#12 clos.** Sprint 3 continue sur #13 (besoins), #14 (métiers — `ConstructionSite.Deposit` est le crochet du PNJ bâtisseur), #15 (routines + recrutement).
+- Patterns dégagés : **interruption globale** au niveau machine pour les transitions prioritaires (réutilisable combat/dialogue) ; `NpcPerception` réutilisable ; `NpcAvatar.controller` dédié évolutif ; **bake NavMesh runtime** pour tout monde généré au Play.
+- Layer `Threat` prêt pour les ennemis du Sprint 4 (il suffira de les y placer → fuite des PNJ automatique).
+- Squelettes Eating/Sleeping/Working prêts à recevoir leurs déclencheurs (#13/#14/#15) sans refonte de la machine.
 
 ### 2026-05-30 — Bâtiments fonctionnels + destruction/réparation (Sprint 2, issues #10 & #11)
 
@@ -843,4 +867,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-30 (Sprint 2 — bâtiments fonctionnels #10 + destruction/réparation #11 livrés)*
+*Dernière mise à jour : 2026-05-31 (Sprint 3 — IA de base des PNJ #12 livrée : state machine, avatar Synty, perception)*
