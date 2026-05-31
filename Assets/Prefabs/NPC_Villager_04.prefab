@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3859475052296627701}
   - component: {fileID: 3294104463706049860}
   - component: {fileID: 4979942852311132728}
+  - component: {fileID: -4304200787082002299}
   m_Layer: 0
   m_Name: NPC_Villager_04
   m_TagString: Untagged
@@ -94,6 +95,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Npc.NpcController
   _data: {fileID: 11400000, guid: f8cf6ddfbf34458469f81f56a8fb3cb5, type: 2}
   _animator: {fileID: 8441344719116471042}
+--- !u!114 &-4304200787082002299
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2330646938318126983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c85a192c2fdbae4b80b5a70605a426a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Npc.NpcPerception
+  _threatLayers:
+    serializedVersion: 2
+    m_Bits: 8
+  _detectionRadius: 8
+  _scanInterval: 0.2
 --- !u!1001 &7353691852542035265
 PrefabInstance:
   m_ObjectHideFlags: 0

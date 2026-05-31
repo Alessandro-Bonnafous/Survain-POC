@@ -6,29 +6,36 @@ namespace Survain.AI.Npc
 {
     /// <summary>
     /// Runtime d'un PNJ : consomme un NPCData, pilote un NavMeshAgent et une machine à états
-    /// polymorphe (cf. INpcState). Phase 1 (#12) : locomotion Idle ⇄ Wander.
+    /// polymorphe (cf. INpcState). Phase 1 (#12) : locomotion Idle ⇄ Wander. Phase 2b : états
+    /// Working/Eating/Sleeping/Fleeing + perception (NpcPerception) qui force la fuite.
     ///
-    /// L'Animator (optionnel) reçoit le paramètre "speed" (vitesse de l'agent) pour jouer la
-    /// locomotion — on réutilise le PlayerAvatar.controller du joueur (#33) sur les PNJ.
+    /// L'Animator (optionnel) reçoit le paramètre "speed" (vitesse de l'agent) pour la locomotion
+    /// — on réutilise le NpcAvatar.controller sur les PNJ. Les états peuvent piloter d'autres
+    /// paramètres via la propriété Animator (ex. WorkingState → "isWorking").
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NavMeshAgent))]
     public sealed class NpcController : MonoBehaviour
     {
-        [Tooltip("Données du PNJ (vitesse, errance). Peut être injecté par le spawner.")]
+        [Tooltip("Données du PNJ (vitesse, errance, fuite). Peut être injecté par le spawner.")]
         [SerializeField] private NPCData _data;
 
-        [Tooltip("Animator du visuel (optionnel). Reçoit le paramètre 'speed'.")]
+        [Tooltip("Animator du visuel (optionnel). Reçoit 'speed' (locomotion) et 'isWorking'.")]
         [SerializeField] private Animator _animator;
 
         public NPCData Data => _data;
         public NavMeshAgent Agent { get; private set; }
 
+        /// <summary>Animator du visuel (peut être null). Exposé pour les états (anim par état).</summary>
+        public Animator Animator => _animator;
+
+        /// <summary>Perception du PNJ (peut être null = aucune détection de menace).</summary>
+        public NpcPerception Perception { get; private set; }
+
         /// <summary>Point d'origine (lieu de spawn), centre de l'errance.</summary>
         public Vector3 HomePosition { get; private set; }
 
         private INpcState _currentState;
-        private static readonly int SpeedHash = Animator.StringToHash("speed");
 
         /// <summary>Injecte la data (appelé par le spawner avant Start).</summary>
         public void SetData(NPCData data) => _data = data;
@@ -36,6 +43,7 @@ namespace Survain.AI.Npc
         private void Awake()
         {
             Agent = GetComponent<NavMeshAgent>();
+            Perception = GetComponent<NpcPerception>(); // optionnel
         }
 
         private void Start()
@@ -54,10 +62,18 @@ namespace Survain.AI.Npc
 
         private void Update()
         {
+            // Interruption globale prioritaire : une menace perçue force la fuite, quel que soit
+            // l'état courant (les états n'ont pas à tester la menace individuellement).
+            if (Perception != null && Perception.HasThreat && !(_currentState is FleeingState))
+            {
+                ChangeState(new FleeingState());
+            }
+
             _currentState?.Tick(this);
+
             if (_animator != null && Agent != null)
             {
-                _animator.SetFloat(SpeedHash, Agent.velocity.magnitude);
+                _animator.SetFloat(NpcAnimParams.Speed, Agent.velocity.magnitude);
             }
         }
 
@@ -68,5 +84,13 @@ namespace Survain.AI.Npc
             _currentState = next;
             _currentState?.Enter(this);
         }
+
+        // --- DEBUG (#12) : forcer un état en jeu pour valider anim + transitions, en attendant
+        // que les besoins (#13), métiers (#14) et routines (#15) les déclenchent réellement.
+        // Sélectionner un PNJ spawné en Play, puis clic droit sur le composant → menu.
+        [ContextMenu("DEBUG/Forcer Working")] private void DebugWorking() => ChangeState(new WorkingState());
+        [ContextMenu("DEBUG/Forcer Eating")] private void DebugEating() => ChangeState(new EatingState());
+        [ContextMenu("DEBUG/Forcer Sleeping")] private void DebugSleeping() => ChangeState(new SleepingState());
+        [ContextMenu("DEBUG/Forcer Idle")] private void DebugIdle() => ChangeState(new IdleState());
     }
 }

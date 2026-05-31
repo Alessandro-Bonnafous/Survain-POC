@@ -35,10 +35,17 @@ namespace Survain.AI.Npc
         [Min(0f)]
         [SerializeField] private float _idlePauseMax = 4f;
 
+        [Header("Fuite (état Fleeing)")]
+        [Tooltip("Vitesse de course pendant la fuite (NavMeshAgent). Caler le seuil Running du " +
+                 "blend tree dessus pour que la fuite s'anime en course.")]
+        [Min(0.1f)]
+        [SerializeField] private float _fleeSpeed = 6f;
+
         public string DisplayName => _displayName;
         public float MoveSpeed => _moveSpeed;
         public float WanderRadius => _wanderRadius;
         public float IdlePauseMin => _idlePauseMin;
         public float IdlePauseMax => Mathf.Max(_idlePauseMin, _idlePauseMax);
+        public float FleeSpeed => _fleeSpeed;
     }
 }
