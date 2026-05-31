@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Survain.Core;
@@ -14,8 +15,9 @@ namespace Survain.AI.Npc
     [DefaultExecutionOrder(200)]
     public sealed class NpcSpawner : MonoBehaviour
     {
-        [Tooltip("Prefab du PNJ (avec NpcController + NavMeshAgent + visuel + Animator).")]
-        [SerializeField] private GameObject _npcPrefab;
+        [Tooltip("Prefabs de PNJ (chacun avec NpcController + NavMeshAgent + visuel Synty + Animator). " +
+                 "Un prefab est tiré au hasard par PNJ spawné → village visuellement varié.")]
+        [SerializeField] private GameObject[] _npcPrefabs;
 
         [Tooltip("Data injectée aux PNJ spawnés. Si null, on garde celle du prefab.")]
         [SerializeField] private NPCData _data;
@@ -37,10 +39,29 @@ namespace Survain.AI.Npc
 
         private void Start()
         {
-            if (_npcPrefab == null)
+            if (_npcPrefabs == null || _npcPrefabs.Length == 0)
             {
-                SurvainLog.Error(SurvainLog.Category.AI, "NpcSpawner : _npcPrefab non assigné.", this);
+                SurvainLog.Error(SurvainLog.Category.AI, "NpcSpawner : aucun prefab dans _npcPrefabs.", this);
                 return;
+            }
+
+            // Mélange une fois les prefabs (sans les entrées vides) : tirage sans remise → les
+            // premiers PNJ sont tous distincts (pas de village de clones), puis on recycle si
+            // _count dépasse le nombre de modèles. La compo varie d'un lancement à l'autre.
+            var bag = new List<GameObject>(_npcPrefabs.Length);
+            foreach (var p in _npcPrefabs)
+                if (p != null) bag.Add(p);
+
+            if (bag.Count == 0)
+            {
+                SurvainLog.Error(SurvainLog.Category.AI, "NpcSpawner : aucun prefab valide dans _npcPrefabs.", this);
+                return;
+            }
+
+            for (int i = bag.Count - 1; i > 0; i--) // Fisher-Yates
+            {
+                int j = Random.Range(0, i + 1);
+                (bag[i], bag[j]) = (bag[j], bag[i]);
             }
 
             Vector3 center = _spawnCenter != null ? _spawnCenter.position : transform.position;
@@ -58,7 +79,9 @@ namespace Survain.AI.Npc
                     continue;
                 }
 
-                var go = Instantiate(_npcPrefab, hit.position, Quaternion.identity);
+                GameObject prefab = bag[spawned % bag.Count]; // sans remise tant que possible
+
+                var go = Instantiate(prefab, hit.position, Quaternion.identity);
                 var ctrl = go.GetComponent<NpcController>();
                 if (ctrl != null && _data != null) ctrl.SetData(_data);
                 spawned++;
