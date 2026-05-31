@@ -201,6 +201,25 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-05-31 — Visuel d'équipement : outil en main + grip + icônes générées (anticipation Sprint 5 Polish)
+
+**Contexte.** Travaillé **en parallèle du Sprint 3** (clone `repositories-bis`) pour anticiper le Polish du Sprint 5 sans bloquer l'implémentation des features. Objectif : *voir* l'équipement — l'outil équipé apparaît dans la main de l'avatar, la main se ferme dessus, l'anim de récolte correspond à l'outil, et la hotbar/l'inventaire affichent de vraies icônes. Aucun mesh d'outil n'existait → import d'un pack d'outils (hache/pioche) côté Unity ; **tout le code est pack-agnostique**.
+
+**Décisions.**
+1. **Visuel en main = `PlayerToolHolder` (satellite sur `_Player`)** abonné à `PlayerEquipment.OnCurrentToolChanged`. Il instancie le `HeldPrefab` du `ToolData` courant, parenté à l'os de la main droite via `Animator.GetBoneTransform(HumanBodyBones.RightHand)` — **pas de nom de bone codé en dur** (robuste au swap de perso, cf. retargeting Humanoid 2026-05-22). Pose de prise réglée à l'inspecteur ; physique du prefab neutralisée (colliders off, rigidbodies kinematic).
+2. **Champs « held » sur `ToolData`** (`HeldPrefab` + `GripLocalPosition/Euler/Scale`), pas sur la base `ItemData` (les ressources n'ont pas de prise ; `WeaponData` héritera du pattern plus tard).
+3. **Main fermée = layer Animator override masqué sur la main droite** (`RightHandGrip` + `RightHandMask`), poids piloté par code (`SetLayerWeight` 1/0 selon qu'un outil est tenu), pose figée d'un clip à main fermée (state Speed 0). Ferme la main quelles que soient les anims de corps, sans toucher la locomotion. **Piège** : un mask non limité à la main droite (ou layer sans mask) → override du buste → perso penché en avant.
+4. **Anim de récolte par type d'outil** : paramètre Animator `harvestType` = `(int)ToolData.ToolType`, renseigné par `PlayerVisualAnimator` au changement d'outil ; transitions `Any State → Chop` (Equals 1 = hache) / `→ Mine` (Equals 2 = pioche). Clips Mixamo dédiés (Axe Swing, Pickaxe Bash). **Couplage assumé** : les valeurs de l'enum `ToolType` sont load-bearing pour les transitions (ne pas réordonner).
+5. **Icônes générées par snapshot 3D** : `EquipmentIconGenerator` (Editor, menu `Survain/Items/Generate Equipment Icons`) rend le `HeldPrefab` via `AssetPreview` (compatible URP, fond transparent), écrit un PNG **committé** sous `Assets/Art/Icons/`, l'importe en **Sprite *Single*** (le mode *Multiple* par défaut n'expose aucun sous-asset → `LoadAssetAtPath<Sprite>` null → icône jamais assignée : bug clé corrigé), et l'assigne à `ItemData.Icon`. Une fois générées, les icônes ne dépendent plus du pack (gitignoré) ; `InventorySlotView` les consomme déjà.
+
+**Alternatives écartées.** Mesh en main via primitive placeholder (préféré un vrai pack) ; `HeldPrefab` sur `ItemData` base (inutile aux ressources) ; main fermée par pose full-body (penche le corps) ou curl procédural des doigts (fragile) ; icônes en fallback couleur+texte (voulu de vraies icônes) ou rendu caméra+RenderTexture maison (`AssetPreview` suffit et gère URP/transparence) ; un Override Controller par outil pour l'anim (un `harvestType` suffit).
+
+**Conséquences.**
+- **Patterns dégagés** : *satellite piloté par event + attache sur bone Humanoid* (réutilisable arme/bouclier/torche) ; *layer override masqué piloté par `SetLayerWeight`* (autres poses partielles) ; *génération d'icône depuis le visuel 3D* (tout item ayant un prefab).
+- `ToolData` gagne `HeldPrefab` + pose de prise ; `PlayerVisualAnimator` gagne `harvestType` ; `PlayerAvatar.controller` gagne états `Chop`/`Mine`, layer `RightHandGrip`, param `harvestType`.
+- **Conflit de scène au rebase** sur Sprint 3 : collision de fileID entre `PlayerToolHolder` et le `PlayerInteractor` de #10 sur `_Player` (les deux branches ont ajouté un composant à `_Player`). Résolu en gardant la scène amont → **`PlayerToolHolder` est à re-attacher dans Unity sur `_Player`** après ce merge (Unity lui donnera un fileID neuf ; ses champs s'auto-résolvent). Merge-driver `UnityYAMLMerge` configuré localement pour les futurs merges de scène.
+- Les `.asset` outils référencent le `HeldPrefab` du pack (gitignoré) → ref manquante sur clone neuf ; les **icônes PNG committées** restent indépendantes du pack.
+
 ### 2026-05-31 — IA des PNJ : state machine, avatar, perception (Sprint 3, issue #12)
 
 **Contexte.** Première brique du Sprint 3 : doter les PNJ d'une IA fondamentale extensible. Découpé comme #6/#7 : phase 1 (locomotion NavMesh), phase 2a (avatar visuel), phase 2b (états étendus + perception). 1 PR par phase (#50, #51, #52).
@@ -867,4 +886,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-31 (Sprint 3 — IA de base des PNJ #12 livrée : state machine, avatar Synty, perception)*
+*Dernière mise à jour : 2026-05-31 (Visuel d'équipement — outil en main, grip, anim par outil, icônes générées ; anticipation Sprint 5 Polish, en parallèle du Sprint 3)*

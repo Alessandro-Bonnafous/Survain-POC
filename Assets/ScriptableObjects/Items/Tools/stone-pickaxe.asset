@@ -15,10 +15,14 @@ MonoBehaviour:
   _id: stone-pickaxe
   _displayName: Pioche en pierre
   _description: Une pointe de pierre durcie au feu. Permet de miner pierre et minerai.
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: d2be45755b068834c919f8634053acbb, type: 3}
   _tier: 0
   _isStackable: 0
   _maxStackSize: 1
   _toolType: 2
   _harvestSpeed: 1
   _maxDurability: 80
+  _heldPrefab: {fileID: 203093951140853599, guid: 02233d3c799d9b746bcfa1a8b34a3ade, type: 3}
+  _gripLocalPosition: {x: 0.1, y: 0.02, z: 0}
+  _gripLocalEuler: {x: -90, y: 0, z: 0}
+  _gripLocalScale: {x: 1, y: 1, z: 1}

@@ -14257,6 +14257,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1758828408940234233}
+    - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1758828408940234234}
   m_SourcePrefab: {fileID: 100100000, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
 --- !u!1 &1758828408940234214 stripped
 GameObject:
@@ -14316,6 +14319,7 @@ MonoBehaviour:
   _playerController: {fileID: 0}
   _characterController: {fileID: 0}
   _harvester: {fileID: 0}
+  _equipment: {fileID: 0}
 --- !u!114 &1758828408940234223
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14399,6 +14403,23 @@ MonoBehaviour:
   _damagePerHit: 25
   _hitCooldown: 0.4
   _repairCostFactor: 1
+--- !u!114 &1758828408940234234
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 187d5b24b73e2404c9c23a874872f404, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerToolHolder
+  _equipment: {fileID: 0}
+  _animator: {fileID: 0}
+  _handBone: 18
+  _attachPointOverride: {fileID: 0}
+  _gripLayerName: RightHandGrip
 --- !u!1001 &4243485049165841187
 PrefabInstance:
   m_ObjectHideFlags: 0
