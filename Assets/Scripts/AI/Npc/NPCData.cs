@@ -41,11 +41,60 @@ namespace Survain.AI.Npc
         [Min(0.1f)]
         [SerializeField] private float _fleeSpeed = 6f;
 
+        [Header("Besoins — Faim (#13)")]
+        [Tooltip("Décroissance de la faim par seconde (jauge 1 = rassasié).")]
+        [Min(0f)]
+        [SerializeField] private float _hungerDecayPerSecond = 0.015f;
+
+        [Tooltip("Sous ce seuil de faim, le PNJ cherche à manger (phase 2).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _hungerSeekThreshold = 0.35f;
+
+        [Tooltip("Restauration de la faim par seconde en mangeant (EatingState, phase 2).")]
+        [Min(0f)]
+        [SerializeField] private float _eatRatePerSecond = 0.25f;
+
+        [Header("Besoins — Moral (#13)")]
+        [Tooltip("Poids de la faim dans le calcul du moral cible.")]
+        [Min(0f)]
+        [SerializeField] private float _moraleHungerWeight = 1f;
+
+        [Tooltip("Poids de l'abri dans le calcul du moral cible.")]
+        [Min(0f)]
+        [SerializeField] private float _moraleShelterWeight = 0.5f;
+
+        [Tooltip("Vitesse de convergence du moral vers sa cible (par seconde).")]
+        [Min(0.01f)]
+        [SerializeField] private float _moraleLerpSpeed = 0.2f;
+
+        [Tooltip("Sous ce moral, le PNJ déserte le village (phase 2).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _moraleDesertionThreshold = 0.05f;
+
+        [Header("Besoins — Productivité (#13)")]
+        [Tooltip("Multiplicateur de vitesse de travail au moral 0 (lent / grève).")]
+        [Min(0f)]
+        [SerializeField] private float _workSpeedAtZeroMorale = 0.25f;
+
+        [Tooltip("Multiplicateur de vitesse de travail au moral maximal.")]
+        [Min(0f)]
+        [SerializeField] private float _workSpeedAtFullMorale = 1.2f;
+
         public string DisplayName => _displayName;
         public float MoveSpeed => _moveSpeed;
         public float WanderRadius => _wanderRadius;
         public float IdlePauseMin => _idlePauseMin;
         public float IdlePauseMax => Mathf.Max(_idlePauseMin, _idlePauseMax);
         public float FleeSpeed => _fleeSpeed;
+
+        public float HungerDecayPerSecond => _hungerDecayPerSecond;
+        public float HungerSeekThreshold => _hungerSeekThreshold;
+        public float EatRatePerSecond => _eatRatePerSecond;
+        public float MoraleHungerWeight => _moraleHungerWeight;
+        public float MoraleShelterWeight => _moraleShelterWeight;
+        public float MoraleLerpSpeed => _moraleLerpSpeed;
+        public float MoraleDesertionThreshold => _moraleDesertionThreshold;
+        public float WorkSpeedAtZeroMorale => _workSpeedAtZeroMorale;
+        public float WorkSpeedAtFullMorale => _workSpeedAtFullMorale;
     }
 }
