@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Survain.Core;
 using Survain.Gameplay.Inventories;
@@ -31,6 +32,30 @@ namespace Survain.Gameplay.Buildings
 
         public int MaxHp { get; private set; }
         public int CurrentHp { get; private set; }
+
+        // Registre statique des bâtiments présents en scène (alternative à FindObjectsOfType,
+        // proscrit en runtime). Alimente les requêtes spatiales des PNJ (ex. feu de camp le plus
+        // proche pour manger, #13 ; chantier/coffre le plus proche, #14).
+        private static readonly List<Building> _all = new List<Building>();
+        public static IReadOnlyList<Building> All => _all;
+
+        /// <summary>Bâtiment le plus proche de <paramref name="from"/> satisfaisant le filtre (ou null).</summary>
+        public static Building FindNearest(Vector3 from, Predicate<Building> filter = null)
+        {
+            Building best = null;
+            float bestSqr = float.MaxValue;
+            for (int i = 0; i < _all.Count; i++)
+            {
+                var b = _all[i];
+                if (b == null || (filter != null && !filter(b))) continue;
+                float d = (b.transform.position - from).sqrMagnitude;
+                if (d < bestSqr) { bestSqr = d; best = b; }
+            }
+            return best;
+        }
+
+        private void OnEnable() => _all.Add(this);
+        private void OnDisable() => _all.Remove(this);
 
         /// <summary>Émis quand les HP changent. Signature : (current, max).</summary>
         public event Action<int, int> OnHpChanged;
