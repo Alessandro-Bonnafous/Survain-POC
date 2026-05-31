@@ -5344,11 +5344,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3f9f228b81969b45bf48809b71582a8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Npc.NpcSpawner
-  _npcPrefab: {fileID: 2330646938318126983, guid: 39ab72e92f22fee4f9d0653a5509bd52, type: 3}
+  _npcPrefabs:
+  - {fileID: 2330646938318126983, guid: 39ab72e92f22fee4f9d0653a5509bd52, type: 3}
+  - {fileID: 2330646938318126983, guid: fc93ab0025e850a45be9aab6eb49ecfa, type: 3}
+  - {fileID: 2330646938318126983, guid: 3512d6bfc10747841b3816426ee3e926, type: 3}
   _data: {fileID: 11400000, guid: f8cf6ddfbf34458469f81f56a8fb3cb5, type: 2}
   _count: 3
   _spawnCenter: {fileID: 1792158199}
   _spawnRadius: 6
+  _navMeshSampleDistance: 100
 --- !u!4 &856981940
 Transform:
   m_ObjectHideFlags: 0
