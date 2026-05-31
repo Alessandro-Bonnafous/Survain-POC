@@ -24,15 +24,29 @@ namespace Survain.Gameplay.Buildings
         /// </summary>
         public static GameObject Create(BuildingData data, Transform parent)
         {
-            if (data.Prefab != null)
-            {
-                var go = Object.Instantiate(data.Prefab, parent);
-                go.transform.localPosition = Vector3.zero;
-                go.transform.localRotation = Quaternion.identity;
-                go.name = "Visual";
-                return go;
-            }
+            GameObject visual = data.Prefab != null
+                ? CreateFromPrefab(data, parent)
+                : CreatePlaceholderCube(data, parent);
 
+            // Garantit un collider sur la racine pour le raycast (dépôt chantier, démolition,
+            // interaction) et l'occupation. Les FBX importés (ex. Kenney) n'ont pas de collider
+            // par défaut ; le cube placeholder, lui, en apporte un (on ne double pas).
+            EnsureFootprintCollider(parent, data.Size);
+
+            return visual;
+        }
+
+        private static GameObject CreateFromPrefab(BuildingData data, Transform parent)
+        {
+            var go = Object.Instantiate(data.Prefab, parent);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.name = "Visual";
+            return go;
+        }
+
+        private static GameObject CreatePlaceholderCube(BuildingData data, Transform parent)
+        {
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = "Visual";
             cube.transform.SetParent(parent, false);
@@ -55,6 +69,19 @@ namespace Survain.Gameplay.Buildings
             }
 
             return cube;
+        }
+
+        /// <summary>
+        /// Ajoute un BoxCollider dimensionné par Size sur la racine si aucun collider n'est
+        /// déjà présent dans la hiérarchie (cas d'un prefab sans collider). Centré au-dessus
+        /// du pivot au sol.
+        /// </summary>
+        private static void EnsureFootprintCollider(Transform parent, Vector3 size)
+        {
+            if (parent.GetComponentInChildren<Collider>() != null) return;
+            var box = parent.gameObject.AddComponent<BoxCollider>();
+            box.center = Vector3.up * (size.y * 0.5f);
+            box.size = size;
         }
 
         /// <summary>Couleur indicative du placeholder selon la famille de structure.</summary>

@@ -21,14 +21,15 @@ MonoBehaviour:
   _isStackable: 0
   _maxStackSize: 1
   _category: 2
-  _size: {x: 2, y: 1.5, z: 2}
+  _size: {x: 2, y: 1, z: 2}
   _cost:
   - _item: {fileID: 11400000, guid: 2bd964ae371b6af4988194fc261472ec, type: 2}
     _amount: 6
   - _item: {fileID: 11400000, guid: 65c66688fa5c5924e9fdadfa8d896b45, type: 2}
     _amount: 4
-  _prefab: {fileID: 0}
+  _prefab: {fileID: 4676988617752859469, guid: 4ea83a0b5be084943b9c196058cf2995, type: 3}
   _maxHp: 100
+  _refundRatio: 0.5
   _storageCapacity: 0
   _emitsLight: 0
   _lightColor: {r: 1, g: 0.6, b: 0.25, a: 1}
