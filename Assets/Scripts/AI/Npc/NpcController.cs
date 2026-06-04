@@ -24,7 +24,14 @@ namespace Survain.AI.Npc
         [Tooltip("Animator du visuel (optionnel). Reçoit 'speed' (locomotion) et 'isWorking'.")]
         [SerializeField] private Animator _animator;
 
+        [Tooltip("Métier initial du PNJ (#14). Le contremaître se règle ici sur le prefab dédié ; " +
+                 "les villageois démarrent SansEmploi et reçoivent leur métier via le contremaître.")]
+        [SerializeField] private NpcJob _job = NpcJob.SansEmploi;
+
         public NPCData Data => _data;
+
+        /// <summary>Métier courant du PNJ (#14). Pilote le comportement de travail (phase 2).</summary>
+        public NpcJob Job => _job;
         public NavMeshAgent Agent { get; private set; }
 
         /// <summary>Animator du visuel (peut être null). Exposé pour les états (anim par état).</summary>
@@ -48,6 +55,9 @@ namespace Survain.AI.Npc
 
         /// <summary>Injecte la data (appelé par le spawner avant Start).</summary>
         public void SetData(NPCData data) => _data = data;
+
+        /// <summary>Assigne un métier (appelé par le contremaître en phase 3, ou en DEBUG).</summary>
+        public void SetJob(NpcJob job) => _job = job;
 
         private void Awake()
         {
@@ -114,5 +124,11 @@ namespace Survain.AI.Npc
         [ContextMenu("DEBUG/Forcer Eating")] private void DebugEating() => ChangeState(new EatingState());
         [ContextMenu("DEBUG/Forcer Sleeping")] private void DebugSleeping() => ChangeState(new SleepingState());
         [ContextMenu("DEBUG/Forcer Idle")] private void DebugIdle() => ChangeState(new IdleState());
+
+        // --- DEBUG (#14) : assigner un métier en attendant le panneau du contremaître (phase 3).
+        [ContextMenu("DEBUG/Métier — Bûcheron")] private void DebugJobBucheron() => SetJob(NpcJob.Bucheron);
+        [ContextMenu("DEBUG/Métier — Mineur")] private void DebugJobMineur() => SetJob(NpcJob.Mineur);
+        [ContextMenu("DEBUG/Métier — Constructeur")] private void DebugJobConstructeur() => SetJob(NpcJob.Constructeur);
+        [ContextMenu("DEBUG/Métier — Sans emploi")] private void DebugJobSansEmploi() => SetJob(NpcJob.SansEmploi);
     }
 }

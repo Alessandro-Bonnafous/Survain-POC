@@ -14,7 +14,6 @@ GameObject:
   - component: {fileID: 4979942852311132728}
   - component: {fileID: 7042806749398276122}
   - component: {fileID: -8642521781234203067}
-  - component: {fileID: 7533428644947135258}
   m_Layer: 0
   m_Name: NPC_Villager_02
   m_TagString: Untagged
@@ -97,6 +96,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Npc.NpcController
   _data: {fileID: 11400000, guid: f8cf6ddfbf34458469f81f56a8fb3cb5, type: 2}
   _animator: {fileID: 7798990380955058037}
+  _job: 0
 --- !u!114 &7042806749398276122
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -126,22 +126,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: df515dc6b9dc115459fac7678100d6f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Npc.NpcNeeds
+  _canDesert: 1
   _hunger: 1
   _shelter: 1
   _morale: 1
---- !u!114 &7533428644947135258
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2330646938318126983}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe28ca4e1b18a0a42911f66d67e5b672, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Npc.NpcInteractable
-  _highlightEmission: {r: 0.2, g: 0.35, b: 0.5, a: 0.5}
 --- !u!1001 &4356932459426268251
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -154,6 +142,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Starter_02
       objectReference: {fileID: 0}
+    - target: {fileID: 5786415867449015086, guid: 759b8668b55fe0d4686d41389db207d9, type: 3}
+      propertyPath: m_Avatar
+      value: 
+      objectReference: {fileID: 9000000, guid: ad102b48a375d11438a958bff1e58208, type: 2}
     - target: {fileID: 5786415867449015086, guid: 759b8668b55fe0d4686d41389db207d9, type: 3}
       propertyPath: m_Controller
       value: 
