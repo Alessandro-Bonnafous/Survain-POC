@@ -84,7 +84,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Objectifs du sprint** : faire vivre un village de PNJ — IA, besoins, métiers, routines.
 - [x] IA de base des PNJ — state machine (issue #12) — locomotion NavMesh + évitement (ph.1), avatar Synty animé + variété (ph.2a), états Working/Eating/Sleeping/Fleeing + perception (ph.2b). Livré.
-- [ ] Besoins PNJ : faim / moral / abri (issue #13)
+- [x] Besoins PNJ : faim / moral / abri (issue #13) — modèle + décroissance (ph.1), comportement manger/déserter (ph.2), UI bulles + panneau (ph.3). Livré.
 - [ ] Métiers : bûcheron (récolte), constructeur (alimente `ConstructionSite.Deposit`, ressources → coffre le plus proche) (issue #14)
 - [ ] Routines quotidiennes + recrutement (issue #15)
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
@@ -200,6 +200,29 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-05-31 — Besoins des PNJ : faim/abri/moral, comportement, UI (Sprint 3, issue #13)
+
+**Contexte.** 2ᵉ brique du Sprint 3 (après #12) : doter les PNJ de besoins qui pilotent leur comportement et leur productivité. Découpé en data → comportement → UI, 1 PR par phase (#53, #54, #55).
+
+**Décisions.**
+1. **`NpcNeeds`** : 3 jauges Faim/Abri/Moral en [0..1]. Faim décroît ; Moral converge vers une cible ; multiplicateur de productivité dérivé du moral (exposé pour #14). Tuning sur **NPCData** (section Besoins, équilibrage Pascal).
+2. **Scope arbitré (Aless)** vu les dépendances non encore livrées :
+   - **Abri** : jauge modélisée mais satisfaction (lit assigné) **différée à #19** → stub neutre + `SetSheltered()`.
+   - **Faim critique** : pas de HP PNJ (système de vie = Sprint 4) → la faim basse effondre le moral et ralentit ; **mort littérale différée**. La désertion (moral 0) reste implémentée.
+   - **Repas** : au **feu de camp le plus proche** (bâtiment `EmitsLight`), **sans item nourriture** (économie plus tard).
+3. **Moral cible multiplicatif** (socle survie `faim+abri` **×** qualité de travail **+** événements), et non additif : indispensable pour que des besoins au plus bas puissent réellement effondrer le moral jusqu'à la désertion (l'additif créait un plancher ~0.4 → désertion inatteignable). Crochets `SetWorkQuality` (#14), `ApplyMoraleEvent`.
+4. **Comportement = interruptions globales dans `NpcController`**, par priorité **fuite > désertion > faim** (les états ne testent pas eux-mêmes ; même pattern que l'interruption de fuite de #12). `EatingState` va manger au feu le plus proche puis repart ; `DesertingState` = éloignement puis despawn (terminal).
+5. **Registres statiques** `Building.All` et `NpcController.All` + `FindNearest(from, filtre)` pour les requêtes spatiales des PNJ — alternative à `FindObjectsOfType` (proscrit). Réutilisables en #14 (chantier/coffre le plus proche).
+6. **UI auto-construite en code** (lazy singletons façon `InteractionPrompt`, zéro setup scène) : `NpcStatusOverlay` (bulles « Faim »/« Moral bas » en **overlay écran projeté** via `WorldToScreenPoint`) et `NpcDetailPanel` (nom + 3 jauges, barres en `RawImage`+`whiteTexture`).
+7. **Examen PNJ via E / `IInteractable`** (réutilise `PlayerInteractor`, pas d'interacteur dédié). Choix Aless ; E étant la future touche de **dialogue (Sprint 3+)**, on fusionnera (menu Examiner/Parler) ou on basculera l'examen à la convergence.
+
+**Alternatives écartées.** HP PNJ + mort par faim dès maintenant (refait au combat Sprint 4) ; abri par proximité placeholder ou assignation de lit anticipée (#19) ; item nourriture consommé (hors scope) ; Canvas world-space par PNJ pour les bulles (overhead, le projet privilégie l'overlay) ; interacteur dédié ou touche dédiée pour le panneau ; formule de moral additive (plancher artificiel).
+
+**Conséquences.**
+- **#13 clos.** Sprint 3 → **#14** (métiers : `WorkSpeedMultiplier` prêt à consommer, `Building.FindNearest` pour chantier/coffre, `ConstructionSite.Deposit` crochet du bâtisseur) puis **#15** (routines via `SleepingState` + cycle jour/nuit, recrutement, désertion).
+- Crochets prêts : `SetSheltered` (#19), `SetWorkQuality` (#14).
+- Patterns dégagés : **registre statique + `FindNearest`** réutilisable ; **UI utilitaire auto-construite** étendue aux bulles/panneau ; **interruptions globales priorisées** dans la machine à états.
 
 ### 2026-05-31 — Visuel d'équipement : outil en main + grip + icônes générées (anticipation Sprint 5 Polish)
 
@@ -886,4 +909,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-31 (Visuel d'équipement — outil en main, grip, anim par outil, icônes générées ; anticipation Sprint 5 Polish, en parallèle du Sprint 3)*
+*Dernière mise à jour : 2026-05-31 (Sprint 3 — besoins des PNJ #13 livrés : faim/abri/moral, comportement manger/déserter, UI bulles + panneau)*

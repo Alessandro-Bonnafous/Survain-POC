@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 4979942852311132728}
   - component: {fileID: -6555446295528581344}
   - component: {fileID: 9146630219850970844}
+  - component: {fileID: -3106227494018260624}
   m_Layer: 0
   m_Name: NPC_Villager_03
   m_TagString: Untagged
@@ -128,6 +129,19 @@ MonoBehaviour:
   _hunger: 1
   _shelter: 1
   _morale: 1
+--- !u!114 &-3106227494018260624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2330646938318126983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe28ca4e1b18a0a42911f66d67e5b672, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Npc.NpcInteractable
+  _highlightEmission: {r: 0.2, g: 0.35, b: 0.5, a: 0.5}
 --- !u!1001 &4989688084842384789
 PrefabInstance:
   m_ObjectHideFlags: 0

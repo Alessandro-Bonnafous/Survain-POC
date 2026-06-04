@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Survain.Core;
@@ -38,6 +39,11 @@ namespace Survain.AI.Npc
         /// <summary>Point d'origine (lieu de spawn), centre de l'errance.</summary>
         public Vector3 HomePosition { get; private set; }
 
+        // Registre statique des PNJ en scène (alternative à FindObjectsOfType). Consommé par
+        // l'overlay d'état (#13 phase 3) et réutilisable par les futurs systèmes de village.
+        private static readonly List<NpcController> _all = new List<NpcController>();
+        public static IReadOnlyList<NpcController> All => _all;
+
         private INpcState _currentState;
 
         /// <summary>Injecte la data (appelé par le spawner avant Start).</summary>
@@ -49,6 +55,9 @@ namespace Survain.AI.Npc
             Perception = GetComponent<NpcPerception>(); // optionnel
             Needs = GetComponent<NpcNeeds>();           // optionnel
         }
+
+        private void OnEnable() => _all.Add(this);
+        private void OnDisable() => _all.Remove(this);
 
         private void Start()
         {

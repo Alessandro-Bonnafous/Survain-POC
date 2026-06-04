@@ -40,6 +40,9 @@ namespace Survain.AI.Npc
         /// <summary>Moral critique → désertion (consommé en phase 2).</summary>
         public bool IsDeserting => _data != null && _morale <= _data.MoraleDesertionThreshold;
 
+        /// <summary>Moral bas → bulle d'alerte (consommé par l'UI phase 3).</summary>
+        public bool IsMoraleLow => _data != null && _morale <= _data.MoraleWarnThreshold;
+
         /// <summary>Multiplicateur de vitesse de travail dérivé du moral (pour #14).</summary>
         public float WorkSpeedMultiplier =>
             _data == null ? 1f : Mathf.Lerp(_data.WorkSpeedAtZeroMorale, _data.WorkSpeedAtFullMorale, _morale);

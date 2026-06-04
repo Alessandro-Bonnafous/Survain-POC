@@ -71,6 +71,10 @@ namespace Survain.AI.Npc
         [Range(0f, 1f)]
         [SerializeField] private float _moraleDesertionThreshold = 0.05f;
 
+        [Tooltip("Sous ce moral, une bulle d'alerte s'affiche au-dessus du PNJ (UI phase 3).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _moraleWarnThreshold = 0.3f;
+
         [Header("Besoins — Productivité (#13)")]
         [Tooltip("Multiplicateur de vitesse de travail au moral 0 (lent / grève).")]
         [Min(0f)]
@@ -94,6 +98,7 @@ namespace Survain.AI.Npc
         public float MoraleShelterWeight => _moraleShelterWeight;
         public float MoraleLerpSpeed => _moraleLerpSpeed;
         public float MoraleDesertionThreshold => _moraleDesertionThreshold;
+        public float MoraleWarnThreshold => _moraleWarnThreshold;
         public float WorkSpeedAtZeroMorale => _workSpeedAtZeroMorale;
         public float WorkSpeedAtFullMorale => _workSpeedAtFullMorale;
     }
