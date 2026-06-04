@@ -6,8 +6,9 @@ using Survain.Core;
 namespace Survain.AI.Npc
 {
     /// <summary>
-    /// Spawne quelques PNJ au démarrage pour tester (#12). Place chaque PNJ sur le NavMesh
-    /// (échantillonné autour d'un centre), instancie le prefab et lui injecte sa NPCData.
+    /// Spawne le village au démarrage : 1 contremaître (PNJ manager, point d'interaction unique,
+    /// #14) puis quelques villageois. Place chaque PNJ sur le NavMesh (échantillonné autour d'un
+    /// centre), instancie le prefab et lui injecte sa NPCData.
     ///
     /// Ordre +200 : après NavMeshRuntimeBaker (+150) pour que le NavMesh soit prêt.
     /// </summary>
@@ -15,7 +16,11 @@ namespace Survain.AI.Npc
     [DefaultExecutionOrder(200)]
     public sealed class NpcSpawner : MonoBehaviour
     {
-        [Tooltip("Prefabs de PNJ (chacun avec NpcController + NavMeshAgent + visuel Synty + Animator). " +
+        [Tooltip("Prefab du contremaître (PNJ manager : NpcInteractable, métier Contremaître, ne déserte pas). " +
+                 "Spawné une fois au démarrage. Si null, aucun contremaître n'est créé.")]
+        [SerializeField] private GameObject _foremanPrefab;
+
+        [Tooltip("Prefabs de villageois (chacun avec NpcController + NavMeshAgent + visuel Synty + Animator). " +
                  "Un prefab est tiré au hasard par PNJ spawné → village visuellement varié.")]
         [SerializeField] private GameObject[] _npcPrefabs;
 
@@ -65,29 +70,38 @@ namespace Survain.AI.Npc
             }
 
             Vector3 center = _spawnCenter != null ? _spawnCenter.position : transform.position;
-            int spawned = 0;
 
+            // Le contremaître d'abord (point d'interaction unique du village).
+            bool foreman = _foremanPrefab != null && SpawnNpc(_foremanPrefab, center) != null;
+
+            int spawned = 0;
             for (int i = 0; i < _count; i++)
             {
-                Vector3 candidate = center + Random.insideUnitSphere * _spawnRadius;
-                candidate.y = center.y;
-
-                if (!NavMesh.SamplePosition(candidate, out var hit, _navMeshSampleDistance, NavMesh.AllAreas))
-                {
-                    SurvainLog.Warn(SurvainLog.Category.AI,
-                        "NpcSpawner : aucun point NavMesh trouvé pour un spawn (NavMesh vide ? vérifier Use Geometry du NavMeshSurface).", this);
-                    continue;
-                }
-
                 GameObject prefab = bag[spawned % bag.Count]; // sans remise tant que possible
-
-                var go = Instantiate(prefab, hit.position, Quaternion.identity);
-                var ctrl = go.GetComponent<NpcController>();
-                if (ctrl != null && _data != null) ctrl.SetData(_data);
-                spawned++;
+                if (SpawnNpc(prefab, center) != null) spawned++;
             }
 
-            SurvainLog.Info(SurvainLog.Category.AI, $"NpcSpawner : {spawned}/{_count} PNJ spawnés.", this);
+            SurvainLog.Info(SurvainLog.Category.AI,
+                $"NpcSpawner : {spawned}/{_count} villageois spawnés" + (foreman ? " + 1 contremaître." : "."), this);
+        }
+
+        /// <summary>Place un PNJ sur le NavMesh autour du centre, l'instancie et lui injecte la data. Null si échec.</summary>
+        private GameObject SpawnNpc(GameObject prefab, Vector3 center)
+        {
+            Vector3 candidate = center + Random.insideUnitSphere * _spawnRadius;
+            candidate.y = center.y;
+
+            if (!NavMesh.SamplePosition(candidate, out var hit, _navMeshSampleDistance, NavMesh.AllAreas))
+            {
+                SurvainLog.Warn(SurvainLog.Category.AI,
+                    "NpcSpawner : aucun point NavMesh trouvé pour un spawn (NavMesh vide ? vérifier Use Geometry du NavMeshSurface).", this);
+                return null;
+            }
+
+            var go = Instantiate(prefab, hit.position, Quaternion.identity);
+            var ctrl = go.GetComponent<NpcController>();
+            if (ctrl != null && _data != null) ctrl.SetData(_data);
+            return go;
         }
     }
 }

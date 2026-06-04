@@ -21,6 +21,10 @@ namespace Survain.AI.Npc
     [DisallowMultipleComponent]
     public sealed class NpcNeeds : MonoBehaviour
     {
+        [Tooltip("Si le PNJ peut déserter au moral zéro. Faux pour le contremaître (#14) : il reste " +
+                 "toujours présent comme point d'interaction du village.")]
+        [SerializeField] private bool _canDesert = true;
+
         [Header("État (runtime, lecture seule)")]
         [SerializeField, Range(0f, 1f)] private float _hunger = 1f;
         [SerializeField, Range(0f, 1f)] private float _shelter = 1f;
@@ -37,8 +41,8 @@ namespace Survain.AI.Npc
         /// <summary>Le PNJ a faim et devrait aller manger (consommé en phase 2).</summary>
         public bool IsHungry => _data != null && _hunger <= _data.HungerSeekThreshold;
 
-        /// <summary>Moral critique → désertion (consommé en phase 2).</summary>
-        public bool IsDeserting => _data != null && _morale <= _data.MoraleDesertionThreshold;
+        /// <summary>Moral critique → désertion (consommé en phase 2). Faux si le PNJ ne peut pas déserter (contremaître).</summary>
+        public bool IsDeserting => _canDesert && _data != null && _morale <= _data.MoraleDesertionThreshold;
 
         /// <summary>Moral bas → bulle d'alerte (consommé par l'UI phase 3).</summary>
         public bool IsMoraleLow => _data != null && _morale <= _data.MoraleWarnThreshold;
