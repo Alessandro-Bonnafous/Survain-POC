@@ -85,7 +85,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 **Objectifs du sprint** : faire vivre un village de PNJ — IA, besoins, métiers, routines.
 - [x] IA de base des PNJ — state machine (issue #12) — locomotion NavMesh + évitement (ph.1), avatar Synty animé + variété (ph.2a), états Working/Eating/Sleeping/Fleeing + perception (ph.2b). Livré.
 - [x] Besoins PNJ : faim / moral / abri (issue #13) — modèle + décroissance (ph.1), comportement manger/déserter (ph.2), UI bulles + panneau (ph.3). Livré.
-- [ ] Métiers : bûcheron (récolte), constructeur (alimente `ConstructionSite.Deposit`, ressources → coffre le plus proche) (issue #14)
+- [ ] Métiers via le contremaître (issue #14) — `NpcJob` + contremaître spécial (point d'interaction unique) + interaction réservée (ph.1, livré) ; comportements de métier (ph.2) ; panneau de gestion (ph.3). En cours.
 - [ ] Routines quotidiennes + recrutement (issue #15)
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 - [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
@@ -200,6 +200,24 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-04 — Gestion du village via un contremaître + métiers PNJ (Sprint 3, issue #14)
+
+**Contexte.** Pivot de vision (validé Pascal) : plutôt que de micro-gérer chaque villageois, le joueur passe par un **contremaître** — PNJ manager présent au démarrage et **point d'interaction unique** du village (gérer métiers, moral, productivité). #14 re-scopé autour de ce modèle, découpé data → logique → UI (1 PR/phase).
+
+**Décisions.**
+1. **Contremaître = PNJ manager spécial unique**, spawné au démarrage, **ne déserte jamais** (ancre de gestion) → flag `NpcNeeds.CanDesert=false`.
+2. **Toutes les interactions passent par lui** : `NpcInteractable` retiré des villageois, porté par le seul contremaître. Les bulles de besoin au-dessus des têtes restent (lecture passive).
+3. **`NpcJob`** (enum : SansEmploi/Bûcheron/Mineur/Constructeur/Contremaître) sur `NpcController` + `SetJob`. Assignation via DEBUG en ph.1, via le panneau du contremaître en ph.3.
+4. **Spawn** : `NpcSpawner` crée 1 contremaître (`_foremanPrefab`) puis N villageois (tirage sans remise inchangé).
+5. **Découpage** : ph.1 data + spawn + interaction réservée (livré) ; ph.2 comportements de métier (bûcheron/mineur/constructeur via `WorkingState` + `WorkSpeedMultiplier` + dépôt au coffre le plus proche) ; ph.3 panneau de gestion du contremaître (roster + assignation en jeu), ferme #14.
+
+**Alternatives écartées.** Contremaître = villageois lambda pouvant déserter (risque de perdre le hub) ; contremaître qui travaille aussi (complexité de comportement) ; garder l'examen individuel de chaque villageois en plus (redondant avec le hub) ; assignation directe PNJ par PNJ sans contremaître (contraire au modèle de gestion indirecte validé).
+
+**Conséquences.**
+- **#14 re-scopé** (issue GitHub mise à jour). `WorkSpeedMultiplier` (#13) et `Building.FindNearest` consommés en ph.2 ; `ConstructionSite.Deposit` reste le crochet du constructeur.
+- **E examine le contremaître** → convergence avec le futur dialogue (Sprint 3+) à gérer comme noté en #13.
+- Reportés hors POC : cuisinier (économie nourriture), « max PNJ par bâtiment de travail », « skill » individuel (efficacité = moral).
 
 ### 2026-05-31 — Besoins des PNJ : faim/abri/moral, comportement, UI (Sprint 3, issue #13)
 
@@ -909,4 +927,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-05-31 (Sprint 3 — besoins des PNJ #13 livrés : faim/abri/moral, comportement manger/déserter, UI bulles + panneau)*
+*Dernière mise à jour : 2026-06-04 (Sprint 3 — #14 phase 1 : modèle contremaître + métiers PNJ, data & assignation)*
