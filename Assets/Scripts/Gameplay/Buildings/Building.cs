@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using Survain.Core;
 using Survain.Gameplay.Inventories;
 using Survain.Items;
@@ -66,6 +67,10 @@ namespace Survain.Gameplay.Buildings
         private bool _highlighted;
         private bool _destroyed;
 
+        // Obstacle NavMesh : creuse un trou à l'empreinte du bâtiment pour que les PNJ
+        // (NavMeshAgent) le contournent au lieu de le traverser.
+        private NavMeshObstacle _navObstacle;
+
         /// <summary>
         /// Renseigne la data et initialise les HP au max. Appelé juste après l'instanciation
         /// (par ConstructionSite à la complétion du chantier).
@@ -78,7 +83,30 @@ namespace Survain.Gameplay.Buildings
                 name = $"Building_{data.Id}";
                 MaxHp = Mathf.Max(1, data.MaxHp);
                 CurrentHp = MaxHp;
+                SetupNavObstacle();
             }
+        }
+
+        /// <summary>
+        /// Ajoute un NavMeshObstacle (carving) calé sur l'empreinte du bâtiment (data.Size, pivot
+        /// au sol — même convention que le BoxCollider de BuildingVisualFactory) pour que les PNJ
+        /// contournent la structure. Le NavMesh étant baké une seule fois au runtime
+        /// (NavMeshRuntimeBaker), les bâtiments posés ensuite n'y figurent pas → le carving creuse
+        /// le trou dynamiquement. carveOnlyStationary : la structure est statique, le trou est
+        /// creusé une fois. Libéré automatiquement à la destruction (Destroy du GameObject).
+        /// Même pattern que ResourceNode.SetupNavObstacle (#12).
+        /// </summary>
+        private void SetupNavObstacle()
+        {
+            if (_navObstacle != null) return;
+
+            Vector3 size = _data.Size;
+            _navObstacle = gameObject.AddComponent<NavMeshObstacle>();
+            _navObstacle.shape = NavMeshObstacleShape.Box;
+            _navObstacle.center = Vector3.up * (size.y * 0.5f);
+            _navObstacle.size = size;
+            _navObstacle.carving = true;
+            _navObstacle.carveOnlyStationary = true; // structure statique : creuse une fois
         }
 
         /// <summary>Inflige des dégâts (clampés à 0). À 0 HP, le bâtiment est détruit.</summary>
