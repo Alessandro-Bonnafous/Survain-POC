@@ -157,9 +157,10 @@ namespace Survain.Gameplay.Player
 
         private void Update()
         {
-            // En mode construction, la récolte est suspendue (clic gauche = poser).
+            // Récolte suspendue en mode construction (clic gauche = poser) ET quand un panneau UI
+            // est ouvert (sinon un clic sur un slot récolte le nœud visé « à travers » l'UI).
             // On lâche la cible courante et le prompt pour ne pas laisser de surbrillance.
-            if (_buildMode != null && _buildMode.IsActive)
+            if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive)
             {
                 if (_currentTarget != null)
                 {
@@ -241,8 +242,8 @@ namespace Survain.Gameplay.Player
 
         private void TryHarvest()
         {
-            // Le clic gauche est consommé par le mode construction quand il est actif.
-            if (_buildMode != null && _buildMode.IsActive) return;
+            // Clic gauche consommé par le mode construction, ou neutralisé quand un panneau UI est ouvert.
+            if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return;
             if (Time.time < _nextHitAllowedAt) return;
 
             var node = _currentTarget;

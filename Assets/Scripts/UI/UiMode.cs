@@ -18,6 +18,10 @@ namespace Survain.UI
         private static int _open;
         private static PlayerCameraRig _rig;
 
+        /// <summary>Vrai tant qu'au moins un panneau est ouvert. Consommé par les systèmes
+        /// d'action monde (récolte, démolition) pour ne pas réagir aux clics « à travers » l'UI.</summary>
+        public static bool IsActive => _open > 0;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetState()
         {
