@@ -66,7 +66,7 @@ namespace Survain.Gameplay.World
             _currentTime01 = Mathf.Repeat(t01, 1f);
             ApplyVisualState(_currentTime01);
             UpdatePhase();
-            WorldClock.Publish(_currentTime01, _currentPhase);
+            WorldClock.Publish(_currentTime01, _currentPhase, ComputeMealTime(_currentTime01));
         }
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ namespace Survain.Gameplay.World
 
             // Publie l'état initial pour que la logique gameplay (routines PNJ #15) lise une heure
             // valide dès le premier Update, avant même que ce cycle ait avancé.
-            WorldClock.Publish(_currentTime01, _currentPhase);
+            WorldClock.Publish(_currentTime01, _currentPhase, ComputeMealTime(_currentTime01));
         }
 
         private void Start()
@@ -114,7 +114,14 @@ namespace Survain.Gameplay.World
 
             ApplyVisualState(_currentTime01);
             UpdatePhase();
-            WorldClock.Publish(_currentTime01, _currentPhase);
+            WorldClock.Publish(_currentTime01, _currentPhase, ComputeMealTime(_currentTime01));
+        }
+
+        /// <summary>Vrai si l'heure tombe dans une fenêtre de repas (midi ou soir) du config.</summary>
+        private bool ComputeMealTime(float t01)
+        {
+            return (t01 >= _config.LunchStart01 && t01 <= _config.LunchEnd01)
+                || (t01 >= _config.DinnerStart01 && t01 <= _config.DinnerEnd01);
         }
 
         // ─── Visuel ─────────────────────────────────────────────────────────

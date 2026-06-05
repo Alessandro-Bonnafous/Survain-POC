@@ -85,6 +85,11 @@ namespace Survain.AI.Npc
             // Faim décroît avec le temps.
             _hunger = Mathf.Clamp01(_hunger - _data.HungerDecayPerSecond * dt);
 
+            // Les événements moraux (repas/idle social, deuil…) s'estompent vers 0 → un bonus social
+            // est transitoire, et un événement négatif finit par se résorber. Alimenté en continu par
+            // les états sociaux (#15) via ApplyMoraleEvent, il s'établit à un palier puis retombe.
+            _eventOffset = Mathf.MoveTowards(_eventOffset, 0f, _data.MoraleEventDecayPerSecond * dt);
+
             // Moral cible : un socle de survie (moyenne pondérée faim + abri), modulé par la
             // qualité de travail (multiplicateur, 1 = neutre) et décalé par les événements.
             // Multiplicatif (et non additif) pour que des besoins au plus bas puissent réellement

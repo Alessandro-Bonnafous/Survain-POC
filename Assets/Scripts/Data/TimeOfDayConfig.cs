@@ -37,12 +37,34 @@ namespace Survain.Data
         [Tooltip("Couleur de la lumière ambiante (mode Flat) selon l'heure normalisée [0..1].")]
         [SerializeField] private Gradient _ambientColor = CreateDefaultAmbientGradient();
 
+        [Header("Repas (routines PNJ #15)")]
+        [Tooltip("Début du repas de midi (heure normalisée). Les PNJ se regroupent au feu pendant la fenêtre.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _lunchStart01 = 0.46f;
+
+        [Tooltip("Fin du repas de midi (heure normalisée).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _lunchEnd01 = 0.54f;
+
+        [Tooltip("Début du repas du soir (heure normalisée, avant le coucher).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _dinnerStart01 = 0.72f;
+
+        [Tooltip("Fin du repas du soir (heure normalisée).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _dinnerEnd01 = 0.79f;
+
         public float CycleDurationSeconds => _cycleDurationSeconds;
         public float StartTime01 => _startTime01;
         public float NorthYawDeg => _northYawDeg;
         public Gradient SunColor => _sunColor;
         public AnimationCurve SunIntensity => _sunIntensity;
         public Gradient AmbientColor => _ambientColor;
+
+        public float LunchStart01 => _lunchStart01;
+        public float LunchEnd01 => _lunchEnd01;
+        public float DinnerStart01 => _dinnerStart01;
+        public float DinnerEnd01 => _dinnerEnd01;
 
         // ─── Défauts ────────────────────────────────────────────────────────
 

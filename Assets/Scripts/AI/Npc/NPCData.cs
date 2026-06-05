@@ -67,6 +67,16 @@ namespace Survain.AI.Npc
         [Min(0.01f)]
         [SerializeField] private float _moraleLerpSpeed = 0.2f;
 
+        [Tooltip("Décroissance par seconde du décalage d'événement moral vers 0 (les événements " +
+                 "— repas social, idle social, deuil… — s'estompent avec le temps). 0 = persistant.")]
+        [Min(0f)]
+        [SerializeField] private float _moraleEventDecayPerSecond = 0.1f;
+
+        [Tooltip("Bonus de moral (événement) ajouté par seconde quand le PNJ mange/discute en " +
+                 "compagnie d'autres PNJ (repas groupé, idle social #15).")]
+        [Min(0f)]
+        [SerializeField] private float _socialMoraleBonusPerSecond = 0.15f;
+
         [Tooltip("Sous ce moral, le PNJ déserte le village (phase 2).")]
         [Range(0f, 1f)]
         [SerializeField] private float _moraleDesertionThreshold = 0.05f;
@@ -97,6 +107,8 @@ namespace Survain.AI.Npc
         public float MoraleHungerWeight => _moraleHungerWeight;
         public float MoraleShelterWeight => _moraleShelterWeight;
         public float MoraleLerpSpeed => _moraleLerpSpeed;
+        public float MoraleEventDecayPerSecond => _moraleEventDecayPerSecond;
+        public float SocialMoraleBonusPerSecond => _socialMoraleBonusPerSecond;
         public float MoraleDesertionThreshold => _moraleDesertionThreshold;
         public float MoraleWarnThreshold => _moraleWarnThreshold;
         public float WorkSpeedAtZeroMorale => _workSpeedAtZeroMorale;
