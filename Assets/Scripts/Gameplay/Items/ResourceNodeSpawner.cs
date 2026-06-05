@@ -153,12 +153,17 @@ namespace Survain.Gameplay.Items
             int placed = 0;
             int attempts = 0;
 
+            // Centre les tirages sur le terrain réel (bounds.center) et non sur l'origine du monde :
+            // permet de poser des nœuds sur un terrain DÉCALÉ (ex. la zone sauvage adjacente, #18).
+            // Pour un terrain centré à l'origine, center.x/z ≈ 0 → comportement inchangé.
+            Vector3 center = _terrainCollider.bounds.center;
+
             while (placed < target && attempts < maxAttempts)
             {
                 attempts++;
 
-                float x = ((float)rng.NextDouble() * 2f - 1f) * half;
-                float z = ((float)rng.NextDouble() * 2f - 1f) * half;
+                float x = center.x + ((float)rng.NextDouble() * 2f - 1f) * half;
+                float z = center.z + ((float)rng.NextDouble() * 2f - 1f) * half;
 
                 var rayOrigin = new Vector3(x, 10000f, z);
                 if (!_terrainCollider.Raycast(new Ray(rayOrigin, Vector3.down),
