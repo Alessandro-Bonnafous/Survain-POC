@@ -104,9 +104,12 @@ namespace Survain.Gameplay.Player
 
         private void Update()
         {
-            if (_buildMode != null && _buildMode.IsActive)
+            // Suspendu en mode construction (clic gauche = poser) ET quand un panneau UI est ouvert
+            // (sinon un clic sur un slot d'inventaire/coffre démolit le bâtiment visé « à travers » l'UI).
+            if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive)
             {
                 SetTarget(null);
+                if (_showingPrompt) { InteractionPrompt.Instance.Hide(); _showingPrompt = false; }
                 return;
             }
 
@@ -157,7 +160,7 @@ namespace Survain.Gameplay.Player
 
         private void OnAttack(InputAction.CallbackContext _)
         {
-            if (_buildMode != null && _buildMode.IsActive) return;
+            if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return;
             if (_currentTarget == null) return;
             if (Time.time < _nextHitAllowedAt) return;
 
@@ -168,7 +171,7 @@ namespace Survain.Gameplay.Player
 
         private void OnRepair(InputAction.CallbackContext _)
         {
-            if (_buildMode != null && _buildMode.IsActive) return;
+            if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return;
             if (_currentTarget == null) return;
 
             var b = _currentTarget;
