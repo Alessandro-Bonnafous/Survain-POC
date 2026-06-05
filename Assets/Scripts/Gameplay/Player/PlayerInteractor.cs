@@ -151,9 +151,13 @@ namespace Survain.Gameplay.Player
 
         private IInteractable RaycastForInteractable()
         {
+            // Portée mesurée DEPUIS LE JOUEUR : en 3e personne la caméra est derrière le perso,
+            // donc on ajoute la distance caméra→joueur pour que _maxReach soit la vraie portée
+            // devant le perso, indépendamment du zoom (sinon dézoomer « mange » la portée).
+            float camToPlayer = Vector3.Distance(_cameraTransform.position, _playerRoot.position);
             var hits = Physics.RaycastAll(
                 _cameraTransform.position, _cameraTransform.forward,
-                _maxReach, ~0, QueryTriggerInteraction.Ignore);
+                camToPlayer + _maxReach, ~0, QueryTriggerInteraction.Ignore);
             if (hits.Length == 0) return null;
 
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));

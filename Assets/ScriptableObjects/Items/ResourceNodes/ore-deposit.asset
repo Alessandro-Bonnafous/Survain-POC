@@ -15,10 +15,14 @@ MonoBehaviour:
   _id: ore-deposit
   _displayName: Filon de minerai
   _producedItem: {fileID: 11400000, guid: be0aed93b82fc8144863710150210eb2, type: 2}
-  _producedQuantity: 2
-  _hits: 3
+  _producedQuantity: 1
+  _hits: 5
   _harvestSeconds: 2
   _requiredTool: 2
-  _respawnSeconds: 90
+  _respawnSeconds: 300
   _visualPrefab: {fileID: 7405846476849542632, guid: c6308cb7062fac34e8e50600086b12a1, type: 3}
   _hitColor: {r: 0.65, g: 0.45, b: 0.2, a: 1}
+  _hitParticleCount: 10
+  _depleteParticleCount: 30
+  _minScaleAtLastHit: 0.6
+  _hitSound: {fileID: 0}
