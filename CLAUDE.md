@@ -86,11 +86,12 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 - [x] IA de base des PNJ — state machine (issue #12) — locomotion NavMesh + évitement (ph.1), avatar Synty animé + variété (ph.2a), états Working/Eating/Sleeping/Fleeing + perception (ph.2b). Livré.
 - [x] Besoins PNJ : faim / moral / abri (issue #13) — modèle + décroissance (ph.1), comportement manger/déserter (ph.2), UI bulles + panneau (ph.3). Livré.
 - [x] Métiers via le contremaître (issue #14) — `NpcJob` + contremaître (ph.1) ; récolteurs/constructeur, boucle récolte→coffre→construction (ph.2) ; panneau de gestion + dialogue (ph.3). Livré.
-- [ ] Routines quotidiennes + recrutement (issue #15)
+- [x] Routines quotidiennes + recrutement (issue #15) — routine nocturne (ph.1), planning + repas groupé au feu + idle social (ph.2), recrutement via le contremaître (ph.3). Livré.
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 - [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
 
-**Livrable du sprint :** build où l'on gère un village vivant (PNJ aux métiers, besoins et routines).
+**Livrable du sprint :** build où l'on gère un village vivant (PNJ aux métiers, besoins et routines). **Atteint.**
+**Sprint 3 fonctionnellement clos** (#12/#13/#14/#15 livrés) ; reste transverse #37 (CI) et #46 (prefabs, gated Pascal).
 
 **Sprint 2 — Construction (clôturé) :** placement/chantier (#9), bâtiments fonctionnels (#10), destruction/réparation (#11), vrais prefabs (#46). **Release `v0.3.0` publiée.**
 
@@ -102,7 +103,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** #13 (besoins) puis #14 (métiers — le `ConstructionSite.Deposit` de #9 est le crochet des PNJ bâtisseurs).
+**Prochain milestone :** Sprint 4 (combat & survie) — le layer `Threat` (#12) déclenche déjà la fuite des PNJ, `Building.TakeDamage` (#11) attend une source de dégâts combat, et l'assignation d'abri/lit (`SetSheltered`, #19) reste à brancher.
 
 ---
 
@@ -200,6 +201,39 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-05 — Fixes POC : carving bâtiments, click-through UI, fusion de stacks (#64, #65, #67)
+
+**Contexte.** Trois bugs repérés en testant le village vivant (#15), traités en lots `fix/` distincts (1 PR chacun).
+
+**Décisions / implémentation.**
+1. **Carving NavMesh des bâtiments** (#64) : `Building` ajoute un `NavMeshObstacle` Box (`carving` + `carveOnlyStationary`) à son empreinte (`data.Size`, pivot au sol) à la complétion. Le NavMesh est baké une seule fois au runtime (`NavMeshRuntimeBaker`) et ne contient pas les bâtiments posés ensuite → le carving creuse le trou dynamiquement ; libéré au `Destroy` (démolition rouvre le passage). Même pattern que `ResourceNode.SetupNavObstacle` (#12).
+2. **Click-through UI** (#65) : un clic gauche sur un slot d'inventaire/coffre déclenchait aussi l'action monde (démolition `PlayerBuildingTool`, récolte `PlayerHarvester`) « à travers » l'UI. `UiMode` expose désormais `IsActive` (vrai dès qu'un panneau est ouvert, via son comptage de références) ; les deux outils ne ciblent ni n'agissent tant que `IsActive`. Pattern « gating par flag lu », comme le mode construction.
+3. **Fusion de stacks au drag & drop** (#67) : déposer un stack sur un slot portant le même item stackable échangeait au lieu de cumuler. `Inventory.MergeOrSwap` / `MergeOrSwapAcross` (+ helper `TryMerge`) : même item stackable → fusion jusqu'à `MaxStackSize` (reliquat conservé à la source), sinon échange. `Swap`/`SwapAcross` restent inchangés (usage général) ; seul `InventoryDragController.OnDropOnSlot` bascule sur les variantes.
+
+**Conséquences.** Conventions réutilisables : **carving sur tout bâtiment statique** ; **`UiMode.IsActive` pour neutraliser les actions monde sous un panneau** (à répliquer pour tout futur outil sur clic) ; **merge-or-swap** pour le drag d'items stackables (le merge intelligent laissé en suspens en #7 est désormais fait).
+
+### 2026-06-05 — Routines quotidiennes, planning de vie & recrutement (Sprint 3, #15 clos)
+
+**Contexte.** Dernière brique du Sprint 3 : donner au village un rythme de vie et la capacité de grandir. Découpé data→logique→UI, 1 PR/phase (#62 routine nocturne, #63 planning + social, #66 recrutement).
+
+**Décisions.**
+1. **`WorldClock`** (service statique découplé) : `IsNight` / `Phase` / `Time01` / `IsMealTime` / `HasClock` + event `OnPhaseChanged`, alimenté par `DayNightCycle`. L'IA des PNJ lit l'heure sans dépendre du composant visuel ni de `FindObjectOfType` (`DayNightCycle` reste l'autorité visuelle et publie son état). Préféré à un statique posé directement sur `DayNightCycle`.
+2. **Routine nuit** : `SleepingState` (squelette de #12) piloté — le PNJ rentre à son **foyer (`HomePosition`)** et se repose jusqu'au jour, anti-blocage façon `EatingState`. **Sommeil sans lit nominal** au POC : l'abri/lit assigné + `SetSheltered` restent **#19** (Sprint 4).
+3. **Planning via interruptions priorisées** (extension du pattern #13) : `fuite > désertion > faim > nuit (repos) > repas > travail`. La nuit et le repas **n'interrompent pas** un `EatingState`/repas en cours (auto-terminant à satiété) — sinon le PNJ quitte le feu dès que la faim repasse le seuil de recherche et boucle feu ⇄ foyer.
+4. **`MealGatheringState`** : repas groupé au feu pendant des **créneaux** (midi + crépuscule, fenêtres `time01` tunables sur `TimeOfDayConfig`). Distinct d'`EatingState` (faim individuelle) : le PNJ reste au feu toute la durée du créneau. **Bonus moral social** s'il a de la compagnie.
+5. **Événements moraux décroissants** : `NpcNeeds._eventOffset` converge vers 0 (vitesse tunable sur `NPCData`) → les bonus social/idle (et tout événement) deviennent **transitoires**. Bonus social + décroissance tunables (équilibrage Pascal).
+6. **Idle social** : deux PNJ oisifs proches se tournent l'un vers l'autre et « discutent » brièvement (petit bonus social). Local à `IdleState`, pas une interruption globale.
+7. **Recrutement via le contremaître** : bouton « Recruter (coût) » dans `NpcManagementPanel`, coût prélevé dans le **coffre le plus proche du contremaître** (cohérent avec les récolteurs qui y déposent), **plafond** de villageois vivants (tunable, défaut 8) → remplacement naturel des déserteurs (un départ libère une place). `NpcSpawner.SpawnVillager()` réutilisable + accès statique `Instance` ; coût prélevé **après** un spawn réussi (pas de perte de ressources). Le **contremaître est exempté** des routines (reste le hub accessible, même de nuit).
+
+**Alternatives écartées.** Statique sur `DayNightCycle` (préféré le service `WorldClock` découplé) ; bonus moral social plat/persistant (préféré décroissant) ; lit assigné dès #15 (report #19) ; sommeil sur place (préféré retour au foyer) ; recrutement par quête de collecte ou PNJ candidat errant (préféré le bouton dans le hub) ; coût depuis le sac du joueur ou agrégé sur tous les coffres (préféré le coffre le plus proche) ; repas piloté par la seule faim (préféré un créneau dédié + état distinct).
+
+**Conséquences.**
+- **#15 clos → Sprint 3 fonctionnellement bouclé.** Suite : Sprint 4 (combat & survie).
+- Patterns dégagés : **`WorldClock`** (horloge gameplay découplée, réutilisable pour météo/événements datés) ; **interruptions priorisées étendues aux routines** ; **événements moraux décroissants** (réutilisables : deuil, fête, bénédiction divine) ; **`SpawnVillager()` + recrutement** (réutilisable pour d'autres sources de PNJ).
+- Crochets prêts : `SetSheltered` (#19 — le sommeil au lit assigné remplacera le retour au foyer), `SetWorkQuality` (#14).
+- **Incident scène** : `Main.unity` contaminée par une **sauvegarde en mode Play** (avatar `Combined Character` + UI runtime « Fallback » bakés, ~2900 lignes) ; restaurée, seule la config de coût de recrutement committée. **À retenir : ne jamais `Ctrl+S` la scène en mode Play.**
+- Limitation NavMesh en espaces serrés (#14) inchangée.
 
 ### 2026-06-05 — Métiers PNJ & gestion par le contremaître : implémentation (Sprint 3, #14 clos)
 
@@ -951,4 +985,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-05 (Sprint 3 — #14 clos : métiers PNJ, boucle récolte→coffre→construction, gestion par le contremaître)*
+*Dernière mise à jour : 2026-06-05 (Sprint 3 fonctionnellement clos — #15 : routines nocturnes, planning de vie, repas groupé & idle social, recrutement ; + fixes carving bâtiments / click-through UI / fusion de stacks)*
