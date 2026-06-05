@@ -85,7 +85,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 **Objectifs du sprint** : faire vivre un village de PNJ — IA, besoins, métiers, routines.
 - [x] IA de base des PNJ — state machine (issue #12) — locomotion NavMesh + évitement (ph.1), avatar Synty animé + variété (ph.2a), états Working/Eating/Sleeping/Fleeing + perception (ph.2b). Livré.
 - [x] Besoins PNJ : faim / moral / abri (issue #13) — modèle + décroissance (ph.1), comportement manger/déserter (ph.2), UI bulles + panneau (ph.3). Livré.
-- [ ] Métiers via le contremaître (issue #14) — `NpcJob` + contremaître spécial (point d'interaction unique) + interaction réservée (ph.1, livré) ; comportements de métier (ph.2) ; panneau de gestion (ph.3). En cours.
+- [x] Métiers via le contremaître (issue #14) — `NpcJob` + contremaître (ph.1) ; récolteurs/constructeur, boucle récolte→coffre→construction (ph.2) ; panneau de gestion + dialogue (ph.3). Livré.
 - [ ] Routines quotidiennes + recrutement (issue #15)
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 - [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
@@ -200,6 +200,30 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-05 — Métiers PNJ & gestion par le contremaître : implémentation (Sprint 3, #14 clos)
+
+**Contexte.** Suite du modèle contremaître (décision 2026-06-04). Phases 2 (comportements de métier) et 3 (panneau de gestion + dialogue) livrées → #14 clos.
+
+**Décisions / implémentation.**
+1. **Récolteurs** (`GatherJobState`) : ciblent le nœud compatible le plus proche (`ResourceNode.FindNearest` par `RequiredTool`), récoltent via `HarvestHit(into)` — **crédit direct dans l'inventaire porté** (le chemin joueur garde le drop au sol), portent au **coffre le plus proche** et déposent. Ne travaillent **que s'il existe un coffre** (sinon oisifs).
+2. **Constructeur** (`BuildJobState`) : cible le chantier actif le plus proche, **puise au coffre** les ressources requises (`ConstructionSite.RemainingFor`) et alimente (`Deposit`). Boucle de village fermée (récolte→coffre→construction).
+3. **Récolte PNJ sans `ToolData`** : le PNJ ne cible que des nœuds compatibles avec son métier → pas besoin d'outil réel. Productivité modulée par le moral (`WorkSpeedMultiplier`, #13).
+4. **Registres statiques** `ResourceNode.All` / `ConstructionSite.All` (+ `Building.All` de #13) + `FindNearest` — requêtes spatiales sans `FindObjectsOfType`.
+5. **Travail = priorité la plus basse** (`NpcController` : fuite > désertion > faim > travail) ; un affamé sans feu **cesse de travailler**.
+6. **`NpcManagementPanel`** : roster live (nom, faim/abri/moral, productivité) + assignation par cycle ◀ Métier ▶, ouvert par le contremaître (E). **Dialogue** : le contremaître pivote vers le joueur pendant l'échange (`BeginTalk/EndTalk`).
+7. **`UiMode`** (mode UI centralisé à comptage de références) : curseur + gel de l'orbite caméra partagés par tous les panneaux → corrige le conflit multi-menus ET la caméra qui tournait pendant inventaire/coffre. Concrétise le `CursorOwnershipStack` anticipé en #7.
+8. **Anti-blocage** : `EatingState` recalcule le chemin s'il devient partiel/invalide (nœud qui respawn et carve le NavMesh en travers) + timeout ; timeouts de déplacement sur les états de travail. Plus de PNJ figé (fini le déblocage par DEBUG).
+
+**Note d'historique.** La phase 2A (récolteurs) a été fusionnée dans `main` **sous la PR #58 « fix(player) »** (squash), suite à un cafouillage de branche (2A committée sur `main` puis embarquée par la branche du fix ciblage). Le code est correct ; seul le libellé du commit ne reflète pas la 2A.
+
+**Alternatives écartées.** Drop au sol + ramassage PNJ (préféré crédit direct) ; téléportation des ressources ; stock de village dédié (préféré le coffre le plus proche) ; donner un vrai `ToolData` aux PNJ ; SphereCast d'interaction (faux positifs d'obstruction) ; gestion curseur par panneau (conflit multi-menus → `UiMode`).
+
+**Conséquences.**
+- **#14 clos.** Sprint 3 → **#15** (routines quotidiennes via `SleepingState` + cycle jour/nuit, recrutement).
+- Crochets prêts : `SetWorkQuality` (qualité de travail → moral, à brancher), `SetSheltered` (#19).
+- **Limitation connue** : évitement NavMesh en espace étroit (bâtiments serrés) → saccades / blocage occasionnel récupérable. Polish possible (rayon de carving des nœuds, réglage d'évitement, étalement du spawn).
+- Patterns dégagés : **registre statique + `FindNearest`** (réutilisable #15) ; **`UiMode`** (tout futur panneau) ; **états de métier à sous-phases + timeouts**.
 
 ### 2026-06-04 — Gestion du village via un contremaître + métiers PNJ (Sprint 3, issue #14)
 
@@ -927,4 +951,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-04 (Sprint 3 — #14 phase 1 : modèle contremaître + métiers PNJ, data & assignation)*
+*Dernière mise à jour : 2026-06-05 (Sprint 3 — #14 clos : métiers PNJ, boucle récolte→coffre→construction, gestion par le contremaître)*
