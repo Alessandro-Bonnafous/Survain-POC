@@ -5354,6 +5354,12 @@ MonoBehaviour:
   _spawnCenter: {fileID: 1792158199}
   _spawnRadius: 6
   _navMeshSampleDistance: 100
+  _recruitCost:
+  - _item: {fileID: 11400000, guid: 2bd964ae371b6af4988194fc261472ec, type: 2}
+    _amount: 8
+  - _item: {fileID: 11400000, guid: 65c66688fa5c5924e9fdadfa8d896b45, type: 2}
+    _amount: 4
+  _maxVillagers: 8
 --- !u!4 &856981940
 Transform:
   m_ObjectHideFlags: 0
