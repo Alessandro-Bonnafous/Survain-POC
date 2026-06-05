@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af03652b0b0537448b09895d96a7bc23, type: 3}
+  m_Name: EnemyData
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Enemies.EnemyData
+  _displayName: Ennemi
+  _patrolSpeed: 2.5
+  _chaseSpeed: 4.5
+  _patrolRadius: 8
+  _idlePauseMin: 1.5
+  _idlePauseMax: 4
+  _aggroRadius: 9
+  _deaggroRadius: 14
+  _leashRadius: 20
+  _aggressive: 1
+  _attackRange: 2
+  _attackTelegraphSeconds: 0.8
+  _attackCooldown: 1.5
+  _attackDamage: 8
+  _maxHp: 30
+  _loot: []

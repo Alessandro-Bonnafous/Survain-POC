@@ -22,6 +22,10 @@ namespace Survain.Gameplay.Player
     [DisallowMultipleComponent]
     public sealed class PlayerController : MonoBehaviour
     {
+        /// <summary>Instance unique du joueur en scène (set OnEnable). Consommée par les systèmes
+        /// qui ont besoin de cibler le joueur sans FindObjectOfType (ex. aggro des ennemis, #17).</summary>
+        public static PlayerController Instance { get; private set; }
+
         // ─── Configuration ──────────────────────────────────────────────────
 
         [Header("Configuration")]
@@ -116,12 +120,14 @@ namespace Survain.Gameplay.Player
 
         private void OnEnable()
         {
+            Instance = this;
             if (_jumpAction != null) _jumpAction.performed += OnJumpPerformed;
             if (_playerMap != null) _playerMap.Enable();
         }
 
         private void OnDisable()
         {
+            if (Instance == this) Instance = null;
             if (_jumpAction != null) _jumpAction.performed -= OnJumpPerformed;
             if (_playerMap != null) _playerMap.Disable();
         }
