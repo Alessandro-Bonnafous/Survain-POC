@@ -66,6 +66,7 @@ namespace Survain.Gameplay.World
             _currentTime01 = Mathf.Repeat(t01, 1f);
             ApplyVisualState(_currentTime01);
             UpdatePhase();
+            WorldClock.Publish(_currentTime01, _currentPhase);
         }
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
@@ -90,6 +91,10 @@ namespace Survain.Gameplay.World
 
             _currentTime01 = Mathf.Repeat(_config.StartTime01, 1f);
             _currentPhase = ComputePhase(_currentTime01);
+
+            // Publie l'état initial pour que la logique gameplay (routines PNJ #15) lise une heure
+            // valide dès le premier Update, avant même que ce cycle ait avancé.
+            WorldClock.Publish(_currentTime01, _currentPhase);
         }
 
         private void Start()
@@ -109,6 +114,7 @@ namespace Survain.Gameplay.World
 
             ApplyVisualState(_currentTime01);
             UpdatePhase();
+            WorldClock.Publish(_currentTime01, _currentPhase);
         }
 
         // ─── Visuel ─────────────────────────────────────────────────────────
