@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Survain.Core;
+using Survain.Gameplay.Buildings;
 using Survain.Gameplay.Inventories;
 using Survain.Items;
 
@@ -116,20 +117,12 @@ namespace Survain.AI.Npc
             {
                 // Affamé sans feu de camp accessible : on cesse de travailler (passage en oisiveté),
                 // et on ne reprend pas un métier tant que la faim n'est pas satisfaite.
-                if (_currentState is GatherJobState) ChangeState(new IdleState());
+                if (IsWorking(_currentState)) ChangeState(new IdleState());
             }
-            // Travail = priorité la plus basse : uniquement rassasié et oisif. Et seulement s'il
-            // existe un lieu de stockage (coffre) — sinon, récolter ne sert à rien → on reste oisif.
-            else if (IsGatherJob(_job) && Carried != null)
+            // Travail = priorité la plus basse : uniquement rassasié et oisif.
+            else if (IsWorkingJob(_job) && Carried != null)
             {
-                if (!GatherJobState.HasStorage(transform.position, out _))
-                {
-                    if (_currentState is GatherJobState) ChangeState(new IdleState());
-                }
-                else if (_currentState is IdleState || _currentState is WanderState)
-                {
-                    ChangeState(new GatherJobState(ToolFor(_job)));
-                }
+                UpdateWork();
             }
 
             _currentState?.Tick(this);
@@ -143,8 +136,45 @@ namespace Survain.AI.Npc
         /// <summary>Métiers de récolte (#14 phase 2A) : ciblent des nœuds par type d'outil.</summary>
         private static bool IsGatherJob(NpcJob job) => job == NpcJob.Bucheron || job == NpcJob.Mineur;
 
+        /// <summary>Métiers qui occupent un état de travail (récolteurs + constructeur).</summary>
+        private static bool IsWorkingJob(NpcJob job) => IsGatherJob(job) || job == NpcJob.Constructeur;
+
+        /// <summary>Vrai si l'état courant est un état de travail (récolte ou construction).</summary>
+        private static bool IsWorking(INpcState state) => state is GatherJobState || state is BuildJobState;
+
         /// <summary>Type d'outil ciblé par le métier de récolte (bûcheron → hache, mineur → pioche).</summary>
         private static ToolType ToolFor(NpcJob job) => job == NpcJob.Mineur ? ToolType.Pickaxe : ToolType.Axe;
+
+        /// <summary>
+        /// Entre/maintient l'état de métier approprié depuis l'oisiveté, et n'occupe un métier que
+        /// s'il y a de quoi : un coffre pour les récolteurs (sinon récolter ne sert à rien), un
+        /// chantier actif pour le constructeur. Sort vers l'oisiveté si la condition disparaît.
+        /// </summary>
+        private void UpdateWork()
+        {
+            if (_job == NpcJob.Constructeur)
+            {
+                if (!ConstructionSite.HasActive(transform.position, out _))
+                {
+                    if (_currentState is BuildJobState) ChangeState(new IdleState());
+                }
+                else if (_currentState is IdleState || _currentState is WanderState)
+                {
+                    ChangeState(new BuildJobState());
+                }
+            }
+            else // récolteurs (bûcheron / mineur)
+            {
+                if (!GatherJobState.HasStorage(transform.position, out _))
+                {
+                    if (_currentState is GatherJobState) ChangeState(new IdleState());
+                }
+                else if (_currentState is IdleState || _currentState is WanderState)
+                {
+                    ChangeState(new GatherJobState(ToolFor(_job)));
+                }
+            }
+        }
 
         /// <summary>Transition vers un nouvel état (Exit de l'ancien, Enter du nouveau).</summary>
         public void ChangeState(INpcState next)
