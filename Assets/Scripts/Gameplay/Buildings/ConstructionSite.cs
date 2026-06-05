@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using Survain.Core;
@@ -35,6 +37,47 @@ namespace Survain.Gameplay.Buildings
 
         public BuildingData Target => _target;
         public bool IsComplete { get; private set; }
+
+        // Registre statique des chantiers actifs en scène (alternative à FindObjectsOfType) :
+        // sert au ciblage par le PNJ constructeur (#14 phase 2B).
+        private static readonly List<ConstructionSite> _all = new List<ConstructionSite>();
+        public static IReadOnlyList<ConstructionSite> All => _all;
+
+        /// <summary>Chantier le plus proche satisfaisant le filtre (ou null).</summary>
+        public static ConstructionSite FindNearest(Vector3 from, Predicate<ConstructionSite> filter = null)
+        {
+            ConstructionSite best = null;
+            float bestSqr = float.MaxValue;
+            for (int i = 0; i < _all.Count; i++)
+            {
+                var s = _all[i];
+                if (s == null || (filter != null && !filter(s))) continue;
+                float d = (s.transform.position - from).sqrMagnitude;
+                if (d < bestSqr) { bestSqr = d; best = s; }
+            }
+            return best;
+        }
+
+        /// <summary>Chantier actif (non terminé) le plus proche.</summary>
+        public static bool HasActive(Vector3 from, out ConstructionSite site)
+        {
+            site = FindNearest(from, s => !s.IsComplete);
+            return site != null;
+        }
+
+        /// <summary>Quantité de <paramref name="item"/> encore requise par ce chantier (0 si comblé).</summary>
+        public int RemainingFor(ItemData item)
+        {
+            if (_target == null || _target.Cost == null || item == null) return 0;
+            var cost = _target.Cost;
+            int total = 0;
+            for (int i = 0; i < cost.Length; i++)
+                if (cost[i].Item == item) total += cost[i].Amount - _deposited[i];
+            return Mathf.Max(0, total);
+        }
+
+        private void OnEnable() => _all.Add(this);
+        private void OnDisable() => _all.Remove(this);
 
         /// <summary>Fraction de complétion [0..1] en unités totales déposées / requises.</summary>
         public float Progress
