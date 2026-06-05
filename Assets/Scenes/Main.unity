@@ -227,8 +227,7 @@ MonoBehaviour:
   _enemyTypes:
   - {fileID: 11400000, guid: 32bdf64c98d3b0b48b03abcacc05cb1f, type: 2}
   - {fileID: 11400000, guid: 5b40fb4a623716244aa533f9886716d2, type: 2}
-  - {fileID: 11400000, guid: 230ec430657f6c148ad8e9f87d450484, type: 2}
-  _count: 3
+  _count: 5
   _spawnCenter: {fileID: 0}
   _spawnRadius: 12
   _navMeshSampleDistance: 100
@@ -242,12 +241,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 33411065}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 8.40897, y: -0, z: 16.26093}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -25, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 504187102}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &48028028
 GameObject:
@@ -1959,6 +1958,7 @@ GameObject:
   - component: {fileID: 266207184}
   - component: {fileID: 266207183}
   - component: {fileID: 266207182}
+  - component: {fileID: 266207187}
   m_Layer: 0
   m_Name: WildRoot
   m_TagString: Untagged
@@ -2100,6 +2100,20 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 266207180}
   m_Mesh: {fileID: 0}
+--- !u!114 &266207187
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 266207180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 672bfef50b9d6594486cc21e3ea08aab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.World.WildZone
+  _enterMessage: Vous entrez en zone sauvage
+  _exitMessage: Vous quittez la zone sauvage
 --- !u!1 &290828996
 GameObject:
   m_ObjectHideFlags: 0
@@ -3993,6 +4007,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 504187102}
+  - component: {fileID: 504187103}
   m_Layer: 0
   m_Name: _WildZone
   m_TagString: Untagged
@@ -4014,8 +4029,31 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 266207181}
+  - {fileID: 33411067}
+  - {fileID: 1942129927}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &504187103
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 504187101}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 100, y: 50, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &513462040
 GameObject:
   m_ObjectHideFlags: 0
@@ -13218,6 +13256,60 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4424488534019546214, guid: fce66a12cf7a45043bbbe1c0087175b5, type: 3}
   m_PrefabInstance: {fileID: 1141376481}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1942129926
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1942129927}
+  - component: {fileID: 1942129928}
+  m_Layer: 0
+  m_Name: _EnemySpawner (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1942129927
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1942129926}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 25, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 504187102}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1942129928
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1942129926}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bf39e66582d80f488995ade4285d482, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Enemies.EnemySpawner
+  _enemyPrefab: {fileID: 8419274491522020578, guid: 128bcf794a7e8044e88b1415388cbcd4, type: 3}
+  _enemyTypes:
+  - {fileID: 11400000, guid: 32bdf64c98d3b0b48b03abcacc05cb1f, type: 2}
+  - {fileID: 11400000, guid: 230ec430657f6c148ad8e9f87d450484, type: 2}
+  _count: 5
+  _spawnCenter: {fileID: 0}
+  _spawnRadius: 12
+  _navMeshSampleDistance: 100
+  _respawn: 1
+  _respawnDelaySeconds: 8
 --- !u!1 &1964596126
 GameObject:
   m_ObjectHideFlags: 0
@@ -14763,5 +14855,4 @@ SceneRoots:
   - {fileID: 884098524}
   - {fileID: 1130257668}
   - {fileID: 856981940}
-  - {fileID: 33411067}
   - {fileID: 504187102}

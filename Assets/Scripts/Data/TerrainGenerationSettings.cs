@@ -56,6 +56,19 @@ namespace Survain.Data
         [FormerlySerializedAs("altitudeGradient")]
         [SerializeField] private Gradient _altitudeGradient = CreateDefaultGradient();
 
+        [Header("Bordure (falloff)")]
+        [Tooltip("Aplanit le relief vers les bords jusqu'à une altitude commune → jointure de zones " +
+                 "adjacentes franchissable (#18). Désactivé = comportement historique.")]
+        [SerializeField] private bool _edgeFalloff = false;
+
+        [Tooltip("Altitude (m) vers laquelle le terrain converge au bord. À PARTAGER entre terrains " +
+                 "adjacents pour que la jointure soit plane et traversable.")]
+        [SerializeField] private float _edgeFalloffHeight = 0f;
+
+        [Tooltip("Largeur (m) de la transition depuis le bord vers l'intérieur.")]
+        [Min(0.1f)]
+        [SerializeField] private float _edgeFalloffWidth = 8f;
+
         // Accesseurs
         public float WorldSize => _worldSize;
         public int Subdivisions => _subdivisions;
@@ -65,6 +78,9 @@ namespace Survain.Data
         public float Persistence => _persistence;
         public float Lacunarity => _lacunarity;
         public Gradient AltitudeGradient => _altitudeGradient;
+        public bool EdgeFalloff => _edgeFalloff;
+        public float EdgeFalloffHeight => _edgeFalloffHeight;
+        public float EdgeFalloffWidth => _edgeFalloffWidth;
 
         private static Gradient CreateDefaultGradient()
         {

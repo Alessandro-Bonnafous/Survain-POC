@@ -130,7 +130,23 @@ namespace Survain.Gameplay.World
 
             noiseHeight /= maxAmplitude;          // [-1..1]
             noiseHeight = (noiseHeight + 1f) * 0.5f; // [0..1]
-            return noiseHeight * _settings.HeightAmplitude;
+            float height = noiseHeight * _settings.HeightAmplitude;
+
+            // Falloff de bordure : on rapproche l'altitude de la baseline en s'approchant du bord
+            // (worldX/worldZ sont des coords LOCALES centrées en 0, ∈ [-half, half]). Deux terrains
+            // adjacents partageant la même EdgeFalloffHeight se rejoignent à plat → jointure franchissable.
+            if (_settings.EdgeFalloff)
+            {
+                float half = _settings.WorldSize * 0.5f;
+                float edgeDist = half - Mathf.Max(Mathf.Abs(worldX), Mathf.Abs(worldZ));
+                float t = _settings.EdgeFalloffWidth > 0.01f
+                    ? Mathf.Clamp01(edgeDist / _settings.EdgeFalloffWidth)
+                    : 1f;
+                t = t * t * (3f - 2f * t); // smoothstep pour une transition douce
+                height = Mathf.Lerp(_settings.EdgeFalloffHeight, height, t);
+            }
+
+            return height;
         }
 
         // ─── Mesh ───────────────────────────────────────────────────────────
