@@ -230,9 +230,12 @@ namespace Survain.Gameplay.Player
 
         private Building RaycastForBuilding()
         {
+            // Portée mesurée DEPUIS LE JOUEUR (cf. PlayerInteractor) : on ajoute la distance
+            // caméra→joueur pour que _maxReach reste la vraie portée devant le perso, quel que soit le zoom.
+            float camToPlayer = Vector3.Distance(_cameraTransform.position, _playerRoot.position);
             var hits = Physics.RaycastAll(
                 _cameraTransform.position, _cameraTransform.forward,
-                _maxReach, ~0, QueryTriggerInteraction.Ignore);
+                camToPlayer + _maxReach, ~0, QueryTriggerInteraction.Ignore);
             if (hits.Length == 0) return null;
 
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
