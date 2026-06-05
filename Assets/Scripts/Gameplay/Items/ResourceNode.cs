@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Survain.Core;
@@ -55,6 +57,29 @@ namespace Survain.Gameplay.Items
         public int CurrentHits => _currentHits;
         public bool IsDepleted => _currentHits <= 0;
         public Transform VisualInstance => _visualInstance != null ? _visualInstance.transform : null;
+
+        // Registre statique des nœuds en scène (alternative à FindObjectsOfType) : sert au
+        // ciblage par les PNJ récolteurs (#14). Les nœuds épuisés restent listés (filtrer IsDepleted).
+        private static readonly List<ResourceNode> _all = new List<ResourceNode>();
+        public static IReadOnlyList<ResourceNode> All => _all;
+
+        /// <summary>Nœud le plus proche de <paramref name="from"/> satisfaisant le filtre (ou null).</summary>
+        public static ResourceNode FindNearest(Vector3 from, Predicate<ResourceNode> filter = null)
+        {
+            ResourceNode best = null;
+            float bestSqr = float.MaxValue;
+            for (int i = 0; i < _all.Count; i++)
+            {
+                var n = _all[i];
+                if (n == null || (filter != null && !filter(n))) continue;
+                float d = (n.transform.position - from).sqrMagnitude;
+                if (d < bestSqr) { bestSqr = d; best = n; }
+            }
+            return best;
+        }
+
+        private void OnEnable() => _all.Add(this);
+        private void OnDisable() => _all.Remove(this);
 
         /// <summary>
         /// Émis à chaque coup réussi (avant la vérification d'épuisement).
@@ -194,9 +219,29 @@ namespace Survain.Gameplay.Items
 
             if (_currentHits <= 0)
             {
-                Deplete();
+                Deplete(null); // drop au sol (récolte joueur)
             }
 
+            return true;
+        }
+
+        /// <summary>
+        /// Coup de récolte porté par un PNJ travailleur (#14) : pas d'outil requis (le PNJ ne
+        /// cible que des nœuds compatibles avec son métier). À l'épuisement, l'item produit est
+        /// crédité directement dans <paramref name="into"/> (pas de drop au sol) ; tout surplus
+        /// qui n'entre pas est déversé au sol pour ne pas être perdu. Renvoie true si le coup a porté.
+        /// </summary>
+        public bool HarvestHit(Inventory into)
+        {
+            if (IsDepleted) return false;
+
+            _currentHits--;
+            OnHit?.Invoke();
+
+            if (_currentHits <= 0)
+            {
+                Deplete(into);
+            }
             return true;
         }
 
@@ -242,9 +287,22 @@ namespace Survain.Gameplay.Items
             _visualInstance = primitive;
         }
 
-        private void Deplete()
+        private void Deplete(Inventory creditTo)
         {
-            SpawnDrop();
+            // Récolte PNJ : crédit direct dans l'inventaire porté (surplus au sol) ;
+            // récolte joueur (creditTo == null) : drop au sol classique.
+            if (creditTo != null)
+            {
+                // TryAdd retourne la quantité NON ajoutée (reliquat) → seul le surplus tombe au sol.
+                int leftover = creditTo.TryAdd(_data.ProducedItem, _data.ProducedQuantity);
+                if (leftover > 0)
+                    WorldItemSpawner.Spawn(_data.ProducedItem, leftover, transform.position + Vector3.up * 1f);
+            }
+            else
+            {
+                SpawnDrop();
+            }
+
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Nœud '{_data.Id}' épuisé.", this);
 

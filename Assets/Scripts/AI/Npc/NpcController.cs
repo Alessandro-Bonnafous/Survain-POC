@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Survain.Core;
+using Survain.Gameplay.Inventories;
+using Survain.Items;
 
 namespace Survain.AI.Npc
 {
@@ -28,7 +30,14 @@ namespace Survain.AI.Npc
                  "les villageois démarrent SansEmploi et reçoivent leur métier via le contremaître.")]
         [SerializeField] private NpcJob _job = NpcJob.SansEmploi;
 
+        [Tooltip("Capacité de l'inventaire porté par le PNJ (ressources récoltées avant dépôt au coffre).")]
+        [Min(1)]
+        [SerializeField] private int _carriedCapacity = 4;
+
         public NPCData Data => _data;
+
+        /// <summary>Inventaire porté par le PNJ (récolte transportée jusqu'au coffre, #14).</summary>
+        public Inventory Carried { get; private set; }
 
         /// <summary>Métier courant du PNJ (#14). Pilote le comportement de travail (phase 2).</summary>
         public NpcJob Job => _job;
@@ -64,6 +73,9 @@ namespace Survain.AI.Npc
             Agent = GetComponent<NavMeshAgent>();
             Perception = GetComponent<NpcPerception>(); // optionnel
             Needs = GetComponent<NpcNeeds>();           // optionnel
+
+            Carried = gameObject.AddComponent<Inventory>();
+            Carried.ConfigureCapacity(_carriedCapacity);
         }
 
         private void OnEnable() => _all.Add(this);
@@ -100,6 +112,25 @@ namespace Survain.AI.Npc
             {
                 ChangeState(new EatingState());
             }
+            else if (Needs != null && Needs.IsHungry)
+            {
+                // Affamé sans feu de camp accessible : on cesse de travailler (passage en oisiveté),
+                // et on ne reprend pas un métier tant que la faim n'est pas satisfaite.
+                if (_currentState is GatherJobState) ChangeState(new IdleState());
+            }
+            // Travail = priorité la plus basse : uniquement rassasié et oisif. Et seulement s'il
+            // existe un lieu de stockage (coffre) — sinon, récolter ne sert à rien → on reste oisif.
+            else if (IsGatherJob(_job) && Carried != null)
+            {
+                if (!GatherJobState.HasStorage(transform.position, out _))
+                {
+                    if (_currentState is GatherJobState) ChangeState(new IdleState());
+                }
+                else if (_currentState is IdleState || _currentState is WanderState)
+                {
+                    ChangeState(new GatherJobState(ToolFor(_job)));
+                }
+            }
 
             _currentState?.Tick(this);
 
@@ -108,6 +139,12 @@ namespace Survain.AI.Npc
                 _animator.SetFloat(NpcAnimParams.Speed, Agent.velocity.magnitude);
             }
         }
+
+        /// <summary>Métiers de récolte (#14 phase 2A) : ciblent des nœuds par type d'outil.</summary>
+        private static bool IsGatherJob(NpcJob job) => job == NpcJob.Bucheron || job == NpcJob.Mineur;
+
+        /// <summary>Type d'outil ciblé par le métier de récolte (bûcheron → hache, mineur → pioche).</summary>
+        private static ToolType ToolFor(NpcJob job) => job == NpcJob.Mineur ? ToolType.Pickaxe : ToolType.Axe;
 
         /// <summary>Transition vers un nouvel état (Exit de l'ancien, Enter du nouveau).</summary>
         public void ChangeState(INpcState next)
