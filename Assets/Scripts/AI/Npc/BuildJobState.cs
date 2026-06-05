@@ -20,11 +20,13 @@ namespace Survain.AI.Npc
 
         private const float ArriveDistance = 2.5f;
         private const float RescanDelay = 1.5f;
+        private const float MoveTimeout = 12f; // abandon d'une cible non atteinte → anti-blocage
 
         private Phase _phase;
         private ConstructionSite _site;
         private StorageContainer _chest;
         private float _rescanAt;
+        private float _deadline;
 
         public void Enter(NpcController npc)
         {
@@ -80,6 +82,8 @@ namespace Survain.AI.Npc
         {
             if (_chest == null || _site == null || _site.IsComplete) { _phase = Phase.Search; return; }
 
+            if (Time.time > _deadline) { _rescanAt = Time.time + RescanDelay; _phase = Phase.Wait; return; }
+
             if (Arrived(npc, _chest.transform.position))
             {
                 Stop(npc);
@@ -102,6 +106,8 @@ namespace Survain.AI.Npc
         private void TickGoToSite(NpcController npc)
         {
             if (_site == null || _site.IsComplete) { _phase = Phase.Search; return; }
+
+            if (Time.time > _deadline) { _rescanAt = Time.time + RescanDelay; _phase = Phase.Wait; return; }
 
             if (Arrived(npc, _site.transform.position))
             {
@@ -157,8 +163,9 @@ namespace Survain.AI.Npc
             }
         }
 
-        private static void GoTo(NpcController npc, Vector3 pos)
+        private void GoTo(NpcController npc, Vector3 pos)
         {
+            _deadline = Time.time + MoveTimeout; // arme l'anti-blocage pour ce trajet
             if (!npc.Agent.isOnNavMesh) return;
             npc.Agent.isStopped = false;
             npc.Agent.SetDestination(pos);

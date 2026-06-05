@@ -22,6 +22,7 @@ namespace Survain.AI.Npc
 
         private const float ArriveDistance = 2f;
         private const float RescanDelay = 1.5f;
+        private const float MoveTimeout = 12f; // abandon d'une cible non atteinte → anti-blocage
 
         private readonly ToolType _toolType;
 
@@ -30,6 +31,7 @@ namespace Survain.AI.Npc
         private StorageContainer _chest;
         private float _nextHitAt;
         private float _rescanAt;
+        private float _deadline;
 
         public GatherJobState(ToolType toolType) => _toolType = toolType;
 
@@ -92,6 +94,14 @@ namespace Survain.AI.Npc
         {
             if (_node == null || _node.IsDepleted) { _phase = Phase.Search; return; }
 
+            if (Time.time > _deadline) // nœud inatteignable → on lâche et on patiente
+            {
+                _node = null;
+                _rescanAt = Time.time + RescanDelay;
+                _phase = Phase.Wait;
+                return;
+            }
+
             if (Arrived(npc, _node.transform.position))
             {
                 Stop(npc);
@@ -122,6 +132,13 @@ namespace Survain.AI.Npc
         private void TickGoToChest(NpcController npc)
         {
             if (_chest == null) { _phase = Phase.Search; return; } // coffre disparu
+
+            if (Time.time > _deadline) // coffre inatteignable → on patiente puis on réessaie
+            {
+                _rescanAt = Time.time + RescanDelay;
+                _phase = Phase.Wait;
+                return;
+            }
 
             if (Arrived(npc, _chest.transform.position))
             {
@@ -178,8 +195,9 @@ namespace Survain.AI.Npc
             return true;
         }
 
-        private static void GoTo(NpcController npc, Vector3 pos)
+        private void GoTo(NpcController npc, Vector3 pos)
         {
+            _deadline = Time.time + MoveTimeout; // arme l'anti-blocage pour ce trajet
             if (!npc.Agent.isOnNavMesh) return;
             npc.Agent.isStopped = false;
             npc.Agent.SetDestination(pos);

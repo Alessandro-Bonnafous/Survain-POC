@@ -105,19 +105,14 @@ namespace Survain.UI
         /// </summary>
         public void SetOpen(bool open)
         {
+            bool was = _isOpen;
             _isOpen = open;
             _panel.SetActive(open);
 
-            if (open)
-            {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-            }
-            else
-            {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-            }
+            // Curseur + gel caméra délégués au mode UI centralisé (comptage de références),
+            // sur transition seulement pour ne pas dé/équilibrer le compteur (cf. UiMode).
+            if (open && !was) UiMode.Push();
+            else if (!open && was) UiMode.Pop();
         }
     }
 }

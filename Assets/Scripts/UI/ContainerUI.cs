@@ -129,8 +129,10 @@ namespace Survain.UI
             if (_titleLabel != null) _titleLabel.text = string.IsNullOrEmpty(label) ? "Coffre" : label;
 
             _panel.SetActive(true);
+            // Le backpack s'ouvre avec le coffre (drag inter-conteneur) ; InventoryUI route déjà
+            // vers UiMode. Sans backpack, on pousse le mode UI directement.
             if (_inventoryUI != null) _inventoryUI.SetOpen(true);
-            else SetCursor(true);
+            else UiMode.Push();
 
             _isOpen = true;
         }
@@ -141,19 +143,13 @@ namespace Survain.UI
             if (!_isOpen) return;
             _panel.SetActive(false);
             if (_inventoryUI != null) _inventoryUI.SetOpen(false);
-            else SetCursor(false);
+            else UiMode.Pop();
             _isOpen = false;
         }
 
         private void OnToggle(InputAction.CallbackContext _)
         {
             if (_isOpen) Close();
-        }
-
-        private static void SetCursor(bool free)
-        {
-            Cursor.lockState = free ? CursorLockMode.None : CursorLockMode.Locked;
-            Cursor.visible = free;
         }
     }
 }
