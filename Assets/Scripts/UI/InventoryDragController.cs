@@ -98,7 +98,7 @@ namespace Survain.UI
 
         /// <summary>
         /// Appelé par InventorySlotView.OnDrop. Le slot cible reçoit ici la fin du drag.
-        /// Effectue Swap (même inventaire) ou SwapAcross (inter-conteneur).
+        /// Fusionne si même item stackable, sinon échange (MergeOrSwap / MergeOrSwapAcross).
         /// </summary>
         public void OnDropOnSlot(InventorySlotView target)
         {
@@ -112,13 +112,15 @@ namespace Survain.UI
 
             if (sourceInv == null || targetInv == null) return;
 
+            // Même item stackable → fusion (cumul jusqu'à MaxStackSize, reliquat conservé) ;
+            // sinon échange. Cf. Inventory.MergeOrSwap / MergeOrSwapAcross.
             if (sourceInv == targetInv)
             {
-                sourceInv.Swap(sourceIdx, targetIdx);
+                sourceInv.MergeOrSwap(sourceIdx, targetIdx);
             }
             else
             {
-                sourceInv.SwapAcross(sourceIdx, targetInv, targetIdx);
+                sourceInv.MergeOrSwapAcross(sourceIdx, targetInv, targetIdx);
             }
         }
 

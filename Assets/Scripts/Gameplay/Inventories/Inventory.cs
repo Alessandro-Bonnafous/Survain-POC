@@ -207,6 +207,72 @@ namespace Survain.Gameplay.Inventories
         }
 
         /// <summary>
+        /// Pose le slot <paramref name="a"/> (dragué) sur le slot <paramref name="b"/> (cible) : si
+        /// les deux portent le même item stackable, fusionne jusqu'à MaxStackSize (le reliquat reste
+        /// dans <paramref name="a"/>) ; sinon échange. Utilisé par le drag & drop UI.
+        /// </summary>
+        public bool MergeOrSwap(int a, int b)
+        {
+            if (a < 0 || a >= _capacity || b < 0 || b >= _capacity) return false;
+            if (a == b) return true;
+
+            if (TryMerge(_slots[a], _slots[b], out var newA, out var newB))
+            {
+                SetSlot(a, newA);
+                SetSlot(b, newB);
+                OnInventoryChanged?.Invoke();
+                return true;
+            }
+            return Swap(a, b);
+        }
+
+        /// <summary>Variante inter-conteneur de <see cref="MergeOrSwap"/> (backpack ↔ hotbar ↔ coffre).</summary>
+        public bool MergeOrSwapAcross(int thisIndex, Inventory other, int otherIndex)
+        {
+            if (other == null) return false;
+            if (other == this) return MergeOrSwap(thisIndex, otherIndex);
+            if (thisIndex < 0 || thisIndex >= _capacity) return false;
+            if (otherIndex < 0 || otherIndex >= other._capacity) return false;
+
+            if (TryMerge(_slots[thisIndex], other._slots[otherIndex], out var newHere, out var newThere))
+            {
+                SetSlot(thisIndex, newHere);
+                other.SetSlot(otherIndex, newThere);
+                OnInventoryChanged?.Invoke();
+                other.OnInventoryChanged?.Invoke();
+                return true;
+            }
+            return SwapAcross(thisIndex, other, otherIndex);
+        }
+
+        /// <summary>
+        /// Tente de fusionner <paramref name="source"/> (dragué) dans <paramref name="dest"/> (cible).
+        /// Vrai si même item stackable et place dans la cible : la cible monte (≤ MaxStackSize), la
+        /// source garde son reliquat (ou se vide). Faux sinon (cible vide / item différent / non
+        /// stackable / cible pleine) → l'appelant retombe sur un échange.
+        /// </summary>
+        private static bool TryMerge(InventorySlot source, InventorySlot dest,
+                                     out InventorySlot newSource, out InventorySlot newDest)
+        {
+            newSource = source;
+            newDest = dest;
+
+            if (source.IsEmpty || dest.IsEmpty) return false;
+            if (source.Item != dest.Item || !source.Item.IsStackable) return false;
+
+            int maxStack = source.Item.MaxStackSize;
+            if (dest.Quantity >= maxStack) return false;
+
+            int toMove = Mathf.Min(maxStack - dest.Quantity, source.Quantity);
+            if (toMove <= 0) return false;
+
+            newDest = new InventorySlot(dest.Item, dest.Quantity + toMove);
+            int left = source.Quantity - toMove;
+            newSource = left > 0 ? new InventorySlot(source.Item, left) : InventorySlot.Empty;
+            return true;
+        }
+
+        /// <summary>
         /// Transfère le contenu d'un slot source vers la première place dispo dans `target`.
         /// Réutilise TryAdd côté cible pour gérer le stacking. Retourne true si au moins
         /// une unité a été déplacée.
