@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Survain.Core;
+using Survain.Gameplay.Inventories;
 using Survain.Gameplay.Player;
 
 namespace Survain.AI.Enemies
@@ -31,6 +33,15 @@ namespace Survain.AI.Enemies
         public EnemyData Data => _data;
         public NavMeshAgent Agent { get; private set; }
         public Animator Animator => _animator;
+
+        public int MaxHp { get; private set; }
+        public int CurrentHp { get; private set; }
+
+        /// <summary>Émis quand l'ennemi meurt, juste avant sa destruction (consommé par le spawner
+        /// pour le respawn, #17 phase 2B). Signature : l'ennemi qui meurt.</summary>
+        public event Action<EnemyController> Died;
+
+        private bool _dead;
 
         /// <summary>Point d'origine (spawn), centre de la patrouille et ancre de la laisse.</summary>
         public Vector3 HomePosition { get; private set; }
@@ -62,8 +73,42 @@ namespace Survain.AI.Enemies
             }
 
             Agent.speed = _data.PatrolSpeed;
+            MaxHp = Mathf.Max(1, _data.MaxHp);
+            CurrentHp = MaxHp;
             HomePosition = transform.position; // après positionnement par le spawner
             ChangeState(new EnemyPatrolState());
+        }
+
+        /// <summary>Inflige des dégâts (clampés à 0). À 0 HP, l'ennemi meurt (loot + destruction).
+        /// Source POC : clic gauche (PlayerEnemyStrike) ; le combat #16 la remplacera.</summary>
+        public void TakeDamage(int amount)
+        {
+            if (_dead || amount <= 0 || CurrentHp <= 0) return;
+            CurrentHp = Mathf.Max(0, CurrentHp - amount);
+            SurvainLog.Info(SurvainLog.Category.AI, $"{name} touché : {CurrentHp}/{MaxHp} PV.", this);
+            if (CurrentHp == 0) Die();
+        }
+
+        private void Die()
+        {
+            if (_dead) return;
+            _dead = true;
+
+            // Loot : déverse les items de la table au sol (ramassables via WorldItem).
+            Vector3 pos = transform.position + Vector3.up * 0.5f;
+            var loot = _data.Loot;
+            if (loot != null)
+            {
+                for (int i = 0; i < loot.Count; i++)
+                {
+                    if (loot[i].Item != null && loot[i].Amount > 0)
+                        WorldItemSpawner.Spawn(loot[i].Item, loot[i].Amount, pos);
+                }
+            }
+
+            SurvainLog.Info(SurvainLog.Category.AI, $"{name} tué.", this);
+            Died?.Invoke(this);
+            Destroy(gameObject);
         }
 
         private void Update()
