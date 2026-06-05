@@ -76,7 +76,27 @@ namespace Survain.AI.Enemies
             MaxHp = Mathf.Max(1, _data.MaxHp);
             CurrentHp = MaxHp;
             HomePosition = transform.position; // après positionnement par le spawner
+            ApplyVisual();
             ChangeState(new EnemyPatrolState());
+        }
+
+        /// <summary>Différenciation visuelle des types sur le prefab placeholder : échelle uniforme
+        /// + teinte du matériau (Renderer.material → clone, jamais sharedMaterial).</summary>
+        private void ApplyVisual()
+        {
+            if (!Mathf.Approximately(_data.VisualScale, 1f))
+                transform.localScale = Vector3.one * _data.VisualScale;
+
+            var rend = GetComponentInChildren<Renderer>();
+            if (rend != null)
+            {
+                var mat = rend.material;
+                if (mat != null)
+                {
+                    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", _data.Tint);
+                    mat.color = _data.Tint;
+                }
+            }
         }
 
         /// <summary>Inflige des dégâts (clampés à 0). À 0 HP, l'ennemi meurt (loot + destruction).

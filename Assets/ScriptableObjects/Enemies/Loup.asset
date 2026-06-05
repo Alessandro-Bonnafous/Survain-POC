@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: af03652b0b0537448b09895d96a7bc23, type: 3}
-  m_Name: EnemyData
+  m_Name: Loup
   m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Enemies.EnemyData
   _displayName: Ennemi
-  _patrolSpeed: 2.5
-  _chaseSpeed: 4.5
+  _patrolSpeed: 3
+  _chaseSpeed: 6
   _patrolRadius: 8
   _idlePauseMin: 1.5
   _idlePauseMax: 4
@@ -26,7 +26,9 @@ MonoBehaviour:
   _attackTelegraphSeconds: 0.8
   _attackCooldown: 1.5
   _attackDamage: 8
-  _maxHp: 30
+  _maxHp: 15
   _loot:
-  - _item: {fileID: 11400000, guid: 2bd964ae371b6af4988194fc261472ec, type: 2}
+  - _item: {fileID: 11400000, guid: aec9c9a20b67ed246a920a539e3ba818, type: 2}
     _amount: 2
+  _tint: {r: 0.4716981, g: 0.40272337, b: 0.40272337, a: 1}
+  _visualScale: 0.8

@@ -224,11 +224,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Enemies.EnemySpawner
   _enemyPrefab: {fileID: 8419274491522020578, guid: 128bcf794a7e8044e88b1415388cbcd4, type: 3}
-  _data: {fileID: 11400000, guid: 5b40fb4a623716244aa533f9886716d2, type: 2}
+  _enemyTypes:
+  - {fileID: 11400000, guid: 32bdf64c98d3b0b48b03abcacc05cb1f, type: 2}
+  - {fileID: 11400000, guid: 5b40fb4a623716244aa533f9886716d2, type: 2}
+  - {fileID: 11400000, guid: 230ec430657f6c148ad8e9f87d450484, type: 2}
   _count: 3
   _spawnCenter: {fileID: 0}
   _spawnRadius: 12
   _navMeshSampleDistance: 100
+  _respawn: 1
+  _respawnDelaySeconds: 8
 --- !u!4 &33411067
 Transform:
   m_ObjectHideFlags: 0

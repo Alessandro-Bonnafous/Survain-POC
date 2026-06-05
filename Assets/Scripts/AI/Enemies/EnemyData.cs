@@ -67,6 +67,13 @@ namespace Survain.AI.Enemies
         [Tooltip("Items lâchés à la mort (matériaux sauvages). Consommé en phase 2.")]
         [SerializeField] private BuildCost[] _loot;
 
+        [Header("Visuel (placeholder)")]
+        [Tooltip("Teinte appliquée au visuel à l'apparition (différencie les types sur la capsule placeholder).")]
+        [SerializeField] private Color _tint = Color.white;
+
+        [Tooltip("Échelle uniforme du visuel (ex. loup 0.8 / troll 1.6). 1 = taille du prefab.")]
+        [Min(0.1f)] [SerializeField] private float _visualScale = 1f;
+
         public string DisplayName => _displayName;
         public float PatrolSpeed => _patrolSpeed;
         public float ChaseSpeed => _chaseSpeed;
@@ -83,5 +90,7 @@ namespace Survain.AI.Enemies
         public int AttackDamage => _attackDamage;
         public int MaxHp => _maxHp;
         public System.Collections.Generic.IReadOnlyList<BuildCost> Loot => _loot;
+        public Color Tint => _tint;
+        public float VisualScale => _visualScale;
     }
 }
