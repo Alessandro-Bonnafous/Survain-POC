@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using Survain.AI.Npc;
+using Survain.Items;
 
 namespace Survain.UI
 {
@@ -38,6 +39,7 @@ namespace Survain.UI
         private const float BarHeight = 14f;
         private const float PanelWidth = 600f;
         private const float TopOffset = 56f; // titre + en-têtes de colonnes
+        private const float FooterHeight = 74f; // bouton Recruter + ligne de feedback
 
         // Colonnes (x relatifs au panneau).
         private const float ColName = 14f;
@@ -64,6 +66,10 @@ namespace Survain.UI
         private NpcController _foreman;
         private Transform _player;
 
+        private GameObject _recruitBtnGo;
+        private Text _recruitText;
+        private Text _feedback;
+
         private static void CreateInstance()
         {
             var go = new GameObject("_NpcManagementPanel");
@@ -79,6 +85,7 @@ namespace Survain.UI
             if (_root.activeSelf) { Hide(); return; }
             _foreman = foreman;
             _player = player;
+            if (_feedback != null) _feedback.text = string.Empty;
             Rebuild();
             SetOpen(true);
         }
@@ -148,9 +155,68 @@ namespace Survain.UI
 
             _empty.gameObject.SetActive(index == 0);
 
-            // Ajuste la hauteur du panneau au nombre de villageois.
-            float h = TopOffset + Mathf.Max(1, index) * RowHeight + 12f;
+            // Rafraîchit le coût affiché et repositionne le footer (bouton + feedback) sous les lignes.
+            if (_recruitText != null) _recruitText.text = $"Recruter ({CostLabel()})";
+            float rowsBottom = TopOffset + Mathf.Max(1, index) * RowHeight;
+            PositionFooter(rowsBottom);
+
+            // Ajuste la hauteur du panneau au nombre de villageois + footer.
+            float h = rowsBottom + FooterHeight;
             _root.GetComponent<RectTransform>().sizeDelta = new Vector2(PanelWidth, h);
+        }
+
+        private void PositionFooter(float rowsBottom)
+        {
+            if (_recruitBtnGo != null)
+                _recruitBtnGo.GetComponent<RectTransform>().anchoredPosition = new Vector2(ColName, -(rowsBottom + 8f));
+            if (_feedback != null)
+                _feedback.rectTransform.anchoredPosition = new Vector2(ColName, -(rowsBottom + 44f));
+        }
+
+        // ─── Recrutement (#15) ───────────────────────────────────────────────
+
+        private void DoRecruit()
+        {
+            var sp = NpcSpawner.Instance;
+            if (sp == null) { SetFeedback("Recrutement indisponible."); return; }
+
+            Vector3 from = _foreman != null ? _foreman.transform.position : Vector3.zero;
+            var outcome = sp.TryRecruit(from);
+            if (outcome == NpcSpawner.RecruitOutcome.Success) Rebuild(); // affiche la recrue
+            SetFeedback(FeedbackFor(outcome));
+        }
+
+        private void SetFeedback(string text)
+        {
+            if (_feedback != null) _feedback.text = text;
+        }
+
+        private static string FeedbackFor(NpcSpawner.RecruitOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case NpcSpawner.RecruitOutcome.Success:            return "Nouveau villageois recruté !";
+                case NpcSpawner.RecruitOutcome.VillageFull:        return "Village plein.";
+                case NpcSpawner.RecruitOutcome.NotEnoughResources: return "Ressources insuffisantes dans le coffre.";
+                case NpcSpawner.RecruitOutcome.NoStorage:          return "Aucun coffre près du contremaître.";
+                default:                                           return "Recrutement impossible.";
+            }
+        }
+
+        private static string CostLabel()
+        {
+            var sp = NpcSpawner.Instance;
+            if (sp == null || sp.RecruitCost == null || sp.RecruitCost.Count == 0) return "gratuit";
+
+            var cost = sp.RecruitCost;
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < cost.Count; i++)
+            {
+                if (cost[i].Item == null) continue;
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(cost[i].Amount).Append(' ').Append(cost[i].Item.DisplayName);
+            }
+            return sb.Length > 0 ? sb.ToString() : "gratuit";
         }
 
         private void CreateRow(NpcController npc, int index)
@@ -227,6 +293,27 @@ namespace Survain.UI
             _empty = Label(_root.transform, "Aucun villageois à gérer.", ColName, PanelWidth - 28f, TextAnchor.MiddleLeft, 15);
             _empty.rectTransform.anchoredPosition = new Vector2(ColName, -TopOffset - 4f);
             _empty.gameObject.SetActive(false);
+
+            // Footer : bouton « Recruter » + ligne de feedback (repositionnés dans Rebuild).
+            _recruitBtnGo = NewRaw(_root.transform, "RecruitBtn", new Color(0.22f, 0.42f, 0.26f, 1f));
+            var brt = _recruitBtnGo.GetComponent<RectTransform>();
+            brt.sizeDelta = new Vector2(260f, 28f);
+            var btnImg = _recruitBtnGo.GetComponent<RawImage>();
+            btnImg.raycastTarget = true;
+            var btn = _recruitBtnGo.AddComponent<Button>();
+            btn.targetGraphic = btnImg;
+            btn.onClick.AddListener(DoRecruit);
+
+            _recruitText = Label(_recruitBtnGo.transform, "Recruter", 0f, 260f, TextAnchor.MiddleCenter, 15, FontStyle.Bold);
+            var trt = _recruitText.rectTransform;
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.pivot = new Vector2(0.5f, 0.5f);
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+
+            _feedback = Label(_root.transform, string.Empty, ColName, PanelWidth - 28f, TextAnchor.MiddleLeft, 14);
+            _feedback.color = new Color(0.9f, 0.85f, 0.55f);
 
             _root.SetActive(false);
         }
