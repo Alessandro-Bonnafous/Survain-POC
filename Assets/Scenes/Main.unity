@@ -194,6 +194,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5372445}
   m_CullTransparentMesh: 1
+--- !u!1 &33411065
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 33411067}
+  - component: {fileID: 33411066}
+  m_Layer: 0
+  m_Name: _EnemySpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &33411066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 33411065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bf39e66582d80f488995ade4285d482, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.AI.Enemies.EnemySpawner
+  _enemyPrefab: {fileID: 8419274491522020578, guid: 128bcf794a7e8044e88b1415388cbcd4, type: 3}
+  _data: {fileID: 11400000, guid: 5b40fb4a623716244aa533f9886716d2, type: 2}
+  _count: 3
+  _spawnCenter: {fileID: 0}
+  _spawnRadius: 12
+  _navMeshSampleDistance: 100
+--- !u!4 &33411067
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 33411065}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8.40897, y: -0, z: 16.26093}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &48028028
 GameObject:
   m_ObjectHideFlags: 0
@@ -14499,3 +14549,4 @@ SceneRoots:
   - {fileID: 884098524}
   - {fileID: 1130257668}
   - {fileID: 856981940}
+  - {fileID: 33411067}
