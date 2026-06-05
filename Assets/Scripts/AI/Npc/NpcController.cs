@@ -4,6 +4,7 @@ using UnityEngine.AI;
 using Survain.Core;
 using Survain.Gameplay.Buildings;
 using Survain.Gameplay.Inventories;
+using Survain.Gameplay.World;
 using Survain.Items;
 
 namespace Survain.AI.Npc
@@ -105,7 +106,7 @@ namespace Survain.AI.Npc
             if (_talkTarget != null) { FaceTalkTarget(); return; }
 
             // Interruptions globales prioritaires (les états n'ont pas à les tester eux-mêmes).
-            // Ordre de priorité : fuite (survie) > désertion (terminal) > faim.
+            // Ordre de priorité : fuite (survie) > désertion (terminal) > faim > nuit (repos) > travail.
             if (Perception != null && Perception.HasThreat)
             {
                 if (!(_currentState is FleeingState)) ChangeState(new FleeingState());
@@ -125,10 +126,22 @@ namespace Survain.AI.Npc
                 // et on ne reprend pas un métier tant que la faim n'est pas satisfaite.
                 if (IsWorking(_currentState)) ChangeState(new IdleState());
             }
-            // Travail = priorité la plus basse : uniquement rassasié et oisif.
-            else if (IsWorkingJob(_job) && Carried != null)
+            else if (WorldClock.HasClock && WorldClock.IsNight && !IsForeman
+                     && !(_currentState is EatingState))
             {
-                UpdateWork();
+                // Nuit : routine de repos. La nuit interrompt le travail mais PAS un repas en cours
+                // (EatingState s'auto-termine à satiété, comme le travail ne s'active que depuis
+                // Idle/Wander) — sinon le PNJ quitte le feu dès que la faim repasse le seuil de
+                // recherche, sans être rassasié, et boucle feu ⇄ foyer. Le contremaître est exempté
+                // (il reste le point d'interaction du village, accessible aussi de nuit — ancre #14).
+                if (!(_currentState is SleepingState)) ChangeState(new SleepingState());
+            }
+            else
+            {
+                // Jour, rassasié, pas de menace : réveil si l'on dormait, puis travail (priorité
+                // la plus basse : uniquement rassasié et oisif).
+                if (_currentState is SleepingState) ChangeState(new IdleState());
+                if (IsWorkingJob(_job) && Carried != null) UpdateWork();
             }
 
             _currentState?.Tick(this);
@@ -138,6 +151,9 @@ namespace Survain.AI.Npc
                 _animator.SetFloat(NpcAnimParams.Speed, Agent.velocity.magnitude);
             }
         }
+
+        /// <summary>Le contremaître : exempté des routines (reste le hub de gestion, #14).</summary>
+        private bool IsForeman => _job == NpcJob.Contremaitre;
 
         /// <summary>Métiers de récolte (#14 phase 2A) : ciblent des nœuds par type d'outil.</summary>
         private static bool IsGatherJob(NpcJob job) => job == NpcJob.Bucheron || job == NpcJob.Mineur;
