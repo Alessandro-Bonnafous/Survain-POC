@@ -15,10 +15,14 @@ MonoBehaviour:
   _id: rock
   _displayName: Rocher
   _producedItem: {fileID: 11400000, guid: 65c66688fa5c5924e9fdadfa8d896b45, type: 2}
-  _producedQuantity: 3
-  _hits: 3
+  _producedQuantity: 1
+  _hits: 2
   _harvestSeconds: 2
   _requiredTool: 2
-  _respawnSeconds: 60
+  _respawnSeconds: 180
   _visualPrefab: {fileID: 4680757731160225450, guid: 0fde05fa0f3321942a21896ff4f0856f, type: 3}
   _hitColor: {r: 0.55, g: 0.55, b: 0.55, a: 1}
+  _hitParticleCount: 10
+  _depleteParticleCount: 30
+  _minScaleAtLastHit: 0.6
+  _hitSound: {fileID: 0}
