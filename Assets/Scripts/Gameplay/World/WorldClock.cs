@@ -26,6 +26,10 @@ namespace Survain.Gameplay.World
         /// <summary>Nuit = phase où les PNJ rejoignent leur foyer pour se reposer (routines #15).</summary>
         public static bool IsNight => Phase == DayPhase.Night;
 
+        /// <summary>Créneau de repas : les PNJ se regroupent au feu pour manger (routines #15).
+        /// Calculé par <see cref="DayNightCycle"/> depuis les fenêtres de TimeOfDayConfig.</summary>
+        public static bool IsMealTime { get; private set; }
+
         /// <summary>Transition de phase (previousPhase, newPhase). Émis depuis <see cref="Publish"/>.</summary>
         public static event Action<DayPhase, DayPhase> OnPhaseChanged;
 
@@ -33,9 +37,10 @@ namespace Survain.Gameplay.World
         /// Publie l'état courant (appelé chaque frame par <see cref="DayNightCycle"/>). Émet
         /// <see cref="OnPhaseChanged"/> uniquement au changement de phase.
         /// </summary>
-        public static void Publish(float time01, DayPhase phase)
+        public static void Publish(float time01, DayPhase phase, bool isMealTime)
         {
             Time01 = time01;
+            IsMealTime = isMealTime;
             HasClock = true;
 
             if (phase != Phase)
@@ -53,6 +58,7 @@ namespace Survain.Gameplay.World
             HasClock = false;
             Time01 = 0f;
             Phase = DayPhase.Day;
+            IsMealTime = false;
             OnPhaseChanged = null;
         }
     }

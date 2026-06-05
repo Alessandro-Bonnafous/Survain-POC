@@ -136,11 +136,20 @@ namespace Survain.AI.Npc
                 // (il reste le point d'interaction du village, accessible aussi de nuit — ancre #14).
                 if (!(_currentState is SleepingState)) ChangeState(new SleepingState());
             }
+            else if (WorldClock.HasClock && WorldClock.IsMealTime && !IsForeman
+                     && !(_currentState is EatingState))
+            {
+                // Créneau de repas : regroupement au feu. Interrompt le travail (et l'oisiveté),
+                // mais pas un repas individuel déjà en cours (EatingState). Le contremaître reste
+                // au village (hub). La sortie se fait dans le bloc « else » à la fin du créneau.
+                if (!(_currentState is MealGatheringState)) ChangeState(new MealGatheringState());
+            }
             else
             {
-                // Jour, rassasié, pas de menace : réveil si l'on dormait, puis travail (priorité
-                // la plus basse : uniquement rassasié et oisif).
-                if (_currentState is SleepingState) ChangeState(new IdleState());
+                // Jour ouvré, hors créneau, rassasié, pas de menace : on quitte une routine terminée
+                // (réveil / fin de repas) puis on travaille (priorité la plus basse : rassasié et oisif).
+                if (_currentState is SleepingState || _currentState is MealGatheringState)
+                    ChangeState(new IdleState());
                 if (IsWorkingJob(_job) && Carried != null) UpdateWork();
             }
 
@@ -154,6 +163,10 @@ namespace Survain.AI.Npc
 
         /// <summary>Le contremaître : exempté des routines (reste le hub de gestion, #14).</summary>
         private bool IsForeman => _job == NpcJob.Contremaitre;
+
+        /// <summary>Le PNJ est oisif et libre de discuter (idle social #15) : ni en conversation
+        /// avec le joueur, ni occupé par un état prioritaire. Consommé par IdleState.</summary>
+        public bool IsAvailableForChat => _talkTarget == null && _currentState is IdleState;
 
         /// <summary>Métiers de récolte (#14 phase 2A) : ciblent des nœuds par type d'outil.</summary>
         private static bool IsGatherJob(NpcJob job) => job == NpcJob.Bucheron || job == NpcJob.Mineur;
