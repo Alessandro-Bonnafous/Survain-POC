@@ -6,12 +6,13 @@ using Survain.UI;
 namespace Survain.AI.Npc
 {
     /// <summary>
-    /// Rend un PNJ examinable via l'interaction générique (touche E) : ouvre/ferme son panneau
-    /// de détail (jauges de besoins) — #13 phase 3. Implémente IInteractable, donc réutilise le
-    /// PlayerInteractor existant (raycast caméra + prompt + surbrillance) sans interacteur dédié.
+    /// Porté par le contremaître (seul PNJ interactable). Via l'interaction générique (touche E),
+    /// ouvre/ferme le panneau de gestion du village (NpcManagementPanel : roster + assignation
+    /// des métiers) — #14 phase 3. Implémente IInteractable, donc réutilise le PlayerInteractor
+    /// existant (raycast caméra + prompt + surbrillance) sans interacteur dédié.
     ///
     /// Note : E sera aussi la touche du futur dialogue PNJ (Sprint 3+) ; à la convergence, E
-    /// ouvrira un menu PNJ (Examiner / Parler) ou l'examen basculera sur une autre touche.
+    /// ouvrira un menu PNJ (Gérer / Parler) ou l'une des actions basculera sur une autre touche.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class NpcInteractable : MonoBehaviour, IInteractable
@@ -28,15 +29,13 @@ namespace Survain.AI.Npc
 
         private void Awake() => _controller = GetComponent<NpcController>();
 
-        public string GetInteractionPrompt()
-        {
-            string n = _controller != null && _controller.Data != null ? _controller.Data.DisplayName : "PNJ";
-            return $"[E] Examiner {n}";
-        }
+        public string GetInteractionPrompt() => "[E] Gérer le village";
 
         public void Interact(Inventory actorInventory)
         {
-            if (_controller != null) NpcDetailPanel.Instance.Toggle(_controller);
+            // actorInventory = sac du joueur (enfant de _Player) → sert de cible « regard » au contremaître.
+            Transform player = actorInventory != null ? actorInventory.transform : null;
+            NpcManagementPanel.Instance.Toggle(_controller, player);
         }
 
         public void SetHighlighted(bool highlighted)
