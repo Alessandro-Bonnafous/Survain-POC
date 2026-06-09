@@ -79,19 +79,21 @@
 
 ## 📊 État actuel
 
-**Sprint en cours :** Sprint 3 — PNJ & Village
+**Sprint en cours :** Sprint 4 — Combat & Zone Sauvage
 _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
-**Objectifs du sprint** : faire vivre un village de PNJ — IA, besoins, métiers, routines.
-- [x] IA de base des PNJ — state machine (issue #12) — locomotion NavMesh + évitement (ph.1), avatar Synty animé + variété (ph.2a), états Working/Eating/Sleeping/Fleeing + perception (ph.2b). Livré.
-- [x] Besoins PNJ : faim / moral / abri (issue #13) — modèle + décroissance (ph.1), comportement manger/déserter (ph.2), UI bulles + panneau (ph.3). Livré.
-- [x] Métiers via le contremaître (issue #14) — `NpcJob` + contremaître (ph.1) ; récolteurs/constructeur, boucle récolte→coffre→construction (ph.2) ; panneau de gestion + dialogue (ph.3). Livré.
-- [x] Routines quotidiennes + recrutement (issue #15) — routine nocturne (ph.1), planning + repas groupé au feu + idle social (ph.2), recrutement via le contremaître (ph.3). Livré.
+**Objectifs du sprint** : combat, ennemis PVE, zone sauvage, mort & perte de stuff.
+- [ ] Système de combat basé sur l'endurance (issue #16) — `gamedesign`, **bloqué arbitrage Pascal** (pilier « combat anti-zerg à effectifs fixes »).
+- [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
+- [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
+- [ ] Système de mort et perte de stuff (issue #19) — **en cours** : vie joueur + mort (tombe) + respawn ; branchera `SetSheltered`/lit (#15/#19) et la source de dégâts (attaque ennemie #17).
+- [ ] Zone sauvage instanciée via PNJ (issue #74) — planifiée **fin Sprint 4** (régénération in-place ; vraies scènes instanciées = post-POC, dépend d'un save).
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 - [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
 
-**Livrable du sprint :** build où l'on gère un village vivant (PNJ aux métiers, besoins et routines). **Atteint.**
-**Sprint 3 fonctionnellement clos** (#12/#13/#14/#15 livrés) ; reste transverse #37 (CI) et #46 (prefabs, gated Pascal).
+**Livrable visé :** survivre en zone sauvage — affronter des ennemis, mourir (perdre son stuff en tombe) et réapparaître.
+
+**Sprint 3 — PNJ & Village (clôturé) :** IA PNJ (#12), besoins faim/moral/abri (#13), métiers via contremaître (#14), routines & recrutement (#15). **Release `v0.4.0` publiée.**
 
 **Sprint 2 — Construction (clôturé) :** placement/chantier (#9), bâtiments fonctionnels (#10), destruction/réparation (#11), vrais prefabs (#46). **Release `v0.3.0` publiée.**
 
@@ -103,7 +105,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** Sprint 4 (combat & survie) — le layer `Threat` (#12) déclenche déjà la fuite des PNJ, `Building.TakeDamage` (#11) attend une source de dégâts combat, et l'assignation d'abri/lit (`SetSheltered`, #19) reste à brancher.
+**Prochain milestone :** #19 (mort & perte de stuff) — introduit la **vie du joueur** + la mort (tombe + respawn) et active enfin `SetSheltered`/lit (#15). La **source de dégâts** peut venir de l'attaque ennemie (#17, telegraph à brancher) sans attendre #16. Puis #74 (instance zone sauvage) en fin de sprint. Release `v0.5.0` à la clôture du Sprint 4.
 
 ---
 
@@ -201,6 +203,41 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-09 — Zone sauvage : terrain adjacent, frontière franchissable, entrée & danger (Sprint 4, #18 clos)
+
+**Contexte.** 2ᵉ brique du Sprint 4. Direction validée (Aless) : les zones sauvages seront à terme des **scènes instanciées** (façon Guild Wars 1), accessibles via un PNJ et **régénérées à chaque accès**. En attendant, on livre une zone **adjacente générée**, conçue **scene-ready**. Découpé en 2 phases (#72 terrain+ressources, #73 frontière+entrée+danger).
+
+**Décisions.**
+1. **Terrain adjacent distinct** : un 2ᵉ `TerrainGenerator` sous un root **`_WildZone` self-contained** (extractible en scène plus tard), positionné à côté du village, avec des settings « sauvages » dédiés (`WildTerrainGeneration` : gradient sombre, relief + accidenté, seed distinct). Le mesh étant construit en coords locales centrées sur le GameObject, une simple position décalée suffit.
+2. **`ResourceNodeSpawner` centré sur le terrain** : les tirages se font autour de `_terrainCollider.bounds.center` (et non l'origine du monde) → permet de peupler un terrain **décalé**. Rétro-compatible.
+3. **Edge falloff** (`TerrainGenerationSettings.EdgeFalloff/Height/Width`, smoothstep dans `TerrainGenerator.SampleHeight`) : aplanit le relief vers les bords jusqu'à une **altitude commune**. Deux terrains partageant la même baseline se rejoignent à plat → **jointure franchissable** par le `CharacterController` (résout la transition brusque). Désactivé = comportement historique.
+4. **NavMesh** : **surface unique** couvrant les deux terrains (Collect All, bake runtime via `NavMeshRuntimeBaker`) → agents franchissent la jointure. Le NavMesh par scène viendra avec la vraie instanciation.
+5. **`WildZone`** (détection par **polling** des bounds, pas `OnTriggerEnter` — peu fiable entre `CharacterController` et trigger statique sans Rigidbody) + **`WildZoneBanner`** (UI auto-construite façon `InteractionPrompt` : bannière transitoire + voile rouge tant qu'on est dans la zone).
+6. **Danger & difficulté progressive** par **placement manuel** d'`EnemySpawner` (#17) dans la zone (loup en lisière → troll au fond) — pas de scaling codé (game design à arbitrer Pascal).
+
+**Alternatives écartées.** Vraie scène instanciée maintenant (nécessite une couche save/persistance multi-scène, hors POC → issue #74) ; zone = sous-région distance-based d'un terrain unique (préféré un vrai 2ᵉ terrain) ; surface NavMesh dédiée + NavMeshLink (préféré surface unique au POC) ; rampe physique / chevauchement pour la frontière (préféré l'edge falloff, propre et réutilisable) ; `OnTriggerEnter` (remplacé par polling) ; points d'intérêt camps/grottes/ruines (#4 de l'issue) **reportés post-POC** (level design/prefabs).
+
+**Conséquences.**
+- **#18 clos.** Patterns dégagés : **edge falloff** (jointure de zones / lissage de bordure réutilisable) ; **détection de zone par polling de bounds** ; **`_WildZone` self-contained** (anticipe la migration en scène). `ResourceNodeSpawner` désormais terrain-agnostique.
+- **Reste-à-faire** (tracés) : lisser davantage la transition village↔sauvage (blend de terrain) ; **vraies ressources rares** dédiées (le spawner sauvage pointe pour l'instant des ressources existantes) ; **#74** instance via PNJ (fin Sprint 4) ; points d'intérêt (post-POC).
+
+### 2026-06-09 — Ennemis PVE & IA hostile (Sprint 4, #17 clos)
+
+**Contexte.** 1ʳᵉ brique du Sprint 4, attaquée avant #16 (combat, bloqué Pascal) car non bloquante. Architecture **calquée sur les PNJ** (#12). Découpé en 3 phases (#69 IA, #70 mort+loot, #71 variété+respawn).
+
+**Décisions.**
+1. **Namespace `Survain.AI.Enemies`** : `EnemyData` (SO : locomotion, aggro rayon/désaggro/laisse, combat, HP, loot, teinte+échelle visuelles), `EnemyController` + `IEnemyState`, états **Patrol → Chase → Attack → Return**. Registre statique `All`, NavMesh = autorité de position, Animator optionnel (`speed`). Même socle que `NpcController`.
+2. **Aggro/désaggro centralisé** dans le controller (les états ne le testent pas) ; cible **`PlayerController.Instance`** (accès statique ajouté pour éviter `FindObjectOfType`). Layer **`Threat`** → les PNJ fuient automatiquement (`NpcPerception`, #12).
+3. **Mort + loot** : `EnemyController.TakeDamage`/`Die` → déverse la loot table (`WorldItemSpawner`) + event `Died` (consommé par le spawner pour le **respawn**, maintien de densité). **Source de dégâts POC = clic gauche** via `PlayerEnemyStrike` (placeholder, coexiste avec récolte/démolition, exclusif par cible, gaté `UiMode.IsActive`) — en attendant le combat #16.
+4. **`EnemyAttackState` = telegraph SANS dégâts** : windup visible, pas de dégât au joueur (vie joueur #19 / combat #16 à venir).
+5. **Variété loup/troll/bandit** : plusieurs `EnemyData` tirés au hasard par `EnemySpawner` ; différenciation visuelle sur le prefab placeholder (Capsule) via teinte + échelle uniforme appliquées au `Start` (`Renderer.material`). Assets rangés dans `ScriptableObjects/Enemies/`.
+
+**Alternatives écartées.** Attendre #16 pour tester mort/loot (préféré la frappe placeholder clic gauche) ; modèles d'ennemis dédiés (préféré Capsule placeholder teintée/scalée, self-contained, pas de dépendance Synty) ; aggro testée par chaque état (préféré centralisée) ; scaling de difficulté codé (reporté, placement manuel #18).
+
+**Conséquences.**
+- **#17 clos.** Patterns réutilisables : **architecture ennemie calquée sur les PNJ** ; **`PlayerController.Instance`** ; **frappe placeholder gatée** (à remplacer par #16) ; **respawn via event `Died`**. Crochet prêt : l'attaque ennemie deviendra la **source de dégâts du joueur en #19** (brancher le telegraph).
+- Limite placeholder : l'échelle agrandit visuel + collider mais pas le rayon du `NavMeshAgent` (collision identique) — sans impact POC.
 
 ### 2026-06-05 — Fixes POC : carving bâtiments, click-through UI, fusion de stacks (#64, #65, #67)
 
@@ -985,4 +1022,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-05 (Sprint 3 fonctionnellement clos — #15 : routines nocturnes, planning de vie, repas groupé & idle social, recrutement ; + fixes carving bâtiments / click-through UI / fusion de stacks)*
+*Dernière mise à jour : 2026-06-09 (Sprint 4 en cours — #17 ennemis PVE & IA et #18 zone sauvage livrés, release `v0.4.0` ; #16 combat bloqué Pascal, #19 mort & perte de stuff en cours, #74 instance zone sauvage planifiée fin de sprint)*
