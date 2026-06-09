@@ -12,8 +12,7 @@ namespace Survain.Gameplay.Player
     ///
     /// Instance statique exposée (comme PlayerController.Instance) pour que les sources de dégâts
     /// ciblent le joueur sans FindObjectOfType. La séquence de mort réelle (écran, drop du stuff en
-    /// tombe, respawn) est branchée en phase 2 via l'event <see cref="Died"/> ; en attendant,
-    /// <see cref="_debugAutoRevive"/> remet le joueur d'aplomb pour pouvoir tester la prise de dégât.
+    /// tombe, respawn) est portée par <see cref="PlayerDeath"/>, abonné à l'event <see cref="Died"/>.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerHealth : MonoBehaviour
@@ -25,22 +24,11 @@ namespace Survain.Gameplay.Player
         [Tooltip("Stats de vie (PV max, régén, invulnérabilité).")]
         [SerializeField] private PlayerHealthConfig _config;
 
-        [Header("Debug / phase 1")]
-        [Tooltip("Phase 1 uniquement : à la mort, se soigne automatiquement après un délai pour "
-            + "pouvoir continuer à tester (pas de respawn encore). Décocher en phase 2 quand la "
-            + "vraie séquence de mort (écran + tombe + respawn) est branchée sur Died.")]
-        [SerializeField] private bool _debugAutoRevive = true;
-
-        [Tooltip("Délai d'auto-revive de debug (secondes).")]
-        [Min(0f)]
-        [SerializeField] private float _debugReviveDelay = 2f;
-
         // ─── État runtime ───────────────────────────────────────────────────
 
         private int _maxHp;
         private float _lastDamageTime;
         private float _regenAccumulator;
-        private float _reviveAt;
 
         public int CurrentHp { get; private set; }
         public int MaxHp => _maxHp;
@@ -138,18 +126,11 @@ namespace Survain.Gameplay.Player
             IsDead = true;
             SurvainLog.Info(SurvainLog.Category.Gameplay, "Joueur mort.", this);
             Died?.Invoke();
-
-            // Phase 1 : pas de respawn encore → on se relève seul pour continuer le test.
-            if (_debugAutoRevive) _reviveAt = Time.time + _debugReviveDelay;
         }
 
         private void Update()
         {
-            if (IsDead)
-            {
-                if (_debugAutoRevive && Time.time >= _reviveAt) ResetToFull();
-                return;
-            }
+            if (IsDead) return;
 
             // Régénération après un délai sans dégât.
             float regen = _config.RegenPerSecond;
