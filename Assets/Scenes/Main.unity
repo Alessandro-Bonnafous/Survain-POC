@@ -14604,6 +14604,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1758828408940234237}
+    - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1758828408940234238}
   m_SourcePrefab: {fileID: 100100000, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
 --- !u!1 &1758828408940234214 stripped
 GameObject:
@@ -14783,6 +14786,21 @@ MonoBehaviour:
   _maxReach: 4
   _damagePerHit: 10
   _hitCooldown: 0.4
+--- !u!114 &1758828408940234238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 578ad4f5aed9f304fbf5572bf7bc0089, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerHealth
+  _config: {fileID: 11400000, guid: bc52f359ccd952b43a7122fdd3492e69, type: 2}
+  _debugAutoRevive: 1
+  _debugReviveDelay: 2
 --- !u!1001 &4243485049165841187
 PrefabInstance:
   m_ObjectHideFlags: 0
