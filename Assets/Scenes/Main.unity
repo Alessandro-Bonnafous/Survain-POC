@@ -3103,6 +3103,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 401370210}
   m_CullTransparentMesh: 1
+--- !u!1 &406019523
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 406019524}
+  m_Layer: 0
+  m_Name: Entrance
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &406019524
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 406019523}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -40, y: 30, z: 40}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 504187102}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &409347745
 GameObject:
   m_ObjectHideFlags: 0
@@ -4008,6 +4039,7 @@ GameObject:
   m_Component:
   - component: {fileID: 504187102}
   - component: {fileID: 504187103}
+  - component: {fileID: 504187104}
   m_Layer: 0
   m_Name: _WildZone
   m_TagString: Untagged
@@ -4031,6 +4063,7 @@ Transform:
   - {fileID: 266207181}
   - {fileID: 33411067}
   - {fileID: 1942129927}
+  - {fileID: 406019524}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &504187103
@@ -4054,6 +4087,25 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 100, y: 50, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &504187104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 504187101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41eb675f822b13041a7ba47c71c5289c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.World.WildInstanceManager
+  _wildTerrain: {fileID: 266207183}
+  _wildResources: {fileID: 266207182}
+  _navBaker: {fileID: 1500000006}
+  _entrance: {fileID: 406019524}
+  _villageReturn: {fileID: 575889634}
+  _barrierHeight: 20
+  _barrierThickness: 2
 --- !u!1 &513462040
 GameObject:
   m_ObjectHideFlags: 0
@@ -4363,6 +4415,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 540320640}
   m_CullTransparentMesh: 1
+--- !u!1 &575889633
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 575889634}
+  m_Layer: 0
+  m_Name: Return
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &575889634
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 575889633}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 30, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &576772491
 GameObject:
   m_ObjectHideFlags: 0
@@ -14906,3 +14989,4 @@ SceneRoots:
   - {fileID: 1130257668}
   - {fileID: 856981940}
   - {fileID: 504187102}
+  - {fileID: 575889634}
