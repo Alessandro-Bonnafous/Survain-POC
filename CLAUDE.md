@@ -87,7 +87,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 - [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
 - [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
 - [x] Système de mort et perte de stuff (issue #19) — vie joueur (`PlayerHealth` + barre HUD) + **dégâts ennemis branchés** (#17) (ph.1) ; mort (écran + décompte) + **tombe lootable** (timer 5 min) + respawn (ph.2) ; **lit posable** + respawn au lit activable (E) + faisceau & marqueur de tombe (ph.3). Livré. `SetSheltered` (PNJ) laissé à l'habitation PNJ.
-- [ ] Zone sauvage instanciée via PNJ (issue #74) — planifiée **fin Sprint 4** (régénération in-place ; vraies scènes instanciées = post-POC, dépend d'un save).
+- [x] Zone sauvage instanciée via PNJ (issue #74) — instance régénérée à l'accès (nouveau seed → terrain/ressources/NavMesh/ennemis) via PNJ portail ; **barrière** (accès portail only) ; **tombe préservée** si présente (récup loot) ; snap au sol des points. Livré (version B). Vraie scène séparée = post-POC (dépend d'un save).
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 - [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
 
@@ -105,7 +105,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** #74 (zone sauvage instanciée via PNJ, régénération in-place) en fin de Sprint 4 ; #16 combat (endurance) bloqué arbitrage Pascal. Release `v0.5.0` à la clôture du Sprint 4.
+**Prochain milestone :** Sprint 4 fonctionnellement bouclé (#17/#18/#19/#74 livrés). Reste **#16 combat** (endurance), bloqué arbitrage Pascal. Release `v0.5.0` à la clôture (décision Pascal).
 
 ---
 
@@ -204,6 +204,25 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-09 — Zone sauvage instanciée via PNJ portail (Sprint 4, #74 clos)
+
+**Contexte.** Dernière brique fonctionnelle du Sprint 4 : transformer la zone sauvage adjacente (#18) en **instance régénérée à l'accès** via un PNJ portail. Niveau **(B) « instance simulée »** retenu pour le POC (régénération in-place, mono-scène) ; le niveau (A) vraie scène séparée reste post-POC (dépend d'un save). Découpé en 2 phases (orchestrateur/régénération, puis portails d'interaction). PR unique `Closes #74`.
+
+**Décisions.**
+1. **`WildInstanceManager`** (sur `_WildZone`) orchestre l'instance : `EnterWild()` régénère (nouveau seed → terrain → ressources → rebake NavMesh → reset ennemis) puis téléporte le joueur à l'entrée ; `ExitWild()` ramène au village.
+2. **Tombe vs régénération (arbitrage, réflexion Aless)** : `EnterWild` **ne régénère pas s'il existe une tombe dans l'emprise de la zone** (préserve le layout pour récupérer le loot) ; la régén reprend une fois la tombe vidée/expirée. Détection via `Grave.All` + bounds XZ du terrain sauvage.
+3. **Accès portail uniquement (arbitrage)** : **barrière** périmétrique (colliders invisibles créés en code autour du terrain sauvage) → plus de passage à pied ; le PNJ portail (`PortalNpc`, `IInteractable`) est le seul accès, un `WildExitPortal` (totem) pour ressortir. La frontière franchissable de #18 est neutralisée.
+4. **Régénération runtime** : `TerrainGenerator.GenerateWithSeed` / `ResourceNodeSpawner.GenerateWithSeed` (injection de seed) ; `NavMeshRuntimeBaker.Rebake` (surface unique re-bakée) ; `EnemySpawner.ResetSpawns` (suivi interne + destroy/respawn). **Fix** `ResourceNodeSpawner.ClearNodes` : renomme le root « Nodes » avant `Destroy` (différé) pour qu'un `Generate` enchaîné la même frame ne reparente pas les nouveaux nœuds au root mourant.
+5. **Snap au sol** (terrains générés au runtime) : entrée + portail de sortie recollés au terrain sauvage **à chaque régén** (le relief change) ; point de retour + `PortalNpc` recollés au terrain village au Start. `WildInstanceManager.SnapToGround` (raycast descendant filtré `MeshCollider` → terrain uniquement), exposé en static et réutilisé par `PortalNpc`.
+
+**Alternatives écartées.** Niveau (A) vraie scène instanciée maintenant (post-POC, dépend d'un save) ; régénération systématique à chaque entrée (perdrait la tombe → cassait la récupération du loot) ; garder le passage à pied + portail (instance « leaky ») ; bloquer la frontière en désactivant l'edge falloff (préféré une barrière de colliders, fiable) ; placement manuel des points en éditeur (impossible : terrain généré au runtime → snap par code).
+
+**Conséquences.**
+- **#74 clos → Sprint 4 fonctionnellement bouclé** (reste **#16 combat**, bloqué arbitrage Pascal — game design). Release `v0.5.0` à la clôture (décision Pascal).
+- Patterns dégagés : **régénération d'instance in-place** (terrain+ressources+NavMesh+ennemis sur nouveau seed) ; **`SnapToGround`** (poser tout objet statique sur un terrain généré au runtime) ; **barrière de colliders** (borner une zone) ; **préservation conditionnelle** d'une instance selon un état persistant (tombe).
+- Crochet post-POC : la vraie instance multi-scène (A) réutilisera `WildInstanceManager` (seed + orchestration) une fois le save en place.
+- Limite POC : la zone sauvage reste physiquement adjacente (offset) ; le vrai dépaysement viendra avec la scène séparée (A).
 
 ### 2026-06-09 — Mort du joueur & perte de stuff (Sprint 4, #19 clos)
 
@@ -1046,4 +1065,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-09 (Sprint 4 — #17 ennemis PVE, #18 zone sauvage et #19 mort & perte de stuff livrés ; reste #74 instance zone sauvage avant release `v0.5.0` ; #16 combat bloqué Pascal)*
+*Dernière mise à jour : 2026-06-09 (Sprint 4 quasi bouclé — #17/#18/#19/#74 livrés ; reste #16 combat bloqué Pascal ; release `v0.5.0` à venir)*
