@@ -33,11 +33,16 @@ namespace Survain.Gameplay.World
         [SerializeField] private NavMeshRuntimeBaker _navBaker;
 
         [Header("Points de téléportation")]
-        [Tooltip("Où le joueur apparaît dans l'instance (entrée).")]
+        [Tooltip("Où le joueur apparaît dans l'instance (entrée). Le Y est auto-collé au terrain " +
+            "(le seul XZ compte — le relief change à chaque régénération).")]
         [SerializeField] private Transform _entrance;
 
-        [Tooltip("Où le joueur revient au village (sortie).")]
+        [Tooltip("Où le joueur revient au village (sortie). Le Y est auto-collé au terrain au Start.")]
         [SerializeField] private Transform _villageReturn;
+
+        [Tooltip("Transform du portail de sortie (WildExitPortal), recollé au terrain à chaque régén. " +
+            "Optionnel mais recommandé (sinon il flotte/s'enterre après une régénération).")]
+        [SerializeField] private Transform _exitPortal;
 
         [Header("Barrière (accès portail uniquement)")]
         [Tooltip("Hauteur des murs invisibles (m).")]
@@ -45,6 +50,8 @@ namespace Survain.Gameplay.World
 
         [Tooltip("Épaisseur des murs invisibles (m).")]
         [SerializeField] private float _barrierThickness = 2f;
+
+        private const float SpawnLift = 0.5f; // petit dégagement au-dessus du sol pour les points de spawn
 
         private EnemySpawner[] _enemySpawners;
         private bool _barrierBuilt;
@@ -58,6 +65,8 @@ namespace Survain.Gameplay.World
         private void Start()
         {
             EnsureBarrier(); // bloque le passage à pied dès le départ (le terrain existe déjà au Start)
+            SnapWildAnchors();
+            if (_villageReturn != null) SnapToGround(_villageReturn, SpawnLift); // village statique : une fois suffit
         }
 
         // ─── API publique ───────────────────────────────────────────────────
@@ -106,6 +115,41 @@ namespace Survain.Gameplay.World
                     if (_enemySpawners[i] != null) _enemySpawners[i].ResetSpawns();
 
             EnsureBarrier();
+            SnapWildAnchors(); // le relief a changé → recoller entrée + portail de sortie au nouveau sol
+        }
+
+        // ─── Snap au sol ────────────────────────────────────────────────────
+
+        private void SnapWildAnchors()
+        {
+            if (_entrance != null) SnapToGround(_entrance, SpawnLift);
+            if (_exitPortal != null) SnapToGround(_exitPortal, 0f);
+        }
+
+        /// <summary>Colle un transform sur le terrain en dessous (XZ conservé, Y = sol + offset).
+        /// Filtre sur MeshCollider : seuls les terrains en sont (nœuds = Capsule, murs/bâtiments =
+        /// Box), donc on ignore ressources et barrière. Réutilisé par les objets statiques posés sur
+        /// un terrain généré au runtime (ex. PortalNpc côté village).</summary>
+        public static void SnapToGround(Transform t, float yOffset)
+        {
+            Vector3 p = t.position;
+            var hits = Physics.RaycastAll(new Ray(new Vector3(p.x, 5000f, p.z), Vector3.down),
+                10000f, ~0, QueryTriggerInteraction.Ignore);
+
+            float bestY = float.NegativeInfinity;
+            bool found = false;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i].collider is MeshCollider && hits[i].point.y > bestY)
+                {
+                    bestY = hits[i].point.y;
+                    found = true;
+                }
+            }
+
+            if (found) t.position = new Vector3(p.x, bestY + yOffset, p.z);
+            else SurvainLog.Warn(SurvainLog.Category.World,
+                $"WildInstanceManager : aucun terrain sous '{t.name}' pour le snap au sol (XZ hors terrain ?).");
         }
 
         private static int NewSeed() => Random.Range(1, int.MaxValue);
