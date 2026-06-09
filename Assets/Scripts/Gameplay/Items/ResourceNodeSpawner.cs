@@ -79,6 +79,13 @@ namespace Survain.Gameplay.Items
 
         // ─── API publique ───────────────────────────────────────────────────
 
+        /// <summary>Régénère les nœuds avec un seed imposé (instance zone sauvage, #74).</summary>
+        public void GenerateWithSeed(int seed)
+        {
+            _seedOverride = seed;
+            Generate();
+        }
+
         [ContextMenu("Generate")]
         public void Generate()
         {
@@ -246,8 +253,19 @@ namespace Survain.Gameplay.Items
             var existing = transform.Find(NodesRootName);
             if (existing != null)
             {
-                if (Application.isPlaying) Destroy(existing.gameObject);
-                else DestroyImmediate(existing.gameObject);
+                // Destroy est différé en fin de frame : on renomme d'abord pour qu'un Generate
+                // enchaîné la même frame (regen runtime #74) ne retrouve PAS ce root via
+                // transform.Find(NodesRootName) et n'y parente pas les nouveaux nœuds (qui
+                // seraient alors détruits avec lui).
+                if (Application.isPlaying)
+                {
+                    existing.name = NodesRootName + "_old";
+                    Destroy(existing.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(existing.gameObject);
+                }
             }
             _nodesRoot = null;
         }

@@ -45,14 +45,24 @@ namespace Survain.AI.Enemies
         [Min(0f)] [SerializeField] private float _respawnDelaySeconds = 8f;
 
         private readonly List<EnemyData> _types = new List<EnemyData>();
+        private readonly List<EnemyController> _spawned = new List<EnemyController>();
         private Vector3 _center;
+        private bool _initialized;
 
         private void Start()
         {
+            if (!EnsureInit()) return;
+            SpawnInitial();
+        }
+
+        private bool EnsureInit()
+        {
+            if (_initialized) return true;
+
             if (_enemyPrefab == null)
             {
                 SurvainLog.Error(SurvainLog.Category.AI, "EnemySpawner : _enemyPrefab non assigné.", this);
-                return;
+                return false;
             }
 
             foreach (var t in _enemyTypes)
@@ -61,16 +71,35 @@ namespace Survain.AI.Enemies
             if (_types.Count == 0)
             {
                 SurvainLog.Error(SurvainLog.Category.AI, "EnemySpawner : aucun EnemyData valide dans _enemyTypes.", this);
-                return;
+                return false;
             }
 
             _center = _spawnCenter != null ? _spawnCenter.position : transform.position;
+            _initialized = true;
+            return true;
+        }
 
+        private void SpawnInitial()
+        {
             int spawned = 0;
             for (int i = 0; i < _count; i++)
                 if (Spawn() != null) spawned++;
 
             SurvainLog.Info(SurvainLog.Category.AI, $"EnemySpawner : {spawned}/{_count} ennemis spawnés.", this);
+        }
+
+        /// <summary>Détruit les ennemis vivants de ce spawner et en respawn une fournée fraîche
+        /// (régénération de l'instance zone sauvage, #74). Le NavMesh doit être (re)baké avant.</summary>
+        public void ResetSpawns()
+        {
+            if (!EnsureInit()) return;
+
+            StopAllCoroutines(); // annule les respawns en attente
+            for (int i = _spawned.Count - 1; i >= 0; i--)
+                if (_spawned[i] != null) Destroy(_spawned[i].gameObject);
+            _spawned.Clear();
+
+            SpawnInitial();
         }
 
         private GameObject Spawn()
@@ -90,6 +119,7 @@ namespace Survain.AI.Enemies
             {
                 ctrl.SetData(_types[Random.Range(0, _types.Count)]); // tirage du type avant Start
                 ctrl.Died += OnEnemyDied;                            // pour le respawn
+                _spawned.Add(ctrl);                                  // suivi (reset d'instance #74)
             }
             return go;
         }
@@ -97,6 +127,7 @@ namespace Survain.AI.Enemies
         private void OnEnemyDied(EnemyController e)
         {
             e.Died -= OnEnemyDied;
+            _spawned.Remove(e);
             if (_respawn && isActiveAndEnabled) StartCoroutine(RespawnAfterDelay());
         }
 
