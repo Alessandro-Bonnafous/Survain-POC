@@ -86,7 +86,16 @@ namespace Survain.Editor.Buildings
                 size: new Vector3(2f, 1.5f, 2f),
                 cost: new[] { (rawWood, 6), (rawStone, 4) });
 
-            AppendToRegistry(new ItemData[] { hut, shed, chest, campfire, workshop });
+            var bed = CreateOrGetBuilding(
+                id: "building-bed",
+                displayName: "Lit",
+                description: "Couche du colon. Active-le (E) pour en faire ton point de réapparition.",
+                category: BuildCategory.Functional,
+                size: new Vector3(2f, 0.6f, 1f),
+                cost: new[] { (rawWood, 6) },
+                providesRespawn: true);
+
+            AppendToRegistry(new ItemData[] { hut, shed, chest, campfire, workshop, bed });
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -105,7 +114,7 @@ namespace Survain.Editor.Buildings
         private static BuildingData CreateOrGetBuilding(
             string id, string displayName, string description,
             BuildCategory category, Vector3 size, (ResourceData item, int amount)[] cost,
-            int storageCapacity = 0, bool emitsLight = false)
+            int storageCapacity = 0, bool emitsLight = false, bool providesRespawn = false)
         {
             var path = $"{BuildingsFolder}/{id}.asset";
             var existing = AssetDatabase.LoadAssetAtPath<BuildingData>(path);
@@ -123,6 +132,7 @@ namespace Survain.Editor.Buildings
             so.FindProperty("_size").vector3Value = size;
             so.FindProperty("_storageCapacity").intValue = storageCapacity;
             so.FindProperty("_emitsLight").boolValue = emitsLight;
+            so.FindProperty("_providesRespawn").boolValue = providesRespawn;
 
             var costProp = so.FindProperty("_cost");
             costProp.arraySize = cost.Length;

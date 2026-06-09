@@ -115,10 +115,12 @@ namespace Survain.Gameplay.Player
             SurvainLog.Info(SurvainLog.Category.Gameplay, "Joueur réapparu.", this);
         }
 
-        /// <summary>Feu de camp le plus proche du village (proxy : spawn initial), sinon le spawn
-        /// initial. Le respawn au lit posé remplacera ce défaut en phase 3.</summary>
+        /// <summary>Priorité au lit « maison » activé (RespawnPoint.Active) ; sinon feu de camp le
+        /// plus proche du village (proxy : spawn initial) ; sinon le spawn initial.</summary>
         private Vector3 ResolveRespawnPoint()
         {
+            if (RespawnPoint.Active != null) return RespawnPoint.Active.RespawnPosition;
+
             var campfire = Building.FindNearest(_initialSpawn, b => b.Data != null && b.Data.EmitsLight);
             if (campfire == null) return _initialSpawn;
             return campfire.transform.position + campfire.transform.forward * _respawnOffset;
