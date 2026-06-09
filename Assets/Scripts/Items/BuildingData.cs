@@ -46,6 +46,9 @@ namespace Survain.Items
         [Min(0)]
         [SerializeField] private int _storageCapacity = 0;
 
+        [Tooltip("Si la structure sert de point de repos/respawn du joueur une fois construite (ex. lit). Activable via E (#19).")]
+        [SerializeField] private bool _providesRespawn = false;
+
         [Header("Lumière (feu de camp, torche…)")]
         [Tooltip("Si la structure émet de la lumière une fois construite (source ponctuelle).")]
         [SerializeField] private bool _emitsLight = false;
@@ -71,6 +74,7 @@ namespace Survain.Items
         public int MaxHp => _maxHp;
         public float RefundRatio => _refundRatio;
         public int StorageCapacity => _storageCapacity;
+        public bool ProvidesRespawn => _providesRespawn;
         public bool EmitsLight => _emitsLight;
         public Color LightColor => _lightColor;
         public float LightRange => _lightRange;

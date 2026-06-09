@@ -86,7 +86,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 - [ ] Système de combat basé sur l'endurance (issue #16) — `gamedesign`, **bloqué arbitrage Pascal** (pilier « combat anti-zerg à effectifs fixes »).
 - [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
 - [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
-- [ ] Système de mort et perte de stuff (issue #19) — **en cours** : vie joueur + mort (tombe) + respawn ; branchera `SetSheltered`/lit (#15/#19) et la source de dégâts (attaque ennemie #17).
+- [x] Système de mort et perte de stuff (issue #19) — vie joueur (`PlayerHealth` + barre HUD) + **dégâts ennemis branchés** (#17) (ph.1) ; mort (écran + décompte) + **tombe lootable** (timer 5 min) + respawn (ph.2) ; **lit posable** + respawn au lit activable (E) + faisceau & marqueur de tombe (ph.3). Livré. `SetSheltered` (PNJ) laissé à l'habitation PNJ.
 - [ ] Zone sauvage instanciée via PNJ (issue #74) — planifiée **fin Sprint 4** (régénération in-place ; vraies scènes instanciées = post-POC, dépend d'un save).
 - [ ] CI release auto via GitHub Actions (issue #37) — transverse, en fond
 - [ ] Vrais prefabs visuels des bâtiments (issue #46) — gated arbitrage pack Synty (Pascal), non bloquant
@@ -105,7 +105,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** #19 (mort & perte de stuff) — introduit la **vie du joueur** + la mort (tombe + respawn) et active enfin `SetSheltered`/lit (#15). La **source de dégâts** peut venir de l'attaque ennemie (#17, telegraph à brancher) sans attendre #16. Puis #74 (instance zone sauvage) en fin de sprint. Release `v0.5.0` à la clôture du Sprint 4.
+**Prochain milestone :** #74 (zone sauvage instanciée via PNJ, régénération in-place) en fin de Sprint 4 ; #16 combat (endurance) bloqué arbitrage Pascal. Release `v0.5.0` à la clôture du Sprint 4.
 
 ---
 
@@ -116,7 +116,8 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 - **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
 - **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
 - **Modèle de construction « chantier » (issue #9)** — tranché par Aless (la construction n'est pas un pilier non-négociable), **à valider a posteriori par Pascal**. Si le PO préfère un autre modèle, le `ConstructionSite` reste le socle le plus flexible (la pose instantanée en est un cas dégénéré). Non bloquant.
-- **Ratios économiques de construction** — coût des bâtiments (`building-hut` = 8 bois + 4 pierre, `building-shed` = 6 bois, `building-chest` = 4 bois, `building-campfire` = 3 bois + 2 pierre, `building-workshop` = 6 bois + 4 pierre), **% remboursé à la destruction** (`BuildingData.RefundRatio`, défaut **50%**) et **facteur de coût de réparation** (`PlayerBuildingTool._repairCostFactor`, défaut 1). Tous placeholders paramétrables en `.asset`/Inspector. À arbitrer par Pascal au pass d'équilibrage (levier « économie fermée », non bloquant).
+- **Ratios économiques de construction** — coût des bâtiments (`building-hut` = 8 bois + 4 pierre, `building-shed` = 6 bois, `building-chest` = 4 bois, `building-campfire` = 3 bois + 2 pierre, `building-workshop` = 6 bois + 4 pierre, `building-bed` = 6 bois), **% remboursé à la destruction** (`BuildingData.RefundRatio`, défaut **50%**) et **facteur de coût de réparation** (`PlayerBuildingTool._repairCostFactor`, défaut 1). Tous placeholders paramétrables en `.asset`/Inspector. À arbitrer par Pascal au pass d'équilibrage (levier « économie fermée », non bloquant).
+- **Équilibrage mort & survie joueur (#19)** — PV max joueur (`PlayerHealthConfig`, défaut **100**), régén (4/s après 6 s), invulnérabilité post-coup (0,3 s), **dégâts d'attaque des ennemis** (`EnemyData.AttackDamage`, ex. 8), **délai de respawn** (5 s) et **timer de disparition de la tombe** (`PlayerDeath._graveDespawnSeconds`, défaut **5 min**). Placeholders paramétrables en `.asset`/Inspector. À arbitrer par Pascal au pass d'équilibrage (non bloquant).
 
 ---
 
@@ -203,6 +204,29 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-09 — Mort du joueur & perte de stuff (Sprint 4, #19 clos)
+
+**Contexte.** 3ᵉ brique du Sprint 4 : introduire la **vie du joueur** (inexistante jusque-là), la mort punitive-mais-récupérable (vision « Mort = perte de stuff + tombe ») et le respawn. Découpé en 3 phases (data→logique→UI, 1 commit code + 1 commit câblage scène par phase) : ph.1 vie + dégâts + barre HUD ; ph.2 mort + tombe + respawn ; ph.3 lit + respawn au lit + marqueur. PR unique `Closes #19`.
+
+**Décisions.**
+1. **Vie joueur = `PlayerHealth`** (satellite sur `_Player`, distinct de `PlayerController`) : HP, `TakeDamage`/`Heal`, régén après délai, fenêtre d'invulnérabilité, events `HealthChanged`/`Died`/`Revived`, `Instance` statique. Config SO `PlayerHealthConfig` (`Survain.Data`). Barre de vie HUD `PlayerHealthBar` auto-construite (pattern singleton type `InteractionPrompt`).
+2. **Source de dégâts branchée maintenant (arbitrage)** : l'`EnemyAttackState` (#17, telegraph sans dégâts) inflige enfin `EnemyData.AttackDamage` en fin de windup → la zone sauvage devient réellement dangereuse, sans attendre le combat #16 (orthogonal : #16 = endurance côté joueur).
+3. **Perte de stuff = tout (sac + hotbar) en tombe (arbitrage)** : à la mort, `PlayerDeath` (abonné à `Died`) déverse tout l'inventaire dans une **`Grave`** = conteneur lootable autonome (réutilise `IInteractable` + `ContainerUI`, comme un coffre). **Timer** de disparition du loot (défaut 5 min).
+4. **Gel pendant la mort** : `PlayerController` désactivé (stoppe le déplacement ; effet de bord voulu — `Instance` passe à null → les ennemis se désengagent du cadavre) + `UiMode.Push` (neutralise récolte/frappe, fige la caméra). `DeathScreen` auto-construit (voile + « VOUS ÊTES MORT » + décompte). Tout rendu au respawn.
+5. **Respawn (arbitrage)** : priorité au **lit « maison » activé** (`RespawnPoint.Active`), sinon **feu de camp le plus proche** du village (`Building.FindNearest` sur `EmitsLight`), sinon **position de spawn initiale**. `PlayerController.Teleport` (désactive le CC le temps de forcer la position + reset vitesse).
+6. **Lit posable (arbitrage « lit à activer »)** : nouveau champ fonctionnel `BuildingData.ProvidesRespawn` → `ConstructionSite.Complete` ajoute un `RespawnPoint` (`IInteractable`). Le joueur l'**active via E** pour en faire son point de repos (un seul actif, `static Active`). Asset `building-bed` (6 bois) via `BuildingsBootstrap`, ajouté au catalogue `BuildModeController` (Inspector). Réutilise le système chantier #9.
+7. **Tombe « facile à retrouver »** : **faisceau lumineux** vertical (colonne Unlit + point light) sur la tombe **+** `GraveMarker` (overlay écran auto-construit : distance + clamp aux bords quand hors champ, registre `Grave.All`).
+
+**Alternatives écartées.** Attendre #16 pour les dégâts (préféré brancher maintenant) ; perte partielle / hotbar conservée (préféré tout en tombe) ; tombe = items au sol en vrac ou sans timer (préféré conteneur + timer) ; **auto-destruction de la tombe au vidage** (implémentée puis retirée : détruire en plein drag laissait le ghost collé à la souris → on s'appuie sur le timer) ; respawn au lit le plus proche auto (préféré lit à activer via E) ; respawn centre village fixe / contremaître. Branchement `NpcNeeds.SetSheltered` (PNJ abrités par un lit) **laissé hors #19** (nécessite une assignation lit↔PNJ — chantier habitation PNJ).
+
+**Conséquences.**
+- **#19 clos → Sprint 4 fonctionnellement bouclé** (reste #74 instance zone sauvage planifiée fin de sprint, puis release `v0.5.0`). Le pilier « Mort = perte de stuff + tombe » est livré.
+- Patterns dégagés : **`PlayerHealth.Instance`** (source de dégâts ciblant le joueur sans `FindObjectOfType`) ; **séquence de mort via event `Died` + gel par désactivation du controller + `UiMode`** ; **conteneur lootable autonome** (`Grave`, réutilisable pour d'autres drops persistants) ; **champ fonctionnel `BuildingData.ProvidesRespawn`** (comme `StorageCapacity`/`EmitsLight`) ; **marqueur d'écran clampé** (`GraveMarker`, réutilisable pour tout objectif à pointer) ; **registre statique `Grave.All`**.
+- Crochets : la vraie attaque de combat #16 remplacera la frappe placeholder ET pourra moduler les dégâts au joueur ; `SetSheltered` reste à brancher quand l'habitation PNJ arrivera.
+- ⚠️ **Incident scène évité** : une sauvegarde de `Main.unity` en mode Play a contaminé la scène (avatar `Combined Character` + os, ~3000 lignes) ; détectée au diff, restaurée et recâblée proprement en mode Édition (rappel : ne jamais Ctrl+S la scène en Play).
+
+**Reste-à-faire (tracé).** Équilibrage PV/dégâts/timer tombe/coût lit (Pascal) ; `NpcNeeds.SetSheltered` à l'habitation PNJ.
 
 ### 2026-06-09 — Zone sauvage : terrain adjacent, frontière franchissable, entrée & danger (Sprint 4, #18 clos)
 
@@ -1022,4 +1046,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-09 (Sprint 4 en cours — #17 ennemis PVE & IA et #18 zone sauvage livrés, release `v0.4.0` ; #16 combat bloqué Pascal, #19 mort & perte de stuff en cours, #74 instance zone sauvage planifiée fin de sprint)*
+*Dernière mise à jour : 2026-06-09 (Sprint 4 — #17 ennemis PVE, #18 zone sauvage et #19 mort & perte de stuff livrés ; reste #74 instance zone sauvage avant release `v0.5.0` ; #16 combat bloqué Pascal)*

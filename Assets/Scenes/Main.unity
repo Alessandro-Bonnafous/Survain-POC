@@ -14604,6 +14604,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1758828408940234237}
+    - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1758828408940234238}
+    - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1758828408940234239}
   m_SourcePrefab: {fileID: 100100000, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
 --- !u!1 &1758828408940234214 stripped
 GameObject:
@@ -14664,6 +14670,17 @@ MonoBehaviour:
   _characterController: {fileID: 0}
   _harvester: {fileID: 0}
   _equipment: {fileID: 0}
+--- !u!114 &1758828408940234218 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5161487996763713704, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
+  m_PrefabInstance: {fileID: 1758828408940234213}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: daa6103a5e16e7a489d213ef66176681, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerController
 --- !u!114 &1758828408940234223
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14703,6 +14720,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7eabc0e352dfb20469cdc1481fbeb7b4, type: 2}
   - {fileID: 11400000, guid: fe6fb0b2ee5640844b6a9752a6dc335b, type: 2}
   - {fileID: 11400000, guid: 997f236af2df65d4eb1991bb7799fa25, type: 2}
+  - {fileID: 11400000, guid: 1e9cb9e6da9205b46b37d08633352e01, type: 2}
   _gridSize: 1
   _maxPlaceDistance: 8
   _maxGroundSlope: 30
@@ -14783,6 +14801,38 @@ MonoBehaviour:
   _maxReach: 4
   _damagePerHit: 10
   _hitCooldown: 0.4
+--- !u!114 &1758828408940234238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 578ad4f5aed9f304fbf5572bf7bc0089, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerHealth
+  _config: {fileID: 11400000, guid: bc52f359ccd952b43a7122fdd3492e69, type: 2}
+--- !u!114 &1758828408940234239
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 978275844d949f64b93476d0ef90e3f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerDeath
+  _health: {fileID: 1758828408940234238}
+  _controller: {fileID: 1758828408940234218}
+  _backpack: {fileID: 1753112046}
+  _hotbar: {fileID: 1539723589}
+  _respawnDelaySeconds: 5
+  _graveDespawnSeconds: 300
+  _respawnOffset: 1.5
 --- !u!1001 &4243485049165841187
 PrefabInstance:
   m_ObjectHideFlags: 0

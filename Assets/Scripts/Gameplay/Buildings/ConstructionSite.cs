@@ -252,6 +252,12 @@ namespace Survain.Gameplay.Buildings
                 light.Initialize(_target.LightColor, _target.LightRange, _target.LightIntensity, _target.LightHeight);
             }
 
+            // Point de repos (lit, #19) : activable via E pour servir de point de respawn.
+            if (_target.ProvidesRespawn)
+            {
+                go.AddComponent<RespawnPoint>();
+            }
+
             SurvainLog.Info(SurvainLog.Category.Gameplay,
                 $"Bâtiment '{_target.Id}' construit en {transform.position}.", go);
 

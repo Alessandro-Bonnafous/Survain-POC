@@ -132,6 +132,21 @@ namespace Survain.Gameplay.Player
             if (_playerMap != null) _playerMap.Disable();
         }
 
+        // ─── API publique ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// Téléporte le joueur (respawn, #19). Désactive temporairement le CharacterController
+        /// pour forcer la position (le CC écrase sinon les écritures directes de transform),
+        /// puis réinitialise la vitesse pour éviter une chute/glissade résiduelle.
+        /// </summary>
+        public void Teleport(Vector3 position)
+        {
+            if (_characterController != null) _characterController.enabled = false;
+            transform.position = position;
+            if (_characterController != null) _characterController.enabled = true;
+            _velocity = Vector3.zero;
+        }
+
         // ─── Input handlers ─────────────────────────────────────────────────
 
         private void OnJumpPerformed(InputAction.CallbackContext _)

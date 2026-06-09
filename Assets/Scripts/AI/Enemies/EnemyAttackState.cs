@@ -1,13 +1,15 @@
 using UnityEngine;
 using Survain.Core;
+using Survain.Gameplay.Player;
 
 namespace Survain.AI.Enemies
 {
     /// <summary>
     /// Attaque : l'ennemi s'arrête, fait face à la cible et enchaîne des frappes (telegraph +
-    /// cooldown). **Phase 1 : la frappe ne fait aucun dégât** (vie joueur = #19, combat = #16) —
-    /// c'est un windup visible qui complète la boucle Patrol→Detect→Chase→Attack→Return. Si la
-    /// cible sort de portée, on repasse en poursuite ; le désaggro reste géré par EnemyController.
+    /// cooldown). En fin de telegraph, la frappe inflige <see cref="EnemyData.AttackDamage"/> au
+    /// joueur (<see cref="PlayerHealth"/>, #19) s'il est encore à portée — c'est ce qui rend la zone
+    /// sauvage réellement dangereuse. Si la cible sort de portée, on repasse en poursuite ; le
+    /// désaggro reste géré par EnemyController. (Le vrai combat à l'endurance arrive en #16.)
     /// </summary>
     public sealed class EnemyAttackState : IEnemyState
     {
@@ -41,10 +43,18 @@ namespace Survain.AI.Enemies
             {
                 if (Time.time >= _telegraphEndAt)
                 {
-                    // Frappe résolue. Phase 1 : pas de dégâts (à brancher avec #16 / #19).
+                    // Frappe résolue : dégâts au joueur s'il est resté à portée pendant le windup.
                     _striking = false;
                     _nextAttackAt = Time.time + e.Data.AttackCooldown;
-                    SurvainLog.Info(SurvainLog.Category.AI, $"{e.name} frappe (telegraph, sans dégâts).", e);
+
+                    var health = PlayerHealth.Instance;
+                    bool inRange = EnemyController.PlanarDistance(target.position, e.transform.position)
+                                   <= e.Data.AttackRange * 1.2f;
+                    if (health != null && !health.IsDead && inRange && e.Data.AttackDamage > 0)
+                    {
+                        health.TakeDamage(e.Data.AttackDamage);
+                        SurvainLog.Info(SurvainLog.Category.AI, $"{e.name} frappe : {e.Data.AttackDamage} dégâts.", e);
+                    }
                 }
                 return;
             }
