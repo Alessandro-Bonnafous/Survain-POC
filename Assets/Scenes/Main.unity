@@ -14720,6 +14720,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7eabc0e352dfb20469cdc1481fbeb7b4, type: 2}
   - {fileID: 11400000, guid: fe6fb0b2ee5640844b6a9752a6dc335b, type: 2}
   - {fileID: 11400000, guid: 997f236af2df65d4eb1991bb7799fa25, type: 2}
+  - {fileID: 11400000, guid: 1e9cb9e6da9205b46b37d08633352e01, type: 2}
   _gridSize: 1
   _maxPlaceDistance: 8
   _maxGroundSlope: 30
