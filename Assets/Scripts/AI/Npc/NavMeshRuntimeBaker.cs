@@ -18,12 +18,15 @@ namespace Survain.AI.Npc
     [DefaultExecutionOrder(150)]
     public sealed class NavMeshRuntimeBaker : MonoBehaviour
     {
-        private void Start()
+        private void Start() => Rebake();
+
+        /// <summary>(Re)bake le NavMesh. Appelé au Start (après génération du terrain) et à chaque
+        /// régénération de l'instance zone sauvage (#74) pour couvrir le nouveau terrain.</summary>
+        public void Rebake()
         {
             var surface = GetComponent<NavMeshSurface>();
             surface.BuildNavMesh();
-            SurvainLog.Info(SurvainLog.Category.World,
-                "NavMesh baké au runtime (après génération du terrain).", this);
+            SurvainLog.Info(SurvainLog.Category.World, "NavMesh baké au runtime.", this);
         }
     }
 }

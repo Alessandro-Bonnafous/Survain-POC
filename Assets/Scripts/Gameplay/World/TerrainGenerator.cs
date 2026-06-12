@@ -55,6 +55,14 @@ namespace Survain.Gameplay.World
 
         // ─── API publique ───────────────────────────────────────────────────
 
+        /// <summary>Régénère le terrain avec un seed imposé (instance zone sauvage, #74).
+        /// Écrase l'override local ; passer un seed non nul pour un layout déterministe et varié.</summary>
+        public void GenerateWithSeed(int seed)
+        {
+            _seedOverride = seed;
+            Generate();
+        }
+
         [ContextMenu("Generate")]
         public void Generate()
         {
