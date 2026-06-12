@@ -1,4 +1,5 @@
 using UnityEngine;
+using Survain.Core;
 using Survain.Gameplay.Interaction;
 using Survain.Gameplay.Inventories;
 
@@ -39,13 +40,8 @@ namespace Survain.Gameplay.World
             totem.transform.localPosition = new Vector3(0f, 1.5f, 0f);
             totem.transform.localScale = new Vector3(0.7f, 1.5f, 0.7f); // ~3 m de haut
 
-            var rend = totem.GetComponent<Renderer>();
-            if (rend != null)
-            {
-                var mat = rend.material; // clone auto
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", PortalColor);
-                mat.color = PortalColor;
-            }
+            // Matériau URP build-safe (le Default-Material de la primitive est rose en build URP).
+            UrpMaterial.ApplyColor(totem.GetComponent<Renderer>(), PortalColor);
 
             var lightGo = new GameObject("PortalLight");
             lightGo.transform.SetParent(transform, false);
