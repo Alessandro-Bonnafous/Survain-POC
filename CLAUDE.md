@@ -83,7 +83,7 @@
 _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
 **Objectifs du sprint** : combat, ennemis PVE, zone sauvage, mort & perte de stuff.
-- [ ] Système de combat basé sur l'endurance (issue #16) — `gamedesign`, **bloqué arbitrage Pascal** (pilier « combat anti-zerg à effectifs fixes »).
+- [ ] Système de combat basé sur l'endurance (issue #16) — `gamedesign`, **bloqué arbitrage Pascal** (pilier « combat anti-zerg à effectifs fixes »). **Placeholder hache/pioche livré** (dégâts + anim au clic) pour la démo `v0.5.0` ; la vraie mécanique d'endurance reste décalée.
 - [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
 - [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
 - [x] Système de mort et perte de stuff (issue #19) — vie joueur (`PlayerHealth` + barre HUD) + **dégâts ennemis branchés** (#17) (ph.1) ; mort (écran + décompte) + **tombe lootable** (timer 5 min) + respawn (ph.2) ; **lit posable** + respawn au lit activable (E) + faisceau & marqueur de tombe (ph.3). Livré. `SetSheltered` (PNJ) laissé à l'habitation PNJ.
@@ -204,6 +204,19 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-12 — Placeholder de combat (hache/pioche comme armes) pour la démo v0.5.0 (#16 décalé)
+
+**Contexte.** #16 (combat à l'endurance, pilier « anti-zerg à effectifs fixes ») reste bloqué arbitrage Pascal. Pour tagger une démo `v0.5.0` montrant le Sprint 4, on met un placeholder jouable (même logique que le craft #8) et on décale la vraie mécanique.
+
+**Décision.** Pas d'arme dédiée : **la hache et la pioche servent d'armes**. `PlayerEnemyStrike` ne blesse que si une arme (hache/pioche) est équipée et émet un event `Swung` ; `PlayerVisualAnimator` rejoue l'anim de l'outil (Chop/Mine via `harvestType`) sur `Swung`, exactement comme `HitLanded` pour la récolte. Réutilise tout le pipeline outil-en-main + anim (2026-05-31) : **zéro nouvel asset, zéro modif Animator**, références auto-résolues (`GetComponent`) → pas de câblage scène.
+
+**Alternatives écartées.** Épée dédiée (nouveau `ToolType` + mesh en main + état Animator « Slash ») → préféré réutiliser hache/pioche (plus rapide, zéro asset) ; « tout clic blesse » (placeholder #17) → préféré gater les dégâts à l'arme équipée pour un ressenti combat.
+
+**Conséquences.**
+- **Démo `v0.5.0` taggable** : Sprint 4 livré (#17/#18/#19/#74 + ce placeholder de combat). **#16 reste ouvert** (vraie mécanique d'endurance, arbitrage Pascal).
+- Pattern : un event de « coup » (`Swung`) qui réutilise le trigger d'anim existant (`isHarvesting` routé par `harvestType`) — la vraie attaque #16 remplacera `PlayerEnemyStrike` en gardant ce branchement visuel.
+- ⚠️ Incident scène (rappel ré-appris) : une sauvegarde de `Main.unity` **en mode Play** a re-contaminé la scène (~309k lignes, avatar `Combined Character` + meshes bakés). Discard nécessaire (`git restore`), qui a fait perdre des réglages de scène **non committés** (personnage du `NpcPortal` + ref `WildInstanceManager._exitPortal`) — refaits proprement ensuite. **Ne jamais `Ctrl+S` la scène en mode Play.**
 
 ### 2026-06-09 — Zone sauvage instanciée via PNJ portail (Sprint 4, #74 clos)
 
@@ -1065,4 +1078,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-09 (Sprint 4 quasi bouclé — #17/#18/#19/#74 livrés ; reste #16 combat bloqué Pascal ; release `v0.5.0` à venir)*
+*Dernière mise à jour : 2026-06-12 (Sprint 4 livré — #17/#18/#19/#74 + placeholder de combat hache/pioche ; démo `v0.5.0` taggée ; #16 vraie mécanique d'endurance décalée, arbitrage Pascal)*
