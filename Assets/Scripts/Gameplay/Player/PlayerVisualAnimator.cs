@@ -13,7 +13,7 @@ namespace Survain.Gameplay.Player
     ///  - speed         (float)   : magnitude horizontale en m/s (alimente le Blend Tree de locomotion)
     ///  - isGrounded    (bool)    : true quand le CharacterController touche le sol
     ///  - isJumping     (trigger) : déclenché au frame exact du décollage
-    ///  - isHarvesting  (trigger) : déclenché à chaque coup de récolte qui touche un nœud
+    ///  - isHarvesting  (trigger) : déclenché à chaque coup qui touche un nœud (récolte) ou un ennemi (arme)
     ///
     /// Convention : composant à poser sur le GameObject racine _Player. L'avatar (mesh + skin)
     /// est un enfant. La référence _animator pointe sur l'Animator de cet enfant.
@@ -33,6 +33,9 @@ namespace Survain.Gameplay.Player
         [Tooltip("Système de récolte. Auto-récupéré sur le même GameObject si non assigné. Optionnel : si absent, l'anim de récolte ne sera pas déclenchée.")]
         [SerializeField] private PlayerHarvester _harvester;
 
+        [Tooltip("Frappe ennemie (placeholder combat). Auto-récupérée sur le même GameObject si non assignée. Optionnel : un coup d'arme rejoue l'anim de l'outil (Chop/Mine).")]
+        [SerializeField] private PlayerEnemyStrike _strike;
+
         [Tooltip("Équipement joueur. Auto-récupéré sur le même GameObject si non assigné. Optionnel : renseigne harvestType pour choisir l'anim de récolte selon le type d'outil (hache/pioche/...).")]
         [SerializeField] private PlayerEquipment _equipment;
 
@@ -47,6 +50,7 @@ namespace Survain.Gameplay.Player
             if (_playerController == null) _playerController = GetComponent<PlayerController>();
             if (_characterController == null) _characterController = GetComponent<CharacterController>();
             if (_harvester == null) _harvester = GetComponent<PlayerHarvester>();
+            if (_strike == null) _strike = GetComponent<PlayerEnemyStrike>();
             if (_equipment == null) _equipment = GetComponentInChildren<PlayerEquipment>();
 
             if (_animator == null)
@@ -85,6 +89,7 @@ namespace Survain.Gameplay.Player
         {
             _playerController.Jumped += OnJumped;
             if (_harvester != null) _harvester.HitLanded += OnHitLanded;
+            if (_strike != null) _strike.Swung += OnHitLanded; // coup d'arme → même anim que la récolte (selon harvestType)
             if (_equipment != null)
             {
                 _equipment.OnCurrentToolChanged += OnEquippedToolChanged;
@@ -96,6 +101,7 @@ namespace Survain.Gameplay.Player
         {
             _playerController.Jumped -= OnJumped;
             if (_harvester != null) _harvester.HitLanded -= OnHitLanded;
+            if (_strike != null) _strike.Swung -= OnHitLanded;
             if (_equipment != null) _equipment.OnCurrentToolChanged -= OnEquippedToolChanged;
         }
 
