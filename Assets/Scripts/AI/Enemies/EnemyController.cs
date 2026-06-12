@@ -87,16 +87,10 @@ namespace Survain.AI.Enemies
             if (!Mathf.Approximately(_data.VisualScale, 1f))
                 transform.localScale = Vector3.one * _data.VisualScale;
 
+            // Le prefab placeholder (Capsule) a un matériau null/Default → rose en build : on assigne
+            // un vrai matériau URP coloré (build-safe, cf. UrpMaterial).
             var rend = GetComponentInChildren<Renderer>();
-            if (rend != null)
-            {
-                var mat = rend.material;
-                if (mat != null)
-                {
-                    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", _data.Tint);
-                    mat.color = _data.Tint;
-                }
-            }
+            if (rend != null) UrpMaterial.ApplyColor(rend, _data.Tint);
         }
 
         /// <summary>Inflige des dégâts (clampés à 0). À 0 HP, l'ennemi meurt (loot + destruction).

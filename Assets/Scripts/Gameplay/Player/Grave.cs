@@ -127,12 +127,8 @@ namespace Survain.Gameplay.Player
 
         private static void Tint(GameObject go, Color color)
         {
-            var rend = go.GetComponent<Renderer>();
-            if (rend == null) return;
-            var mat = rend.material; // clone auto (convention runtime, jamais sharedMaterial)
-            if (mat == null) return;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
-            mat.color = color;
+            // Matériau URP build-safe (le Default-Material des primitives est rose en build URP).
+            UrpMaterial.ApplyColor(go.GetComponent<Renderer>(), color);
         }
 
         private void Update()
