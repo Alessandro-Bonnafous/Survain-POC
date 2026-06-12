@@ -1,19 +1,22 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Survain.Core;
 using Survain.AI.Enemies;
 using Survain.Gameplay.Buildings;
+using Survain.Items;
 using Survain.UI;
 
 namespace Survain.Gameplay.Player
 {
     /// <summary>
-    /// PLACEHOLDER de combat (#17 phase 2) — en attendant le vrai système d'endurance (#16).
-    /// Le clic gauche (action Attack) fait un raycast caméra et inflige des dégâts à l'ennemi visé,
-    /// pour pouvoir tester la mort + le loot dès maintenant. Coexiste avec PlayerHarvester (nœuds)
-    /// et PlayerBuildingTool (bâtiments), mutuellement exclusifs par le type de cible (le raycast
-    /// ne renvoie un ennemi que si c'est ce qu'on vise). Neutralisé sous l'UI (UiMode.IsActive) et
-    /// en mode construction. À remplacer par la vraie attaque au branchement de #16.
+    /// PLACEHOLDER de combat (#17/#16) — en attendant le vrai système d'endurance (#16, décalé).
+    /// Le clic gauche (action Attack) fait un raycast caméra et inflige des dégâts à l'ennemi visé.
+    /// **Les dégâts ne passent que si une arme est équipée** (hache ou pioche au POC) ; un coup réussi
+    /// émet <see cref="Swung"/> → l'avatar joue l'anim de l'outil (Chop/Mine via PlayerVisualAnimator).
+    /// Coexiste avec PlayerHarvester (nœuds) et PlayerBuildingTool (bâtiments), exclusifs par le type
+    /// de cible. Neutralisé sous l'UI (UiMode.IsActive) et en mode construction. La vraie mécanique de
+    /// combat remplacera ce placeholder en #16.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerEnemyStrike : MonoBehaviour
@@ -30,6 +33,10 @@ namespace Survain.Gameplay.Player
         [Tooltip("Mode construction (optionnel). Quand il est actif, la frappe est suspendue.")]
         [SerializeField] private BuildModeController _buildMode;
 
+        [Tooltip("Équipement joueur. Si assigné, seuls les outils-armes (hache/pioche) infligent des " +
+            "dégâts. Si null = comportement permissif (tout clic blesse).")]
+        [SerializeField] private PlayerEquipment _equipment;
+
         [Tooltip("Portée de la frappe, mesurée devant le joueur (mètres).")]
         [Range(1f, 20f)]
         [SerializeField] private float _maxReach = 4f;
@@ -45,6 +52,10 @@ namespace Survain.Gameplay.Player
         private const string ActionMapName = "Player";
         private const string AttackActionName = "Attack";
 
+        /// <summary>Émis à chaque coup d'arme réussi sur un ennemi. Consommé par PlayerVisualAnimator
+        /// pour jouer l'anim de l'outil équipé (Chop/Mine), comme HitLanded pour la récolte.</summary>
+        public event Action Swung;
+
         private InputAction _attackAction;
         private float _nextHitAllowedAt;
 
@@ -59,6 +70,7 @@ namespace Survain.Gameplay.Player
             }
 
             if (_playerRoot == null) _playerRoot = transform;
+            if (_equipment == null) _equipment = GetComponentInChildren<PlayerEquipment>();
 
             var map = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
             _attackAction = map?.FindAction(AttackActionName, throwIfNotFound: false);
@@ -77,12 +89,23 @@ namespace Survain.Gameplay.Player
         {
             if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return;
             if (Time.time < _nextHitAllowedAt) return;
+            if (!IsWeaponEquipped()) return; // seules les armes (hache/pioche au POC) infligent des dégâts
 
             var enemy = RaycastForEnemy();
             if (enemy == null) return;
 
             _nextHitAllowedAt = Time.time + _hitCooldown;
             enemy.TakeDamage(_damagePerHit);
+            Swung?.Invoke(); // déclenche l'anim de l'outil équipé (Chop/Mine)
+        }
+
+        /// <summary>Vrai si l'outil équipé peut servir d'arme (hache/pioche au POC). Sans référence
+        /// d'équipement assignée, reste permissif (placeholder).</summary>
+        private bool IsWeaponEquipped()
+        {
+            if (_equipment == null) return true;
+            var tool = _equipment.CurrentTool;
+            return tool != null && (tool.ToolType == ToolType.Axe || tool.ToolType == ToolType.Pickaxe);
         }
 
         private EnemyController RaycastForEnemy()
