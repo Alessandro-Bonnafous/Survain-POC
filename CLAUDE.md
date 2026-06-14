@@ -79,11 +79,11 @@
 
 ## 📊 État actuel
 
-**Sprint en cours :** Sprint 4 — Combat & Zone Sauvage
-_(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
+**Sprint en cours :** Sprint 5 — Boucle Complète & Polish (épic combat #16, Phase A en cours)
+_(Sprint 4 livré ci-dessous ; Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
-**Objectifs du sprint** : combat, ennemis PVE, zone sauvage, mort & perte de stuff.
-- [ ] Système de combat basé sur l'endurance (issue #16) — `gamedesign`, **bloqué arbitrage Pascal** (pilier « combat anti-zerg à effectifs fixes »). **Placeholder hache/pioche livré** (dégâts + anim au clic) pour la démo `v0.5.0` ; la vraie mécanique d'endurance reste décalée.
+**Objectifs Sprint 4 (livré)** : combat (placeholder), ennemis PVE, zone sauvage, mort & perte de stuff.
+- [~] Système de combat à l'énergie (**épic #16**, rattaché **Sprint 5**) — la vraie mécanique n'est plus « décalée » : elle est **cadrée et lancée**. Spec PO : [`docs/Spec_combat.md`](docs/Spec_combat.md). #16 décomposé en **plan agile** : **Phase A** énergie & ressenti (#81 réserve+HUD, #82 auto-attack, #83 esquive/course → build jouable `v0.6.0`) · **Phase B** profondeur (#84 dégâts typés, #85 armures _dépend craft #8_, #86 kit de compétences, #87 finition) · **Phase C** équilibrage (#88). **Gate structurelle Pascal par chunk** (Q1→Q5, voir Décisions en attente). **Phase A démarrée, A1 (#81) en cours.** Le placeholder hache/pioche (`v0.5.0`) sera remplacé par l'auto-attack #82.
 - [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
 - [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
 - [x] Système de mort et perte de stuff (issue #19) — vie joueur (`PlayerHealth` + barre HUD) + **dégâts ennemis branchés** (#17) (ph.1) ; mort (écran + décompte) + **tombe lootable** (timer 5 min) + respawn (ph.2) ; **lit posable** + respawn au lit activable (E) + faisceau & marqueur de tombe (ph.3). Livré. `SetSheltered` (PNJ) laissé à l'habitation PNJ.
@@ -105,7 +105,7 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** Sprint 4 fonctionnellement bouclé (#17/#18/#19/#74 livrés). Reste **#16 combat** (endurance), bloqué arbitrage Pascal. Release `v0.5.0` à la clôture (décision Pascal).
+**Prochain milestone :** Sprint 4 livré (#17/#18/#19/#74 + placeholder combat ; démo `v0.5.0` taggée). Bascule **Sprint 5 — Boucle Complète & Polish** : l'**épic combat #16** (Phases A/B/C) y est rattaché, **Phase A en cours** (A1 #81). Cible : build jouable du combat à l'énergie (candidat `v0.6.0` à la fin de #83).
 
 ---
 
@@ -113,6 +113,13 @@ _(Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Déc
 
 > Petites décisions remontées du chat / Discord qui n'ont pas encore été tranchées. À traiter avant la phase qui en dépend pour ne pas bloquer.
 
+- **Gates structurelles du combat (épic #16) — Q1→Q5 envoyées à Pascal (Discord)** — chaque gate porte sur le **modèle**, pas sur les chiffres (les chiffres restent des placeholders SO, voir Q5). À trancher **avant de coder le chunk concerné** :
+  - **Q1 — Énergie = réserve unique partagée** (course + esquive + compétences puisent dans les mêmes 100 pts) ? → consommée en **A2 (#82) / A3 (#83)**. ⚠️ **A1 (#81) est neutre vis-à-vis de Q1** : la réserve + la barre HUD ne présupposent pas le modèle partagé.
+  - **Q2 — Split des dégâts** : 80 % biome / 20 % physique sur chaque arme, et 75 % / 25 % côté résistances d'armure, confirmés ? → **B4 (#84) / B5 (#85)**.
+  - **Q3 — Mix d'armures = builds** : modèle 5 pièces + résistances cumulées (builds spécialisés/polyvalents) confirmés ? → **B5 (#85)**.
+  - **Q4 — Kit de compétences** : lié à l'**arme** (changer d'arme change le kit) ou lié au **personnage** ? → **B6 (#86)**.
+  - **Q5 — Ordre « ressenti d'abord »** : tous les chiffres restent en placeholders SO ajustables jusqu'à une session d'équilibrage dédiée (**#88**) ?
+  - ⚠️ **La Phase B (armures, #85) dépend du craft #8**, lui-même bloqué arbitrage Pascal.
 - **Équilibrage arme « Montagnes » : 8 dmg vs 6 dmg** — à arbitrer par Pascal **avant la première table d'armes craftables** (Sprint 1 ne touche qu'aux outils — bois, pierre, fibre, hache/pioche en pierre — donc plus bloquant pour Sprint 1). Probable horizon : Sprint 2+. Pas de code à toucher tant que la décision n'est pas prise.
 - **Mécanique de craft non-répétitive (issue #8)** — à arbitrer avec Pascal **avant implémentation de #8**. Proposition de l'issue : QTE/timing simple pour le tier gris, qualité du résultat dépendante de la performance joueur. Choix structurant pour tout le système de craft (les tiers vert/bleu hériteront du pattern). Pas de code Sprint 1 sur le craft tant que pas tranché.
 - **Modèle de construction « chantier » (issue #9)** — tranché par Aless (la construction n'est pas un pilier non-négociable), **à valider a posteriori par Pascal**. Si le PO préfère un autre modèle, le `ConstructionSite` reste le socle le plus flexible (la pose instantanée en est un cas dégénéré). Non bloquant.
@@ -204,6 +211,23 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-14 — Cadrage du système de combat : épic #16 décomposé en plan agile (Phases A/B/C)
+
+**Contexte.** Spec PO mise à jour ([`docs/Spec_combat.md`](docs/Spec_combat.md)), bien plus riche que le pilier « endurance » initial : armes/armures **typées biome + physique** (80/20 et 75/25), **énergie partagée** (réserve 100 pts, conso 5 %→50 %), kit **auto + 4 compétences + ultimate**, **2 armes** équipées + switch, course/esquive consommant l'énergie. #16 était une issue monolithique bloquée arbitrage Pascal.
+
+**Décisions.**
+1. **Découper #16 en épic + sous-issues** (Phases A/B/C, créées via `setup_combat_issues.sh`) : A=#81/#82/#83, B=#84/#85/#86/#87, C=#88. Épic + A1 rattachés au **Sprint 5**. Gate **structurelle** Pascal **par chunk** — on tranche le *modèle* (Q1→Q5), pas les chiffres.
+2. **Tous les « à définir » = placeholders SO** réglés au **pass d'équilibrage (#88)**, non bloquant.
+3. **Séparer ressenti et profondeur** : **Phase A** (énergie/ressenti) démarrable maintenant ; **Phase B** (dégâts typés, armures, kit) gated + **couplée au craft #8** (armures #85, bloqué Pascal).
+4. **A1 (#81) démarrée** : réserve d'énergie + barre HUD, **neutre vis-à-vis de Q1** (le modèle « réserve partagée » ne sera consommé qu'en A2/A3).
+
+**Alternatives écartées.** Garder #16 monolithique et bloqué ; attendre Pascal sur l'intégralité de la spec avant tout code ; figer les chiffres maintenant (préféré placeholders SO + pass dédié).
+
+**Conséquences.**
+- Q1→Q5 envoyées à Pascal (Discord) — voir « Décisions en attente ». Phase A lancée sur A1 (`PlayerHealth` trio cloné → `PlayerEnergy`).
+- Phase B gated craft #8. Le placeholder hache/pioche (`v0.5.0`) sera remplacé par l'auto-attack #82.
+- Pattern réutilisé : trio `PlayerHealth` / `PlayerHealthConfig` / `PlayerHealthBar` (#19) → `PlayerEnergy` / `PlayerEnergyConfig` / `PlayerEnergyBar` (satellite + SO + HUD singleton lazy).
 
 ### 2026-06-12 — Placeholder de combat (hache/pioche comme armes) pour la démo v0.5.0 (#16 décalé)
 
@@ -1078,4 +1102,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-12 (Sprint 4 livré — #17/#18/#19/#74 + placeholder de combat hache/pioche ; démo `v0.5.0` taggée ; #16 vraie mécanique d'endurance décalée, arbitrage Pascal)*
+*Dernière mise à jour : 2026-06-14 (cadrage combat : épic #16 décomposé en Phases A/B/C — sous-issues #81→#88, rattaché Sprint 5 ; Phase A démarrée, A1 #81 en cours — réserve d'énergie joueur + barre HUD ; spec PO ajoutée `docs/Spec_combat.md`)*
