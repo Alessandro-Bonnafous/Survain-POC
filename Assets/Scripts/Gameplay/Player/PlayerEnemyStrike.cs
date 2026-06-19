@@ -10,13 +10,18 @@ using Survain.UI;
 namespace Survain.Gameplay.Player
 {
     /// <summary>
-    /// PLACEHOLDER de combat (#17/#16) — en attendant le vrai système d'endurance (#16, décalé).
+    /// Auto-attack du joueur (combat #16, Phase A / A2) : devient la vraie source de dégâts joueur,
+    /// désormais <b>pilotée par l'énergie</b> — chaque coup porté consomme <see cref="_energyCostPerAttack"/>
+    /// (spec : 5 % de la réserve) via <see cref="PlayerEnergy.TryConsume"/> ; à sec, le coup ne part pas.
     /// Le clic gauche (action Attack) fait un raycast caméra et inflige des dégâts à l'ennemi visé.
     /// **Les dégâts ne passent que si une arme est équipée** (hache ou pioche au POC) ; un coup réussi
     /// émet <see cref="Swung"/> → l'avatar joue l'anim de l'outil (Chop/Mine via PlayerVisualAnimator).
     /// Coexiste avec PlayerHarvester (nœuds) et PlayerBuildingTool (bâtiments), exclusifs par le type
-    /// de cible. Neutralisé sous l'UI (UiMode.IsActive) et en mode construction. La vraie mécanique de
-    /// combat remplacera ce placeholder en #16.
+    /// de cible. Neutralisé sous l'UI (UiMode.IsActive) et en mode construction.
+    ///
+    /// Énergie consommée <b>uniquement sur un coup de combat</b> (ennemi visé), pas sur un clic à vide
+    /// (qui peut être une récolte). Les dégâts/cooldown restent des placeholders sur le composant : ils
+    /// migreront sur <c>WeaponData</c> avec les vraies armes craftables (Phase B, #84).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerEnemyStrike : MonoBehaviour
@@ -36,6 +41,15 @@ namespace Survain.Gameplay.Player
         [Tooltip("Équipement joueur. Si assigné, seuls les outils-armes (hache/pioche) infligent des " +
             "dégâts. Si null = comportement permissif (tout clic blesse).")]
         [SerializeField] private PlayerEquipment _equipment;
+
+        [Tooltip("Réserve d'énergie (#81). Auto-résolue sur le même GameObject si laissé vide. " +
+            "Si null = pas de coût en énergie (fallback permissif).")]
+        [SerializeField] private PlayerEnergy _energy;
+
+        [Tooltip("Énergie consommée par coup de combat (spec : 5 % de la réserve = 5). Placeholder " +
+            "ajustable ; migrera sur WeaponData en Phase B (#84).")]
+        [Min(0f)]
+        [SerializeField] private float _energyCostPerAttack = 5f;
 
         [Tooltip("Portée de la frappe, mesurée devant le joueur (mètres).")]
         [Range(1f, 20f)]
@@ -58,6 +72,7 @@ namespace Survain.Gameplay.Player
 
         private InputAction _attackAction;
         private float _nextHitAllowedAt;
+        private float _nextEmptyFeedbackAt;
 
         private void Awake()
         {
@@ -71,6 +86,7 @@ namespace Survain.Gameplay.Player
 
             if (_playerRoot == null) _playerRoot = transform;
             if (_equipment == null) _equipment = GetComponentInChildren<PlayerEquipment>();
+            if (_energy == null) _energy = GetComponent<PlayerEnergy>();
 
             var map = _inputActions.FindActionMap(ActionMapName, throwIfNotFound: false);
             _attackAction = map?.FindAction(AttackActionName, throwIfNotFound: false);
@@ -92,7 +108,19 @@ namespace Survain.Gameplay.Player
             if (!IsWeaponEquipped()) return; // seules les armes (hache/pioche au POC) infligent des dégâts
 
             var enemy = RaycastForEnemy();
-            if (enemy == null) return;
+            if (enemy == null) return; // clic à vide : pas un coup de combat → pas de coût en énergie
+
+            // Coup de combat : il faut assez d'énergie (spec : 5 %). À sec, le coup ne part pas.
+            if (_energy != null && !_energy.TryConsume(_energyCostPerAttack))
+            {
+                if (Time.time >= _nextEmptyFeedbackAt)
+                {
+                    _nextEmptyFeedbackAt = Time.time + 0.5f; // throttle anti-spam du feedback
+                    SurvainLog.Info(SurvainLog.Category.Gameplay,
+                        "Pas assez d'énergie pour attaquer.", this);
+                }
+                return;
+            }
 
             _nextHitAllowedAt = Time.time + _hitCooldown;
             enemy.TakeDamage(_damagePerHit);

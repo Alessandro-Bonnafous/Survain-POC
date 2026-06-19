@@ -88,18 +88,6 @@ namespace Survain.Gameplay.Player
             EnergyChanged?.Invoke(CurrentEnergy, _maxEnergy);
         }
 
-        // ─── DEBUG ──────────────────────────────────────────────────────────
-
-        /// <summary>Valide la DoD d'A1 sans toucher à l'input ni à la scène. À retirer en A2 quand
-        /// la vraie consommation (auto-attack/esquive/course) arrivera.</summary>
-        [ContextMenu("DEBUG — Consommer 25")]
-        private void DebugConsume25()
-        {
-            bool ok = TryConsume(25f);
-            SurvainLog.Info(SurvainLog.Category.Gameplay,
-                $"DEBUG conso 25 énergie : {(ok ? "ok" : "insuffisant")} — {CurrentEnergy:0}/{_maxEnergy:0}.", this);
-        }
-
         // ─── Interne ────────────────────────────────────────────────────────
 
         private void Update()
