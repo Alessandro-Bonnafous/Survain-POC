@@ -29,6 +29,7 @@ namespace Survain.Gameplay.Player
         private int _maxHp;
         private float _lastDamageTime;
         private float _regenAccumulator;
+        private float _invulnerableUntil;
 
         public int CurrentHp { get; private set; }
         public int MaxHp => _maxHp;
@@ -77,6 +78,7 @@ namespace Survain.Gameplay.Player
         {
             if (IsDead || amount <= 0) return;
             if (Time.time < _lastDamageTime + _config.InvulnerabilitySeconds) return;
+            if (Time.time < _invulnerableUntil) return; // i-frames (ex: esquive #83)
 
             _lastDamageTime = Time.time;
             CurrentHp = Mathf.Max(0, CurrentHp - amount);
@@ -84,6 +86,14 @@ namespace Survain.Gameplay.Player
             SurvainLog.Info(SurvainLog.Category.Gameplay, $"Joueur touché : {CurrentHp}/{_maxHp} PV.", this);
 
             if (CurrentHp == 0) Die();
+        }
+
+        /// <summary>Accorde une fenêtre d'invulnérabilité de <paramref name="seconds"/> à partir de
+        /// maintenant (i-frames d'esquive, #83). N'écrase pas une fenêtre plus longue déjà active.</summary>
+        public void GrantInvulnerability(float seconds)
+        {
+            if (seconds <= 0f) return;
+            _invulnerableUntil = Mathf.Max(_invulnerableUntil, Time.time + seconds);
         }
 
         /// <summary>Soigne (clampé à MaxHp). Sans effet si mort.</summary>

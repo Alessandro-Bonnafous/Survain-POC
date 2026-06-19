@@ -83,7 +83,7 @@
 _(Sprint 4 livré ci-dessous ; Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
 **Objectifs Sprint 4 (livré)** : combat (placeholder), ennemis PVE, zone sauvage, mort & perte de stuff.
-- [~] Système de combat à l'énergie (**épic #16**, rattaché **Sprint 5**) — la vraie mécanique n'est plus « décalée » : elle est **cadrée et lancée**. Spec PO : [`docs/Spec_combat.md`](docs/Spec_combat.md). #16 décomposé en **plan agile** : **Phase A** énergie & ressenti (#81 réserve+HUD, #82 auto-attack, #83 esquive/course → build jouable `v0.6.0`) · **Phase B** profondeur (#84 dégâts typés, #85 armures _dépend craft #8_, #86 kit de compétences, #87 finition) · **Phase C** équilibrage (#88). **Gate structurelle Pascal par chunk** (Q1→Q5, voir Décisions en attente). **Phase A en cours : A1 (#81) livré** (réserve + barre HUD), **A2 (#82) en cours** (auto-attack pilotée par l'énergie — remplace le placeholder hache/pioche `v0.5.0`). **Q1 acté provisoirement : réserve unique partagée (modèle A), en placeholder** (confirmation Pascal souhaitée, non bloquante).
+- [~] Système de combat à l'énergie (**épic #16**, rattaché **Sprint 5**) — la vraie mécanique n'est plus « décalée » : elle est **cadrée et lancée**. Spec PO : [`docs/Spec_combat.md`](docs/Spec_combat.md). #16 décomposé en **plan agile** : **Phase A** énergie & ressenti (#81 réserve+HUD, #82 auto-attack, #83 esquive/course → build jouable `v0.6.0`) · **Phase B** profondeur (#84 dégâts typés, #85 armures _dépend craft #8_, #86 kit de compétences, #87 finition) · **Phase C** équilibrage (#88). **Gate structurelle Pascal par chunk** (Q1→Q5, voir Décisions en attente). **Phase A en cours : A1 (#81) + A2 (#82) livrés** (réserve + barre HUD ; auto-attack pilotée par l'énergie — remplace le placeholder hache/pioche `v0.5.0`), **A3 (#83) en cours** (esquive i-frames + course consommant l'énergie → **build jouable candidat `v0.6.0`**). **Q1 acté provisoirement : réserve unique partagée (modèle A), en placeholder** (confirmation Pascal souhaitée, non bloquante).
 - [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
 - [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
 - [x] Système de mort et perte de stuff (issue #19) — vie joueur (`PlayerHealth` + barre HUD) + **dégâts ennemis branchés** (#17) (ph.1) ; mort (écran + décompte) + **tombe lootable** (timer 5 min) + respawn (ph.2) ; **lit posable** + respawn au lit activable (E) + faisceau & marqueur de tombe (ph.3). Livré. `SetSheltered` (PNJ) laissé à l'habitation PNJ.
@@ -211,6 +211,24 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-19 — Combat A3 : esquive (i-frames) + course consommant l'énergie
+
+**Contexte.** Dernière étape de la Phase A (#83) : livrer l'**arbitrage mobilité vs attaque** (cœur anti-zerg) — course qui draine l'énergie + esquive (dash + invulnérabilité) qui la consomme (spec : 40 %). Boucle le ressenti du combat à l'énergie → **build jouable candidat `v0.6.0`**.
+
+**Décisions.**
+1. **Esquive + course logées dans `PlayerController`** (il possède le `CharacterController`, la map `Player` et la direction de mouvement) plutôt qu'un composant satellite — la locomotion est son scope.
+2. **Course = drain continu** : sprint en mouvement consomme `SprintEnergyPerSecond * dt` via `PlayerEnergy.TryConsume` ; à sec → retour marche (pas de blocage dur). Pas de drain pendant le dash (évite la double conso).
+3. **Esquive = dash bref + i-frames** : `TryConsume(DodgeEnergyCost)` (40) ; succès → dash (`DodgeSpeed`/`DodgeDurationSeconds`) dans la direction d'input (sinon `forward`) + **i-frames** via une nouvelle API `PlayerHealth.GrantInvulnerability(seconds)` (fenêtre dédiée, distincte de l'invuln post-coup ; ne raccourcit jamais une fenêtre active). À sec → pas d'esquive (log). Pas de relance en plein dash.
+4. **Nouvelle action `Dodge`** dans l'`InputActionAsset` (clavier **Left Ctrl**, manette **East/B**). **Optionnelle** côté `PlayerController` (absente → esquive désactivée, warn, locomotion intacte) — pas un échec dur comme Move/Jump/Sprint.
+5. **`PlayerEnergy`/`PlayerHealth` auto-résolus via `GetComponent`** (même `_Player`) → **zéro modif de `Main.unity`**. Tuning (drain, coût, i-frames, vitesse/durée du dash) = **placeholders sur `PlayerMovementConfig`** (#88).
+
+**Alternatives écartées.** Composant `PlayerDodge` séparé (le dash a besoin du CC + vitesse privés du controller) ; esquive sur double-tap directionnel (moins lisible au POC qu'une touche dédiée) ; réutiliser `InvulnerabilitySeconds` post-coup pour les i-frames (préféré une fenêtre dédiée `GrantInvulnerability`) ; bloquer la course à sec par une vitesse nulle (préféré le retour marche).
+
+**Conséquences.**
+- **Phase A bouclée** une fois #83 mergé → **build jouable du combat à l'énergie** (ennemis PVE #17) : candidat tag `v0.6.0` (décision Pascal). Reste Phase B (gates + craft #8) et Phase C (équilibrage #88).
+- Patterns dégagés : **`PlayerHealth.GrantInvulnerability`** (i-frames réutilisables : parry, compétences) ; **action input optionnelle** (warn au lieu de désactiver le composant) ; **dash via override de la vitesse horizontale** dans le controller.
+- Crochet : une anim d'esquive (roulade) viendra au polish — un event `Dodged` s'ajoutera comme `Jumped` quand le clip existera.
 
 ### 2026-06-19 — Combat Phase A : A1 livré, A2 lancée (auto-attack à l'énergie) + Q1 acté (pool partagé)
 
@@ -1119,4 +1137,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-19 (combat Phase A : A1 #81 livré — réserve d'énergie + barre HUD ; A2 #82 en cours — auto-attack pilotée par l'énergie ; Q1 acté provisoirement = pool unique partagé en placeholder)*
+*Dernière mise à jour : 2026-06-19 (combat Phase A : A1 #81 + A2 #82 livrés — réserve d'énergie + barre HUD, auto-attack pilotée par l'énergie ; A3 #83 en cours — esquive i-frames + course consommant l'énergie → build candidat `v0.6.0` ; Q1 acté provisoirement = pool unique partagé en placeholder)*
