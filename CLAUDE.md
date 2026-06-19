@@ -83,7 +83,7 @@
 _(Sprint 4 livré ci-dessous ; Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
 **Objectifs Sprint 4 (livré)** : combat (placeholder), ennemis PVE, zone sauvage, mort & perte de stuff.
-- [~] Système de combat à l'énergie (**épic #16**, rattaché **Sprint 5**) — la vraie mécanique n'est plus « décalée » : elle est **cadrée et lancée**. Spec PO : [`docs/Spec_combat.md`](docs/Spec_combat.md). #16 décomposé en **plan agile** : **Phase A** énergie & ressenti (#81 réserve+HUD, #82 auto-attack, #83 esquive/course → build jouable `v0.6.0`) · **Phase B** profondeur (#84 dégâts typés, #85 armures _dépend craft #8_, #86 kit de compétences, #87 finition) · **Phase C** équilibrage (#88). **Gate structurelle Pascal par chunk** (Q1→Q5, voir Décisions en attente). **Phase A démarrée, A1 (#81) en cours.** Le placeholder hache/pioche (`v0.5.0`) sera remplacé par l'auto-attack #82.
+- [~] Système de combat à l'énergie (**épic #16**, rattaché **Sprint 5**) — la vraie mécanique n'est plus « décalée » : elle est **cadrée et lancée**. Spec PO : [`docs/Spec_combat.md`](docs/Spec_combat.md). #16 décomposé en **plan agile** : **Phase A** énergie & ressenti (#81 réserve+HUD, #82 auto-attack, #83 esquive/course → build jouable `v0.6.0`) · **Phase B** profondeur (#84 dégâts typés, #85 armures _dépend craft #8_, #86 kit de compétences, #87 finition) · **Phase C** équilibrage (#88). **Gate structurelle Pascal par chunk** (Q1→Q5, voir Décisions en attente). **Phase A en cours : A1 (#81) livré** (réserve + barre HUD), **A2 (#82) en cours** (auto-attack pilotée par l'énergie — remplace le placeholder hache/pioche `v0.5.0`). **Q1 acté provisoirement : réserve unique partagée (modèle A), en placeholder** (confirmation Pascal souhaitée, non bloquante).
 - [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
 - [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
 - [x] Système de mort et perte de stuff (issue #19) — vie joueur (`PlayerHealth` + barre HUD) + **dégâts ennemis branchés** (#17) (ph.1) ; mort (écran + décompte) + **tombe lootable** (timer 5 min) + respawn (ph.2) ; **lit posable** + respawn au lit activable (E) + faisceau & marqueur de tombe (ph.3). Livré. `SetSheltered` (PNJ) laissé à l'habitation PNJ.
@@ -114,7 +114,7 @@ _(Sprint 4 livré ci-dessous ; Sprint 1 reste ouvert sur #8 craft, bloqué sur a
 > Petites décisions remontées du chat / Discord qui n'ont pas encore été tranchées. À traiter avant la phase qui en dépend pour ne pas bloquer.
 
 - **Gates structurelles du combat (épic #16) — Q1→Q5 envoyées à Pascal (Discord)** — chaque gate porte sur le **modèle**, pas sur les chiffres (les chiffres restent des placeholders SO, voir Q5). À trancher **avant de coder le chunk concerné** :
-  - **Q1 — Énergie = réserve unique partagée** (course + esquive + compétences puisent dans les mêmes 100 pts) ? → consommée en **A2 (#82) / A3 (#83)**. ⚠️ **A1 (#81) est neutre vis-à-vis de Q1** : la réserve + la barre HUD ne présupposent pas le modèle partagé.
+  - **Q1 — Énergie = réserve unique partagée** (course + esquive + compétences puisent dans les mêmes 100 pts) ? → consommée en **A2 (#82) / A3 (#83)**. ⚠️ **A1 (#81) est neutre vis-à-vis de Q1** : la réserve + la barre HUD ne présupposent pas le modèle partagé. **Acté provisoirement (2026-06-19) : modèle A = pool unique partagé, en placeholder** — pour débloquer A2/A3 ; risque de refonte faible (la spec pointe clairement vers A ; seul un « non » → pools séparés/hybride coûterait). Confirmation Pascal toujours souhaitée.
   - **Q2 — Split des dégâts** : 80 % biome / 20 % physique sur chaque arme, et 75 % / 25 % côté résistances d'armure, confirmés ? → **B4 (#84) / B5 (#85)**.
   - **Q3 — Mix d'armures = builds** : modèle 5 pièces + résistances cumulées (builds spécialisés/polyvalents) confirmés ? → **B5 (#85)**.
   - **Q4 — Kit de compétences** : lié à l'**arme** (changer d'arme change le kit) ou lié au **personnage** ? → **B6 (#86)**.
@@ -211,6 +211,23 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-19 — Combat Phase A : A1 livré, A2 lancée (auto-attack à l'énergie) + Q1 acté (pool partagé)
+
+**Contexte.** A1 (#81, réserve d'énergie + barre HUD) mergé (PR #89) et testé OK. Enchaînement sur A2 (#82) : faire de l'auto-attack la **vraie source de dégâts joueur, pilotée par l'énergie** (spec : 5 % par coup). A2/A3 consomment le **modèle d'énergie** (Q1), encore en attente d'arbitrage Pascal.
+
+**Décisions.**
+1. **Q1 acté provisoirement = modèle A (pool unique partagé)**, en placeholder, pour ne pas bloquer A2/A3. La spec (« après 2 esquives, plus assez d'énergie pour les compétences ») n'a de sens qu'avec un pool partagé → risque de refonte faible. Confirmation Pascal toujours souhaitée (un « non » → pools séparés/hybride serait une refonte d'archi, pas un tuning).
+2. **A2 = enrichir `PlayerEnemyStrike` en place** (pas de renommage : la scène le référence par GUID + `m_EditorClassIdentifier`). Le coup ne part que si `PlayerEnergy.TryConsume(coût)` réussit ; à sec → feedback (log throttlé), pas de dégât ni d'anim.
+3. **Énergie consommée uniquement sur un coup de combat** (ennemi visé), **pas sur un clic à vide** — sinon une frappe de récolte (même action `Attack`) drainerait l'énergie de combat.
+4. **`PlayerEnergy` auto-résolu via `GetComponent`** (même GameObject `_Player`) → **zéro modif de scène** pour A2. Coût (`_energyCostPerAttack`, défaut 5) + dégâts/cooldown restent des **placeholders sur le composant** : ils migreront sur `WeaponData` avec les vraies armes (Phase B, #84) — donc pas de SO `PlayerCombatConfig` jetable créé maintenant.
+5. **`[ContextMenu]` debug de `PlayerEnergy` retiré** : la vraie consommation (A2) le rend caduc.
+
+**Alternatives écartées.** Attendre Pascal sur Q1 avant tout code A2 (préféré acter A + avancer, refonte improbable) ; créer un SO `PlayerCombatConfig` pour dégâts/vitesse/cooldown (jetable — ces champs vont sur `WeaponData` en Phase B) ; consommer l'énergie à chaque swing y compris à vide (drainerait la récolte) ; renommer `PlayerEnemyStrike` (casserait la réf de scène).
+
+**Conséquences.**
+- DoD A2 : attaquer un ennemi PVE consomme l'énergie ; impossible d'attaquer à sec. Reste A3 (#83 esquive i-frames + course) pour le **build jouable candidat `v0.6.0`**.
+- Crochet Phase B : `_damagePerHit`/`_hitCooldown`/`_energyCostPerAttack` → futurs champs de `WeaponData` (#84).
 
 ### 2026-06-14 — Cadrage du système de combat : épic #16 décomposé en plan agile (Phases A/B/C)
 
@@ -1102,4 +1119,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-14 (cadrage combat : épic #16 décomposé en Phases A/B/C — sous-issues #81→#88, rattaché Sprint 5 ; Phase A démarrée, A1 #81 en cours — réserve d'énergie joueur + barre HUD ; spec PO ajoutée `docs/Spec_combat.md`)*
+*Dernière mise à jour : 2026-06-19 (combat Phase A : A1 #81 livré — réserve d'énergie + barre HUD ; A2 #82 en cours — auto-attack pilotée par l'énergie ; Q1 acté provisoirement = pool unique partagé en placeholder)*
