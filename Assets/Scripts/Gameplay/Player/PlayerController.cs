@@ -8,12 +8,16 @@ using Survain.Data;
 namespace Survain.Gameplay.Player
 {
     /// <summary>
-    /// Contrôleur 3e personne du joueur : déplacement caméra-relatif, saut, sprint, gravité.
+    /// Contrôleur 3e personne du joueur : déplacement caméra-relatif, saut, sprint, esquive, gravité.
     /// Anime un CharacterController. Le visuel (capsule placeholder) est un enfant du GameObject.
     ///
+    /// Combat #16 (A3) : la course (sprint) draine l'énergie et l'esquive (action Dodge) consomme de
+    /// l'énergie pour un dash bref + i-frames (via PlayerHealth.GrantInvulnerability). PlayerEnergy et
+    /// PlayerHealth sont auto-résolus sur le même GameObject (optionnels : fallback permissif).
+    ///
     /// Dépendances inspector requises : un PlayerMovementConfig, un InputActionAsset
-    /// (la map "Player" doit exposer les actions Move, Jump, Sprint), et un Transform de caméra
-    /// pour orienter le mouvement (typiquement le rig caméra qui suit ce joueur).
+    /// (la map "Player" doit exposer Move, Jump, Sprint ; Dodge est optionnelle), et un Transform de
+    /// caméra pour orienter le mouvement (typiquement le rig caméra qui suit ce joueur).
     ///
     /// Convention : ce composant est l'unique propriétaire du cycle Enable/Disable de la map "Player".
     /// Les autres consommateurs (ex: PlayerCameraRig) lisent les actions sans toucher à l'activation.
@@ -46,6 +50,7 @@ namespace Survain.Gameplay.Player
         private const string MoveActionName = "Move";
         private const string JumpActionName = "Jump";
         private const string SprintActionName = "Sprint";
+        private const string DodgeActionName = "Dodge";
 
         // ─── Events ─────────────────────────────────────────────────────────
 
@@ -62,9 +67,18 @@ namespace Survain.Gameplay.Player
         private InputAction _moveAction;
         private InputAction _jumpAction;
         private InputAction _sprintAction;
+        private InputAction _dodgeAction;
+
+        // Énergie & vie (combat #16, A3) : auto-résolues (même GameObject _Player). Optionnelles
+        // (fallback permissif si absentes).
+        private PlayerEnergy _energy;
+        private PlayerHealth _health;
 
         private Vector3 _velocity; // (x, z) = horizontal courant ; y = vertical (gravité/saut)
         private bool _jumpRequested;
+        private bool _dodgeRequested;
+        private float _dodgeTimeRemaining;
+        private Vector3 _dodgeDir;
 
         // ─── Lifecycle ──────────────────────────────────────────────────────
 
@@ -116,12 +130,25 @@ namespace Survain.Gameplay.Player
                 enabled = false;
                 return;
             }
+
+            // Dodge optionnel : son absence ne désactive pas la locomotion (esquive juste indisponible).
+            _dodgeAction = _playerMap.FindAction(DodgeActionName, throwIfNotFound: false);
+            if (_dodgeAction == null)
+            {
+                SurvainLog.Warn(SurvainLog.Category.Gameplay,
+                    $"PlayerController : action '{DodgeActionName}' introuvable — esquive désactivée.", this);
+            }
+
+            // Énergie & vie : satellites sur le même _Player (A1 #81 / vie #19). Optionnels.
+            _energy = GetComponent<PlayerEnergy>();
+            _health = GetComponent<PlayerHealth>();
         }
 
         private void OnEnable()
         {
             Instance = this;
             if (_jumpAction != null) _jumpAction.performed += OnJumpPerformed;
+            if (_dodgeAction != null) _dodgeAction.performed += OnDodgePerformed;
             if (_playerMap != null) _playerMap.Enable();
         }
 
@@ -129,6 +156,7 @@ namespace Survain.Gameplay.Player
         {
             if (Instance == this) Instance = null;
             if (_jumpAction != null) _jumpAction.performed -= OnJumpPerformed;
+            if (_dodgeAction != null) _dodgeAction.performed -= OnDodgePerformed;
             if (_playerMap != null) _playerMap.Disable();
         }
 
@@ -155,6 +183,12 @@ namespace Survain.Gameplay.Player
             _jumpRequested = true;
         }
 
+        private void OnDodgePerformed(InputAction.CallbackContext _)
+        {
+            // Bufferisée, traitée dans Update (besoin de la direction de mouvement courante).
+            _dodgeRequested = true;
+        }
+
         // ─── Update ─────────────────────────────────────────────────────────
 
         private void Update()
@@ -162,7 +196,6 @@ namespace Survain.Gameplay.Player
             float dt = Time.deltaTime;
 
             Vector2 moveInput = _moveAction.ReadValue<Vector2>();
-            bool sprinting = _sprintAction.IsPressed();
 
             // Direction caméra-relative projetée sur le plan horizontal.
             Vector3 camForward = _cameraTransform.forward;
@@ -175,9 +208,47 @@ namespace Survain.Gameplay.Player
             Vector3 wishDir = camForward * moveInput.y + camRight * moveInput.x;
             float wishMag = Mathf.Min(wishDir.magnitude, 1f);
             if (wishMag > 0.0001f) wishDir /= wishDir.magnitude; else wishDir = Vector3.zero;
+            bool moving = wishMag > 0.05f;
 
-            float targetSpeed = _config.WalkSpeed * (sprinting ? _config.SprintMultiplier : 1f) * wishMag;
-            Vector3 horizontal = wishDir * targetSpeed;
+            // Course (A3) : draine l'énergie en continu tant qu'on sprinte en mouvement (hors esquive).
+            // À sec → marche.
+            bool sprinting = _dodgeTimeRemaining <= 0f && _sprintAction.IsPressed() && moving;
+            if (sprinting && _energy != null && !_energy.TryConsume(_config.SprintEnergyPerSecond * dt))
+                sprinting = false;
+
+            // Esquive (A3) : dash bref + i-frames, coûte de l'énergie (spec : 40 %). Pas de relance en plein dash.
+            if (_dodgeRequested)
+            {
+                _dodgeRequested = false;
+                if (_dodgeTimeRemaining <= 0f)
+                {
+                    bool hasEnergy = _energy == null || _energy.TryConsume(_config.DodgeEnergyCost);
+                    if (hasEnergy)
+                    {
+                        _dodgeDir = moving ? wishDir : transform.forward;
+                        _dodgeTimeRemaining = _config.DodgeDurationSeconds;
+                        if (_health != null) _health.GrantInvulnerability(_config.DodgeIFrameSeconds);
+                    }
+                    else
+                    {
+                        SurvainLog.Info(SurvainLog.Category.Gameplay,
+                            "Pas assez d'énergie pour esquiver.", this);
+                    }
+                }
+            }
+
+            // Vitesse horizontale : le dash d'esquive prime sur le déplacement normal.
+            Vector3 horizontal;
+            if (_dodgeTimeRemaining > 0f)
+            {
+                _dodgeTimeRemaining -= dt;
+                horizontal = _dodgeDir * _config.DodgeSpeed;
+            }
+            else
+            {
+                float targetSpeed = _config.WalkSpeed * (sprinting ? _config.SprintMultiplier : 1f) * wishMag;
+                horizontal = wishDir * targetSpeed;
+            }
 
             // Rotation du joueur dans la direction visée (uniquement si on bouge).
             if (wishMag > 0.05f)

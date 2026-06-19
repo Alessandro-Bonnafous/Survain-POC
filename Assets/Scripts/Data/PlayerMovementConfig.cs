@@ -46,11 +46,37 @@ namespace Survain.Data
         [FormerlySerializedAs("rotationSpeedDegPerSec")]
         [SerializeField] private float _rotationSpeedDegPerSec = 720f;
 
+        [Header("Énergie — course & esquive (combat #16, A3)")]
+        [Tooltip("Énergie drainée par seconde de course (sprint). À sec, retour à la marche. Placeholder (#88).")]
+        [Min(0f)]
+        [SerializeField] private float _sprintEnergyPerSecond = 10f;
+
+        [Tooltip("Énergie consommée par esquive (spec : 40 % de la réserve = 40). Placeholder (#88).")]
+        [Min(0f)]
+        [SerializeField] private float _dodgeEnergyCost = 40f;
+
+        [Tooltip("Durée d'invulnérabilité (i-frames) accordée par une esquive (secondes). Placeholder (#88).")]
+        [Min(0f)]
+        [SerializeField] private float _dodgeIFrameSeconds = 0.4f;
+
+        [Tooltip("Vitesse du dash d'esquive (m/s). Placeholder (#88).")]
+        [Min(0f)]
+        [SerializeField] private float _dodgeSpeed = 12f;
+
+        [Tooltip("Durée du dash d'esquive (secondes). Placeholder (#88).")]
+        [Min(0.05f)]
+        [SerializeField] private float _dodgeDurationSeconds = 0.25f;
+
         public float WalkSpeed => _walkSpeed;
         public float SprintMultiplier => _sprintMultiplier;
         public float JumpHeight => _jumpHeight;
         public float Gravity => _gravity;
         public float GroundedStickForce => _groundedStickForce;
         public float RotationSpeedDegPerSec => _rotationSpeedDegPerSec;
+        public float SprintEnergyPerSecond => _sprintEnergyPerSecond;
+        public float DodgeEnergyCost => _dodgeEnergyCost;
+        public float DodgeIFrameSeconds => _dodgeIFrameSeconds;
+        public float DodgeSpeed => _dodgeSpeed;
+        public float DodgeDurationSeconds => _dodgeDurationSeconds;
     }
 }

@@ -61,6 +61,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Dodge",
+                    "type": "Button",
+                    "id": "2cb520c1-9a7c-45c9-9c9a-e47ad61c35b6",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Zoom",
                     "type": "Value",
                     "id": "468b2709-ffe9-4234-b198-df9c0340d455",
@@ -383,6 +392,28 @@
                     "processors": "",
                     "groups": "XR",
                     "action": "Sprint",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7a6a9656-0ac9-433e-ae9a-e029eeee209a",
+                    "path": "<Keyboard>/leftCtrl",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Dodge",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f8794716-3059-4aa1-a1a3-ba887819c051",
+                    "path": "<Gamepad>/buttonEast",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "Dodge",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
