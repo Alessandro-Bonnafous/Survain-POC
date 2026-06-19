@@ -14878,6 +14878,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1758828408940234239}
+    - targetCorrespondingSourceObject: {fileID: 3530288848899136266, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1758828408940234240}
   m_SourcePrefab: {fileID: 100100000, guid: 639d79a7f2b943e4a991674a149ce664, type: 3}
 --- !u!1 &1758828408940234214 stripped
 GameObject:
@@ -15084,6 +15087,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerHealth
   _config: {fileID: 11400000, guid: bc52f359ccd952b43a7122fdd3492e69, type: 2}
+--- !u!114 &1758828408940234240
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d655528a88457b2b036baff128c9b72, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerEnergy
+  _config: {fileID: 11400000, guid: 7ff91c47e4fab8a6c5c330830a667931, type: 2}
 --- !u!114 &1758828408940234239
 MonoBehaviour:
   m_ObjectHideFlags: 0
