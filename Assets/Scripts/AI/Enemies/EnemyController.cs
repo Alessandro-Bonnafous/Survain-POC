@@ -118,8 +118,12 @@ namespace Survain.AI.Enemies
             int applied = hit.TotalRounded;
             SurvainLog.Info(SurvainLog.Category.AI,
                 $"{name} reçoit {hit} → {applied} PV retirés.", this);
-            if (applied <= 0) return;
 
+            // Feedback visuel : bulles de dégâts typées (deux nombres colorés) au-dessus de l'ennemi.
+            // Position capturée en monde → survit à la destruction de l'ennemi si ce coup le tue.
+            Survain.UI.DamageNumberOverlay.Show(transform.position, hit);
+
+            if (applied <= 0) return;
             TakeDamage(applied);
         }
 
