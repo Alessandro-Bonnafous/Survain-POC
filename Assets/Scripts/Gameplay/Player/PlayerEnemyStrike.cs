@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using Survain.Core;
 using Survain.AI.Enemies;
 using Survain.Gameplay.Buildings;
+using Survain.Gameplay.Combat;
 using Survain.Items;
 using Survain.UI;
 
@@ -21,7 +22,14 @@ namespace Survain.Gameplay.Player
     ///
     /// Énergie consommée <b>uniquement sur un coup de combat</b> (ennemi visé), pas sur un clic à vide
     /// (qui peut être une récolte). Les dégâts/cooldown restent des placeholders sur le composant : ils
-    /// migreront sur <c>WeaponData</c> avec les vraies armes craftables (Phase B, #84).
+    /// migreront sur <c>WeaponData</c> avec les vraies armes craftables (Phase B).
+    ///
+    /// Phase B / B4 (#84) : le coup est désormais <b>typé</b> — son total est décomposé en part de biome
+    /// + part physique (spec : 80/20, placeholder ajustable <see cref="_biomeDamageFraction"/>) via
+    /// <see cref="DamageInfo.Split"/>, puis appliqué par <see cref="EnemyController.TakeDamage(DamageInfo)"/>.
+    /// Le biome/split vivent ici en placeholders (les armes du POC sont des outils hache/pioche) ; quand le
+    /// craft #8 équipera de vraies <c>WeaponData</c>, on lira <see cref="WeaponData.BuildHit"/> à la place
+    /// (le crochet existe déjà sur WeaponData).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerEnemyStrike : MonoBehaviour
@@ -55,13 +63,22 @@ namespace Survain.Gameplay.Player
         [Range(1f, 20f)]
         [SerializeField] private float _maxReach = 4f;
 
-        [Tooltip("Dégâts infligés par coup (placeholder).")]
+        [Tooltip("Dégâts totaux infligés par coup (placeholder ; répartis biome/physique selon le split).")]
         [Min(1)]
         [SerializeField] private int _damagePerHit = 10;
 
         [Tooltip("Délai minimum entre deux coups (secondes).")]
         [Min(0f)]
         [SerializeField] private float _hitCooldown = 0.4f;
+
+        [Header("Dégâts typés (#16 B4 — placeholders, migreront sur WeaponData)")]
+        [Tooltip("Biome de l'arme courante (part principale du coup). Placeholder ajustable (#88).")]
+        [SerializeField] private DamageType _biomeDamageType = DamageType.Foret;
+
+        [Tooltip("Part de dégâts de biome dans le total (spec Q2 : 0.8 = 80 % biome / 20 % physique). "
+            + "Placeholder ajustable (#88).")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _biomeDamageFraction = 0.8f;
 
         private const string ActionMapName = "Player";
         private const string AttackActionName = "Attack";
@@ -123,7 +140,11 @@ namespace Survain.Gameplay.Player
             }
 
             _nextHitAllowedAt = Time.time + _hitCooldown;
-            enemy.TakeDamage(_damagePerHit);
+
+            // Coup typé (B4) : décompose le total en part biome + part physique (spec 80/20).
+            // Quand le craft #8 équipera de vraies WeaponData, lire weapon.BuildHit() à la place.
+            var hit = DamageInfo.Split(_damagePerHit, _biomeDamageFraction, _biomeDamageType);
+            enemy.TakeDamage(hit);
             Swung?.Invoke(); // déclenche l'anim de l'outil équipé (Chop/Mine)
         }
 
