@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Survain.Core;
+using Survain.Gameplay.Combat;
 using Survain.Gameplay.Inventories;
 using Survain.Gameplay.Player;
 
@@ -94,13 +95,32 @@ namespace Survain.AI.Enemies
         }
 
         /// <summary>Inflige des dégâts (clampés à 0). À 0 HP, l'ennemi meurt (loot + destruction).
-        /// Source POC : clic gauche (PlayerEnemyStrike) ; le combat #16 la remplacera.</summary>
+        /// Surcharge entière historique (back-compat) ; le chemin combat typé passe par
+        /// <see cref="TakeDamage(DamageInfo)"/>.</summary>
         public void TakeDamage(int amount)
         {
             if (_dead || amount <= 0 || CurrentHp <= 0) return;
             CurrentHp = Mathf.Max(0, CurrentHp - amount);
             SurvainLog.Info(SurvainLog.Category.AI, $"{name} touché : {CurrentHp}/{MaxHp} PV.", this);
             if (CurrentHp == 0) Die();
+        }
+
+        /// <summary>Inflige un <b>coup typé</b> (combat #16, Phase B / B4) : décomposé en part de biome
+        /// + part physique. En B4 (sans armures), on applique le total tel quel et on logge la
+        /// décomposition en debug. <b>Crochet B5</b> : ici viendra l'atténuation par les résistances
+        /// typées de l'armure (chaque part réduite selon son <see cref="DamageInfo.BiomeType"/>), avant
+        /// le retrait des PV.</summary>
+        public void TakeDamage(DamageInfo hit)
+        {
+            if (_dead || CurrentHp <= 0) return;
+
+            // B5 (armures) : appliquera ici les résistances typées sur hit.BiomeAmount / hit.PhysicalAmount.
+            int applied = hit.TotalRounded;
+            SurvainLog.Info(SurvainLog.Category.AI,
+                $"{name} reçoit {hit} → {applied} PV retirés.", this);
+            if (applied <= 0) return;
+
+            TakeDamage(applied);
         }
 
         private void Die()
