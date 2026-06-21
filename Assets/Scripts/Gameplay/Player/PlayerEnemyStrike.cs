@@ -31,14 +31,23 @@ namespace Survain.Gameplay.Player
     /// craft #8 équipera de vraies <c>WeaponData</c>, on lira <see cref="WeaponData.BuildHit"/> à la place
     /// (le crochet existe déjà sur WeaponData).
     ///
-    /// <para><b>Synchro anim/dégât (polish Phase B)</b> : le clic ne fait plus de dégât immédiat. Il
-    /// <b>lance un swing</b> (l'anim part tout de suite via <see cref="Swung"/>) qui <b>verrouille</b> les
-    /// attaques pendant <see cref="_swingDurationSeconds"/> → <b>1 swing = 1 coup</b> (fini les 3-4 dégâts
-    /// pour 2 animations). Le dégât est appliqué <b>une seule fois</b>, à l'instant de contact
-    /// (<see cref="_hitImpactDelaySeconds"/> après le début, ≈ frame où la hache touche), via un re-raycast
-    /// — si la cible est morte/esquivée/hors portée à ce moment, le coup fend l'air. <b>Crochet</b> : un
-    /// Animation Event sur le clip Chop/Mine pourra plus tard appeler <see cref="ApplyImpact"/> pour un
-    /// timing frame-exact (le délai en code en est l'approximation self-contained).</para>
+    /// <para><b>Synchro anim/dégât (polish Phase B) — pilotée par l'animation.</b> Le clic ne fait plus de
+    /// dégât immédiat : il <b>lance un swing</b> (l'anim part via <see cref="Swung"/>) et <b>verrouille</b>
+    /// les attaques (<see cref="IsSwinging"/>) → <b>1 swing = 1 coup</b> (fini les 3-4 dégâts pour 2 anims).
+    /// Le <b>timing vient de l'animation elle-même</b>, pas d'une durée en dur — ce qui gère nativement des
+    /// clips de longueurs différentes (hache ≠ pioche, et demain les compétences) :
+    /// <list type="bullet">
+    /// <item>un Animation Event <b>à la frame de contact</b> appelle <see cref="NotifyAnimationImpact"/> →
+    /// dégât appliqué <b>une seule fois</b> (re-raycast au contact : coup dans le vide si la cible s'est
+    /// échappée) ;</item>
+    /// <item>un Animation Event <b>en fin de clip</b> appelle <see cref="NotifyAnimationSwingEnd"/> →
+    /// déverrouille.</item>
+    /// </list>
+    /// Le relais des events passe par <see cref="PlayerAttackAnimationRelay"/> (l'Animator est sur l'avatar
+    /// enfant). Tant que les events ne sont pas posés sur les clips, un <b>filet de sécurité temporisé</b>
+    /// (<see cref="_fallbackSwingSeconds"/>) applique le coup et déverrouille — le jeu reste fonctionnel,
+    /// juste non synchro. Le verrou <see cref="IsSwinging"/> est le <b>socle réutilisable</b> par le futur
+    /// coordinateur de compétences (B6).</para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerEnemyStrike : MonoBehaviour
@@ -80,16 +89,12 @@ namespace Survain.Gameplay.Player
         [Min(0f)]
         [SerializeField] private float _hitCooldown = 0.4f;
 
-        [Header("Synchro anim/dégât (#16 — placeholders #88)")]
-        [Tooltip("Durée d'un swing : les attaques sont verrouillées pendant ce temps → 1 swing = 1 coup. "
-            + "À caler sur la durée du clip Chop/Mine.")]
-        [Min(0.05f)]
-        [SerializeField] private float _swingDurationSeconds = 0.6f;
-
-        [Tooltip("Délai entre le début du swing et l'application du dégât (≈ frame de contact de la hache). "
-            + "Clampé à la durée du swing.")]
-        [Min(0f)]
-        [SerializeField] private float _hitImpactDelaySeconds = 0.25f;
+        [Header("Synchro anim/dégât (#16)")]
+        [Tooltip("Filet de sécurité : si l'anim n'a pas (encore) ses Animation Events d'impact/fin, le coup "
+            + "est appliqué et le swing déverrouillé au plus tard après ce délai. À régler plus long que le "
+            + "plus long clip d'attaque. Quand les events sont posés, ils priment et ce délai ne sert plus.")]
+        [Min(0.1f)]
+        [SerializeField] private float _fallbackSwingSeconds = 1f;
 
         [Header("Dégâts typés (#16 B4 — placeholders, migreront sur WeaponData)")]
         [Tooltip("Biome par défaut (fallback). Au POC, le biome dépend de l'outil équipé : hache → Forêt, "
@@ -116,8 +121,12 @@ namespace Survain.Gameplay.Player
         // ─── Swing en cours (synchro anim/dégât) ───────────────────────────
         private bool _swingActive;
         private bool _impactApplied;
-        private float _swingImpactAt;
-        private float _swingEndsAt;
+        private float _swingStartedAt;
+
+        /// <summary>Vrai pendant un swing (du clic jusqu'à la fin du clip / filet de sécurité). Verrou
+        /// « le joueur est en train de frapper » — socle réutilisable par le coordinateur de compétences
+        /// (B6) pour exclure auto-attack et compétences entre elles.</summary>
+        public bool IsSwinging => _swingActive;
 
         private void Awake()
         {
@@ -173,33 +182,50 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
-            // Lance le swing : l'anim part maintenant ; le dégât tombera à la frame de contact (ApplyImpact).
+            // Lance le swing : l'anim part maintenant ; le dégât tombera à la frame de contact, signalée
+            // par un Animation Event (NotifyAnimationImpact). Aucune durée en dur ici.
             _swingActive = true;
             _impactApplied = false;
-            float impactDelay = Mathf.Min(_hitImpactDelaySeconds, _swingDurationSeconds);
-            _swingImpactAt = Time.time + impactDelay;
-            _swingEndsAt = Time.time + _swingDurationSeconds;
+            _swingStartedAt = Time.time;
             _nextHitAllowedAt = Time.time + _hitCooldown;
             Swung?.Invoke(); // déclenche l'anim de l'outil équipé (Chop/Mine)
         }
 
-        private void Update()
+        /// <summary>Appelé par l'Animation Event de contact (via <see cref="PlayerAttackAnimationRelay"/>).
+        /// Applique le dégât du swing en cours, une seule fois. Ignoré hors swing de combat (le clip
+        /// Chop/Mine sert aussi à la récolte → l'event s'y déclenche mais ne doit rien faire ici).</summary>
+        public void NotifyAnimationImpact()
+        {
+            if (!_swingActive || _impactApplied) return;
+            _impactApplied = true;
+            ApplyImpact();
+        }
+
+        /// <summary>Appelé par l'Animation Event de fin de clip (via <see cref="PlayerAttackAnimationRelay"/>).
+        /// Déverrouille l'enchaînement. Défensif : si aucun event d'impact n'a été reçu, applique le coup
+        /// ici (clip sans event d'impact).</summary>
+        public void NotifyAnimationSwingEnd()
         {
             if (!_swingActive) return;
+            if (!_impactApplied) { _impactApplied = true; ApplyImpact(); }
+            _swingActive = false;
+        }
 
-            if (!_impactApplied && Time.time >= _swingImpactAt)
-            {
-                _impactApplied = true;
-                ApplyImpact();
-            }
+        private void Update()
+        {
+            // Filet de sécurité uniquement : si l'anim n'a pas (encore) ses Animation Events, on applique
+            // le coup et on déverrouille au plus tard après _fallbackSwingSeconds. Quand les events sont
+            // posés, ils ferment le swing avant ce délai → ce bloc ne fait rien.
+            if (!_swingActive) return;
+            if (Time.time < _swingStartedAt + _fallbackSwingSeconds) return;
 
-            if (Time.time >= _swingEndsAt) _swingActive = false;
+            if (!_impactApplied) { _impactApplied = true; ApplyImpact(); }
+            _swingActive = false;
         }
 
         /// <summary>Applique le dégât du swing à l'instant de contact : re-vise l'ennemi devant la hache
-        /// (il a pu mourir/esquiver/sortir de portée depuis le début du swing → coup dans le vide). Public
-        /// pour qu'un Animation Event sur le clip Chop/Mine puisse l'appeler pour un timing frame-exact.</summary>
-        public void ApplyImpact()
+        /// (il a pu mourir/esquiver/sortir de portée depuis le début du swing → coup dans le vide).</summary>
+        private void ApplyImpact()
         {
             if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return; // swing avorté par l'UI
             var enemy = RaycastForEnemy();

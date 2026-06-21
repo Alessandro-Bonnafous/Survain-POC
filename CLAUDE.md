@@ -218,17 +218,23 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 **Incident merge (corrigé dans la même PR).** La PR #93 (bulles de dégâts) avait été mergée dans sa branche parente `feat/combat-degats-types` au lieu de `main` ; après le squash-merge de #92, son contenu **n'avait jamais atteint `main`** (piège PR stackées + squash). Réintégré à l'identique depuis `origin/feat/combat-bulles-degats` en tête de cette PR (commit `fix(combat): réintègre les bulles…`).
 
-**Décision (approche « délai d'impact en code », choisie par le PO).**
-1. **Le clic lance un swing, il ne fait plus de dégât direct.** `PlayerEnemyStrike` passe d'un coup instantané à un **modèle de swing** : au clic (ennemi visé + énergie OK), on **verrouille** les attaques pour `_swingDurationSeconds` et on émet `Swung` (l'anim part). → **1 swing = 1 coup** garanti.
-2. **Dégât appliqué une seule fois, à l'instant de contact** : `_hitImpactDelaySeconds` (≈ frame où la hache touche, clampé à la durée du swing) après le début. `ApplyImpact()` **re-raycast** au contact → si la cible est morte/esquivée/hors portée entre-temps, le coup **fend l'air** (réaliste). L'anim et le dégât partent du même instant → ressenti synchro.
-3. **Énergie consommée au commit** (au clic, quand un ennemi est visé) — un swing engagé coûte, même s'il rate ensuite. Cohérent avec A2 (« énergie sur un coup de combat, pas sur un clic à vide »).
-4. **`ApplyImpact()` rendu public = crochet Animation Event** : un event posé sur le clip Chop/Mine pourra l'appeler pour un timing **frame-exact** ; le délai en code en est l'approximation self-contained (à débrancher si on adopte l'event, pour éviter le double-dégât). Timing = **placeholders SO/Inspector** (#88). **Zéro modif de scène** (références auto-résolues, nouveaux champs à défaut).
+**Objections du PO (qui ont fait pivoter l'approche).** Une première version « délai d'impact en code » (durée de swing + frame d'impact en constantes) a été écartée sur deux remarques justes du PO : (a) **hache et pioche n'ont pas la même durée d'anim** → une durée unique en dur est fausse ; (b) **risque de conflit avec les compétences (B6)** : le verrou « occupé » et le timing ne doivent pas être enterrés dans l'auto-attack. Conclusion : la **source de vérité du timing, c'est l'animation**, et le verrou « occupé » doit être un concept **partageable**.
 
-**Alternatives écartées.** Animation Event tout de suite (frame-exact mais demande d'éditer chaque clip dans l'éditeur — reporté en crochet) ; garder le dégât au clic en allongeant le cooldown (ne synchronise pas l'anim, masque le problème) ; capturer la cible au clic plutôt que re-raycaster au contact (préféré toucher qui est devant la hache à l'impact).
+**Décision (timing piloté par l'animation, choisie par le PO).**
+1. **Le clic lance un swing, il ne fait plus de dégât direct.** `PlayerEnemyStrike` passe d'un coup instantané à un **modèle de swing** : au clic (ennemi visé + énergie OK), on **verrouille** (`IsSwinging`) et on émet `Swung` (l'anim part). → **1 swing = 1 coup**.
+2. **Timing = l'animation, pas une durée en dur** (gère nativement hache ≠ pioche ≠ compétences) : un **Animation Event à la frame de contact** → `NotifyAnimationImpact()` (dégât une seule fois, re-raycast au contact → coup dans le vide si la cible s'est échappée) ; un **Animation Event en fin de clip** → `NotifyAnimationSwingEnd()` (déverrouille). Relais par **`PlayerAttackAnimationRelay`** posé sur l'avatar (l'Animator est sur l'enfant, la logique sur _Player).
+3. **Filet de sécurité temporisé** (`_fallbackSwingSeconds`) : tant que les events ne sont pas posés sur les clips, le coup est appliqué et le swing déverrouillé au plus tard après ce délai → le jeu reste fonctionnel (juste non synchro). Quand les events existent, ils priment. Garde `_impactApplied` → impact **exactement une fois** quel que soit le nombre de signaux (event + fin + fallback).
+4. **`IsSwinging` exposé = socle réutilisable** par le futur **coordinateur de compétences (B6)** (exclusion auto-attack ↔ compétences). **Le coordinateur lui-même n'est PAS construit maintenant** (sa forme dépend de Q4, non tranché) — seule la primitive de timing, non jetable, est posée.
+5. **Énergie consommée au commit** (au clic, ennemi visé) — un swing engagé coûte même s'il rate ensuite. Cohérent A2. Note : les clips Chop/Mine servent aussi à la récolte → les events s'y déclenchent mais sont ignorés hors swing de combat (garde `IsSwinging`).
+
+**Tâche éditeur (Aless, côté Unity).** Poser `PlayerAttackAnimationRelay` sur l'avatar (celui qui a l'Animator) ; ajouter sur les clips Chop et Mine deux Animation Events : `AnimImpact` à la frame de contact, `AnimSwingEnd` en fin de clip. Sans ça, seul le filet de sécurité tourne (fonctionnel, non synchro).
+
+**Alternatives écartées.** Délai d'impact en code (durée unique fausse pour 2 clips, timeline parallèle à re-synchroniser à la main) ; durées par arme en code (2 sources de vérité code↔clip, fragile) ; construire le coordinateur multi-actions tout de suite (prématuré, dépend de Q4) ; garder le dégât au clic en allongeant le cooldown (masque le problème, pas de synchro).
 
 **Conséquences.**
-- DoD : impossible d'appliquer plus d'un coup par animation ; le dégât tombe ≈ au contact ; aucune régression énergie/esquive/bulles. `Main.unity` intact.
-- Pattern dégagé : **swing à fenêtre (lock + impact différé + re-raycast)** réutilisable pour les compétences (B6) et l'ultimate ; **`ApplyImpact` public = point d'ancrage Animation Event** quand on passera au frame-exact.
+- DoD : impossible d'appliquer plus d'un coup par animation ; le dégât tombe à la frame de contact (events) ou au filet de sécurité ; aucune régression énergie/esquive/bulles.
+- Patterns dégagés : **timing piloté par Animation Events + relais sur l'avatar** (`PlayerAttackAnimationRelay`) ; **verrou `IsSwinging`** = socle du coordinateur de combat B6 ; **filet de sécurité temporisé** pour ne jamais casser le build avant câblage éditeur. Réutilisables tels quels par les compétences.
+- ⚠️ **Modif de scène requise côté éditeur** (composant relais sur l'avatar + events sur les clips) — contrairement aux étapes précédentes ; c'est intrinsèque au pilotage par animation.
 - Polish restant identifié (hors session, non bloquant) : **esquive** = vraie roulade (event `Dodged` + clip Mixamo) ; **ennemis** = vrais modèles (capsules → prefabs, **gated assets/budget Pascal** comme #46).
 
 ### 2026-06-21 — Combat : bulles de dégâts typées (feedback visuel B4)
@@ -1192,4 +1198,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-21 (combat polish — synchro anim/dégât : `PlayerEnemyStrike` passe à un modèle de swing [1 swing = 1 coup, dégât au contact via `ApplyImpact`] ; réintègre les bulles de dégâts perdues au merge stacké de #93 ; reste à polir : esquive [roulade] + ennemis [vrais modèles, gated assets])*
+*Dernière mise à jour : 2026-06-21 (combat polish — synchro anim/dégât **pilotée par l'animation** : modèle de swing [1 swing = 1 coup], dégât à la frame de contact via Animation Events relayés par `PlayerAttackAnimationRelay` + filet de sécurité ; verrou `IsSwinging` = socle B6 ; réintègre les bulles perdues au merge stacké de #93 ; ⚠️ câblage éditeur requis [relais sur l'avatar + events sur clips Chop/Mine])*
