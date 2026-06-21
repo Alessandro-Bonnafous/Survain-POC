@@ -212,6 +212,25 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-06-21 — Combat : synchro anim/dégât (1 swing = 1 coup) + récup des bulles perdues au merge
+
+**Contexte.** Session de polish de l'état actuel (avant Phase B suivante). Bug constaté par le PO : l'auto-attack appliquait **3-4 dégâts pour 2 animations**. Cause : les dégâts partaient **immédiatement au clic** (raycast caméra), gatés par un simple cooldown de 0,4 s, tandis que l'anim (Chop/Mine) était purement **cosmétique et réactive** (event `Swung` → trigger `isHarvesting`) sur sa propre horloge — deux timelines indépendantes, le clip durant plus que le cooldown. **Les dégâts n'étaient pas appliqués au contact de la hache.**
+
+**Incident merge (corrigé dans la même PR).** La PR #93 (bulles de dégâts) avait été mergée dans sa branche parente `feat/combat-degats-types` au lieu de `main` ; après le squash-merge de #92, son contenu **n'avait jamais atteint `main`** (piège PR stackées + squash). Réintégré à l'identique depuis `origin/feat/combat-bulles-degats` en tête de cette PR (commit `fix(combat): réintègre les bulles…`).
+
+**Décision (approche « délai d'impact en code », choisie par le PO).**
+1. **Le clic lance un swing, il ne fait plus de dégât direct.** `PlayerEnemyStrike` passe d'un coup instantané à un **modèle de swing** : au clic (ennemi visé + énergie OK), on **verrouille** les attaques pour `_swingDurationSeconds` et on émet `Swung` (l'anim part). → **1 swing = 1 coup** garanti.
+2. **Dégât appliqué une seule fois, à l'instant de contact** : `_hitImpactDelaySeconds` (≈ frame où la hache touche, clampé à la durée du swing) après le début. `ApplyImpact()` **re-raycast** au contact → si la cible est morte/esquivée/hors portée entre-temps, le coup **fend l'air** (réaliste). L'anim et le dégât partent du même instant → ressenti synchro.
+3. **Énergie consommée au commit** (au clic, quand un ennemi est visé) — un swing engagé coûte, même s'il rate ensuite. Cohérent avec A2 (« énergie sur un coup de combat, pas sur un clic à vide »).
+4. **`ApplyImpact()` rendu public = crochet Animation Event** : un event posé sur le clip Chop/Mine pourra l'appeler pour un timing **frame-exact** ; le délai en code en est l'approximation self-contained (à débrancher si on adopte l'event, pour éviter le double-dégât). Timing = **placeholders SO/Inspector** (#88). **Zéro modif de scène** (références auto-résolues, nouveaux champs à défaut).
+
+**Alternatives écartées.** Animation Event tout de suite (frame-exact mais demande d'éditer chaque clip dans l'éditeur — reporté en crochet) ; garder le dégât au clic en allongeant le cooldown (ne synchronise pas l'anim, masque le problème) ; capturer la cible au clic plutôt que re-raycaster au contact (préféré toucher qui est devant la hache à l'impact).
+
+**Conséquences.**
+- DoD : impossible d'appliquer plus d'un coup par animation ; le dégât tombe ≈ au contact ; aucune régression énergie/esquive/bulles. `Main.unity` intact.
+- Pattern dégagé : **swing à fenêtre (lock + impact différé + re-raycast)** réutilisable pour les compétences (B6) et l'ultimate ; **`ApplyImpact` public = point d'ancrage Animation Event** quand on passera au frame-exact.
+- Polish restant identifié (hors session, non bloquant) : **esquive** = vraie roulade (event `Dodged` + clip Mixamo) ; **ennemis** = vrais modèles (capsules → prefabs, **gated assets/budget Pascal** comme #46).
+
 ### 2026-06-21 — Combat : bulles de dégâts typées (feedback visuel B4)
 
 **Contexte.** Le modèle de dégâts typés (B4, #84) n'était observable qu'en Console — invisible pour le PO sur un build taggé. Besoin d'un feedback visuel : des **bulles de dégâts flottantes** au-dessus de l'ennemi, **colorées par type**, pour rendre la décomposition biome/physique lisible en jeu. PR dédiée (séparée de #84 = le modèle).
@@ -1173,4 +1192,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-21 (combat Phase B — B4 #84 modèle de dégâts typés [roster PO : Foret/Plaines/Montagnes/CoteMaritime] ; + bulles de dégâts typées colorées `DamageNumberOverlay` pour validation PO ; Q2 à confirmer Pascal)*
+*Dernière mise à jour : 2026-06-21 (combat polish — synchro anim/dégât : `PlayerEnemyStrike` passe à un modèle de swing [1 swing = 1 coup, dégât au contact via `ApplyImpact`] ; réintègre les bulles de dégâts perdues au merge stacké de #93 ; reste à polir : esquive [roulade] + ennemis [vrais modèles, gated assets])*

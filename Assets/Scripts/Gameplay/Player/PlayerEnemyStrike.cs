@@ -30,6 +30,15 @@ namespace Survain.Gameplay.Player
     /// Le biome/split vivent ici en placeholders (les armes du POC sont des outils hache/pioche) ; quand le
     /// craft #8 équipera de vraies <c>WeaponData</c>, on lira <see cref="WeaponData.BuildHit"/> à la place
     /// (le crochet existe déjà sur WeaponData).
+    ///
+    /// <para><b>Synchro anim/dégât (polish Phase B)</b> : le clic ne fait plus de dégât immédiat. Il
+    /// <b>lance un swing</b> (l'anim part tout de suite via <see cref="Swung"/>) qui <b>verrouille</b> les
+    /// attaques pendant <see cref="_swingDurationSeconds"/> → <b>1 swing = 1 coup</b> (fini les 3-4 dégâts
+    /// pour 2 animations). Le dégât est appliqué <b>une seule fois</b>, à l'instant de contact
+    /// (<see cref="_hitImpactDelaySeconds"/> après le début, ≈ frame où la hache touche), via un re-raycast
+    /// — si la cible est morte/esquivée/hors portée à ce moment, le coup fend l'air. <b>Crochet</b> : un
+    /// Animation Event sur le clip Chop/Mine pourra plus tard appeler <see cref="ApplyImpact"/> pour un
+    /// timing frame-exact (le délai en code en est l'approximation self-contained).</para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerEnemyStrike : MonoBehaviour
@@ -67,9 +76,20 @@ namespace Survain.Gameplay.Player
         [Min(1)]
         [SerializeField] private int _damagePerHit = 10;
 
-        [Tooltip("Délai minimum entre deux coups (secondes).")]
+        [Tooltip("Délai minimum entre le début de deux swings (plancher de cadence, secondes).")]
         [Min(0f)]
         [SerializeField] private float _hitCooldown = 0.4f;
+
+        [Header("Synchro anim/dégât (#16 — placeholders #88)")]
+        [Tooltip("Durée d'un swing : les attaques sont verrouillées pendant ce temps → 1 swing = 1 coup. "
+            + "À caler sur la durée du clip Chop/Mine.")]
+        [Min(0.05f)]
+        [SerializeField] private float _swingDurationSeconds = 0.6f;
+
+        [Tooltip("Délai entre le début du swing et l'application du dégât (≈ frame de contact de la hache). "
+            + "Clampé à la durée du swing.")]
+        [Min(0f)]
+        [SerializeField] private float _hitImpactDelaySeconds = 0.25f;
 
         [Header("Dégâts typés (#16 B4 — placeholders, migreront sur WeaponData)")]
         [Tooltip("Biome par défaut (fallback). Au POC, le biome dépend de l'outil équipé : hache → Forêt, "
@@ -84,13 +104,20 @@ namespace Survain.Gameplay.Player
         private const string ActionMapName = "Player";
         private const string AttackActionName = "Attack";
 
-        /// <summary>Émis à chaque coup d'arme réussi sur un ennemi. Consommé par PlayerVisualAnimator
-        /// pour jouer l'anim de l'outil équipé (Chop/Mine), comme HitLanded pour la récolte.</summary>
+        /// <summary>Émis au <b>début</b> d'un swing (un ennemi était visé et l'énergie a été consommée).
+        /// Consommé par PlayerVisualAnimator pour jouer l'anim de l'outil équipé (Chop/Mine). L'anim et le
+        /// dégât partent ainsi du même instant ; le dégât tombe lui à la frame de contact.</summary>
         public event Action Swung;
 
         private InputAction _attackAction;
         private float _nextHitAllowedAt;
         private float _nextEmptyFeedbackAt;
+
+        // ─── Swing en cours (synchro anim/dégât) ───────────────────────────
+        private bool _swingActive;
+        private bool _impactApplied;
+        private float _swingImpactAt;
+        private float _swingEndsAt;
 
         private void Awake()
         {
@@ -117,13 +144,19 @@ namespace Survain.Gameplay.Player
         }
 
         private void OnEnable() { if (_attackAction != null) _attackAction.started += OnAttack; }
-        private void OnDisable() { if (_attackAction != null) _attackAction.started -= OnAttack; }
+
+        private void OnDisable()
+        {
+            if (_attackAction != null) _attackAction.started -= OnAttack;
+            _swingActive = false; // ne pas reprendre un swing figé au ré-enable (respawn, etc.)
+        }
 
         private void OnAttack(InputAction.CallbackContext _)
         {
             if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return;
-            if (Time.time < _nextHitAllowedAt) return;
-            if (!IsWeaponEquipped()) return; // seules les armes (hache/pioche au POC) infligent des dégâts
+            if (_swingActive) return;                  // déjà en plein swing : verrouillé → 1 swing = 1 coup
+            if (Time.time < _nextHitAllowedAt) return; // plancher de cadence
+            if (!IsWeaponEquipped()) return;           // seules les armes (hache/pioche au POC) frappent
 
             var enemy = RaycastForEnemy();
             if (enemy == null) return; // clic à vide : pas un coup de combat → pas de coût en énergie
@@ -140,13 +173,42 @@ namespace Survain.Gameplay.Player
                 return;
             }
 
+            // Lance le swing : l'anim part maintenant ; le dégât tombera à la frame de contact (ApplyImpact).
+            _swingActive = true;
+            _impactApplied = false;
+            float impactDelay = Mathf.Min(_hitImpactDelaySeconds, _swingDurationSeconds);
+            _swingImpactAt = Time.time + impactDelay;
+            _swingEndsAt = Time.time + _swingDurationSeconds;
             _nextHitAllowedAt = Time.time + _hitCooldown;
+            Swung?.Invoke(); // déclenche l'anim de l'outil équipé (Chop/Mine)
+        }
+
+        private void Update()
+        {
+            if (!_swingActive) return;
+
+            if (!_impactApplied && Time.time >= _swingImpactAt)
+            {
+                _impactApplied = true;
+                ApplyImpact();
+            }
+
+            if (Time.time >= _swingEndsAt) _swingActive = false;
+        }
+
+        /// <summary>Applique le dégât du swing à l'instant de contact : re-vise l'ennemi devant la hache
+        /// (il a pu mourir/esquiver/sortir de portée depuis le début du swing → coup dans le vide). Public
+        /// pour qu'un Animation Event sur le clip Chop/Mine puisse l'appeler pour un timing frame-exact.</summary>
+        public void ApplyImpact()
+        {
+            if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return; // swing avorté par l'UI
+            var enemy = RaycastForEnemy();
+            if (enemy == null) return; // le coup a fendu l'air
 
             // Coup typé (B4) : décompose le total en part biome + part physique (spec 80/20).
             // Quand le craft #8 équipera de vraies WeaponData, lire weapon.BuildHit() à la place.
             var hit = DamageInfo.Split(_damagePerHit, _biomeDamageFraction, ResolveBiomeType());
             enemy.TakeDamage(hit);
-            Swung?.Invoke(); // déclenche l'anim de l'outil équipé (Chop/Mine)
         }
 
         /// <summary>Biome du coup courant. Placeholder POC : dérivé de l'outil-arme équipé (hache → Forêt,
