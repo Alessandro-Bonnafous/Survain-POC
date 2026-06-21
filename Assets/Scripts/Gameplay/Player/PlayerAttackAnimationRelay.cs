@@ -10,13 +10,13 @@ namespace Survain.Gameplay.Player
     /// reçoit les events et les <b>fait remonter</b> à la frappe (résolue via <c>GetComponentInParent</c>).
     ///
     /// <para>À câbler côté Unity : poser ce composant sur l'avatar (celui qui a l'Animator), puis ajouter
-    /// sur les clips d'attaque (Chop/Mine, et plus tard les compétences) deux Animation Events :
+    /// sur les clips d'attaque (Chop/Mine, et plus tard les compétences) <b>un</b> Animation Event :
     /// <list type="bullet">
-    /// <item><b><see cref="AnimImpact"/></b> à la <b>frame de contact</b> (la hache/pioche touche) ;</item>
-    /// <item><b><see cref="AnimSwingEnd"/></b> en <b>fin de clip</b> (déverrouille l'enchaînement).</item>
+    /// <item><b><see cref="AnimImpact"/></b> à la <b>frame de contact</b> (la hache/pioche touche).</item>
     /// </list>
-    /// Tant que les events ne sont pas posés, <see cref="PlayerEnemyStrike"/> retombe sur un filet de
-    /// sécurité temporisé (le jeu reste fonctionnel, juste non synchro).</para>
+    /// (<see cref="AnimSwingEnd"/> est conservé mais <b>déprécié/no-op</b> : le déverrouillage est piloté
+    /// par une durée côté <see cref="PlayerEnemyStrike"/>, pas par un event de fin.) Tant qu'AnimImpact
+    /// n'est pas posé, la frappe retombe sur un filet de sécurité temporisé (jeu fonctionnel, non synchro).</para>
     ///
     /// <para>Note : les clips Chop/Mine servent aussi à la récolte. Les events s'y déclenchent donc aussi
     /// pendant une récolte, mais <see cref="PlayerEnemyStrike"/> les ignore s'il n'a pas de swing de combat
@@ -42,7 +42,8 @@ namespace Survain.Gameplay.Player
             _strike.NotifyAnimationImpact();
         }
 
-        /// <summary>Animation Event : fin du clip d'attaque → déverrouille l'enchaînement.</summary>
+        /// <summary>⚠️ Déprécié (no-op côté frappe) : le déverrouillage est piloté par une durée. Conservé
+        /// pour ne pas casser un Animation Event "AnimSwingEnd" déjà posé sur un clip.</summary>
         public void AnimSwingEnd()
         {
             if (!Resolve()) return;

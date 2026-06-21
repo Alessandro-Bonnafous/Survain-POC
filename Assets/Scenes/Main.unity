@@ -5740,6 +5740,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &878440518 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1664552536257148490, guid: fce66a12cf7a45043bbbe1c0087175b5, type: 3}
+  m_PrefabInstance: {fileID: 1141376481}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &881602035
 GameObject:
   m_ObjectHideFlags: 0
@@ -8234,7 +8239,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1664552536257148490, guid: fce66a12cf7a45043bbbe1c0087175b5, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1929565639}
   m_SourcePrefab: {fileID: 100100000, guid: fce66a12cf7a45043bbbe1c0087175b5, type: 3}
 --- !u!1 &1141605598
 GameObject:
@@ -13524,6 +13532,19 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4424488534019546214, guid: fce66a12cf7a45043bbbe1c0087175b5, type: 3}
   m_PrefabInstance: {fileID: 1141376481}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1929565639
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 878440518}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4fbb2acaaa0c44e59489cfe163976f9a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerAttackAnimationRelay
+  _strike: {fileID: 0}
 --- !u!1 &1942129926
 GameObject:
   m_ObjectHideFlags: 0
@@ -15071,9 +15092,13 @@ MonoBehaviour:
   _playerRoot: {fileID: 1792158199}
   _buildMode: {fileID: 1758828408940234226}
   _equipment: {fileID: 0}
+  _energy: {fileID: 0}
+  _energyCostPerAttack: 5
   _maxReach: 4
   _damagePerHit: 10
-  _hitCooldown: 0.4
+  _swingDurationSeconds: 2
+  _biomeDamageType: 1
+  _biomeDamageFraction: 0.8
 --- !u!114 &1758828408940234238
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15087,19 +15112,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerHealth
   _config: {fileID: 11400000, guid: bc52f359ccd952b43a7122fdd3492e69, type: 2}
---- !u!114 &1758828408940234240
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1758828408940234214}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4d655528a88457b2b036baff128c9b72, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerEnergy
-  _config: {fileID: 11400000, guid: 7ff91c47e4fab8a6c5c330830a667931, type: 2}
 --- !u!114 &1758828408940234239
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15119,6 +15131,19 @@ MonoBehaviour:
   _respawnDelaySeconds: 5
   _graveDespawnSeconds: 300
   _respawnOffset: 1.5
+--- !u!114 &1758828408940234240
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758828408940234214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d655528a88457b2b036baff128c9b72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Survain.Gameplay.Player.PlayerEnergy
+  _config: {fileID: 11400000, guid: 7ff91c47e4fab8a6c5c330830a667931, type: 2}
 --- !u!1001 &4243485049165841187
 PrefabInstance:
   m_ObjectHideFlags: 0
