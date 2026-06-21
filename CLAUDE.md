@@ -212,6 +212,50 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-06-21 — Combat : synchro anim/dégât (1 swing = 1 coup) + récup des bulles perdues au merge
+
+**Contexte.** Session de polish de l'état actuel (avant Phase B suivante). Bug constaté par le PO : l'auto-attack appliquait **3-4 dégâts pour 2 animations**. Cause : les dégâts partaient **immédiatement au clic** (raycast caméra), gatés par un simple cooldown de 0,4 s, tandis que l'anim (Chop/Mine) était purement **cosmétique et réactive** (event `Swung` → trigger `isHarvesting`) sur sa propre horloge — deux timelines indépendantes, le clip durant plus que le cooldown. **Les dégâts n'étaient pas appliqués au contact de la hache.**
+
+**Incident merge (corrigé dans la même PR).** La PR #93 (bulles de dégâts) avait été mergée dans sa branche parente `feat/combat-degats-types` au lieu de `main` ; après le squash-merge de #92, son contenu **n'avait jamais atteint `main`** (piège PR stackées + squash). Réintégré à l'identique depuis `origin/feat/combat-bulles-degats` en tête de cette PR (commit `fix(combat): réintègre les bulles…`).
+
+**Objections du PO (qui ont fait pivoter l'approche).** Une première version « délai d'impact en code » (durée de swing + frame d'impact en constantes) a été écartée sur deux remarques justes du PO : (a) **hache et pioche n'ont pas la même durée d'anim** → une durée unique en dur est fausse ; (b) **risque de conflit avec les compétences (B6)** : le verrou « occupé » et le timing ne doivent pas être enterrés dans l'auto-attack. Conclusion : la **source de vérité du timing, c'est l'animation**, et le verrou « occupé » doit être un concept **partageable**.
+
+**Décision (timing piloté par l'animation, choisie par le PO).**
+1. **Le clic lance un swing, il ne fait plus de dégât direct.** `PlayerEnemyStrike` passe d'un coup instantané à un **modèle de swing** : au clic (ennemi visé + énergie OK), on **verrouille** (`IsSwinging`) et on émet `Swung` (l'anim part). → **1 swing = 1 coup**.
+2. **Impact piloté par l'animation, verrou piloté par une durée** (séparation clé). L'**impact** (frame où la hache touche, sensible par arme : hache ≠ pioche) vient d'un **Animation Event à la frame de contact** → `NotifyAnimationImpact()` (dégât une seule fois, re-raycast au contact → coup dans le vide si la cible s'est échappée). Le **verrou/cadence** vient d'une **durée gameplay** `_swingDurationSeconds` (= vitesse d'attaque). Relais par **`PlayerAttackAnimationRelay`** posé sur l'avatar (l'Animator est sur l'enfant, la logique sur _Player).
+3. **Pourquoi le verrou n'est PAS dérivé d'un event de fin de clip** (correction après test PO) : une 1ʳᵉ version déverrouillait sur un Animation Event `AnimSwingEnd`. En pratique, un event de fin mal placé (même légèrement avant la fin visuelle) **libérait le verrou trop tôt** → en martelant, un nouveau swing relançait le clip par-dessus l'anim en cours = coups rapprochés (et l'anim qui « repart »). Le verrou par durée est **robuste au placement des events**. `AnimSwingEnd` est conservé en **no-op** (ne casse pas un event déjà posé). Le **filet de sécurité** : si `AnimImpact` est absent, le coup tombe en fin de `_swingDurationSeconds`. Garde `_impactApplied` → impact **exactement une fois**.
+   - **Bug connexe corrigé** : `EnemyController.Die()` **désactive les colliders immédiatement** (Destroy est différé en fin de frame) → le raycast de frappe ne retrouve plus un cadavre, fini les swings « dans le vide » sur un ennemi déjà mort.
+4. **`IsSwinging` exposé = socle réutilisable** par le futur **coordinateur de compétences (B6)** (exclusion auto-attack ↔ compétences). **Le coordinateur lui-même n'est PAS construit maintenant** (sa forme dépend de Q4, non tranché) — seule la primitive de timing, non jetable, est posée.
+5. **Énergie consommée au commit** (au clic, ennemi visé) — un swing engagé coûte même s'il rate ensuite. Cohérent A2. Note : les clips Chop/Mine servent aussi à la récolte → les events s'y déclenchent mais sont ignorés hors swing de combat (garde `IsSwinging`).
+6. **Anti-martelage.** Le verrou tient `_swingDurationSeconds` (à régler ≈ durée du clip le plus long) → marteler le clic ne peut pas relancer un swing avant ce délai. C'est la future **vitesse d'attaque** (→ WeaponData, per-arme).
+
+**Tâche éditeur (Aless, côté Unity).** Poser `PlayerAttackAnimationRelay` sur l'avatar (celui qui a l'Animator) ; ajouter sur les clips Chop et Mine **un** Animation Event `AnimImpact` à la frame de contact (un `AnimSwingEnd` éventuel devient inutile/no-op). Régler `_swingDurationSeconds` ≈ durée du clip le plus long. Sans `AnimImpact`, seul le filet de sécurité tourne (fonctionnel, non synchro).
+
+**Alternatives écartées.** Délai d'impact en code (durée unique fausse pour 2 clips, timeline parallèle à re-synchroniser à la main) ; durées par arme en code (2 sources de vérité code↔clip, fragile) ; construire le coordinateur multi-actions tout de suite (prématuré, dépend de Q4) ; garder le dégât au clic en allongeant le cooldown (masque le problème, pas de synchro).
+
+**Conséquences.**
+- DoD : impossible d'appliquer plus d'un coup par animation ; le dégât tombe à la frame de contact (events) ou au filet de sécurité ; aucune régression énergie/esquive/bulles.
+- Patterns dégagés : **timing piloté par Animation Events + relais sur l'avatar** (`PlayerAttackAnimationRelay`) ; **verrou `IsSwinging`** = socle du coordinateur de combat B6 ; **filet de sécurité temporisé** pour ne jamais casser le build avant câblage éditeur. Réutilisables tels quels par les compétences.
+- ⚠️ **Modif de scène requise côté éditeur** (composant relais sur l'avatar + events sur les clips) — contrairement aux étapes précédentes ; c'est intrinsèque au pilotage par animation.
+- Polish restant identifié (hors session, non bloquant) : **esquive** = vraie roulade (event `Dodged` + clip Mixamo) ; **ennemis** = vrais modèles (capsules → prefabs, **gated assets/budget Pascal** comme #46).
+
+### 2026-06-21 — Combat : bulles de dégâts typées (feedback visuel B4)
+
+**Contexte.** Le modèle de dégâts typés (B4, #84) n'était observable qu'en Console — invisible pour le PO sur un build taggé. Besoin d'un feedback visuel : des **bulles de dégâts flottantes** au-dessus de l'ennemi, **colorées par type**, pour rendre la décomposition biome/physique lisible en jeu. PR dédiée (séparée de #84 = le modèle).
+
+**Décisions.**
+1. **`DamageNumberOverlay`** (`Survain.UI`) calqué trait pour trait sur `NpcStatusOverlay` : Canvas screen-space singleton auto-créé via `[RuntimeInitializeOnLoadMethod]`, libellés `Text` legacy (`LegacyRuntime.ttf`, pas de dépendance TMP), positionnés via `WorldToScreenPoint`. **Zéro setup scène** (`Main.unity` intact).
+2. **Deux nombres séparés et colorés** (choix PO) : part de biome (couleur du biome) + part physique (gris), dans une même bulle via **rich text** (`<color=#…>`). Couleurs : Forêt = vert, Plaines = doré, Montagnes = bleu froid, Côte maritime = rouge. Parts arrondies à 0 omises.
+   - **Démo deux cas (choix PO)** : au POC, `PlayerEnemyStrike.ResolveBiomeType()` dérive le biome de l'outil-arme équipé — **hache → Forêt (vert)**, **pioche → Montagnes (bleu)** — pour visualiser deux types distincts. Fallback sur le champ placeholder ; migrera sur `WeaponData.BiomeDamageType` au craft #8.
+3. **Bulles fire-and-forget, position monde capturée** à l'instant du coup → elles continuent de monter/s'estomper **même après la destruction de l'ennemi** (même logique que le burst détaché de `ResourceNodeJuice`). **Pool interne réutilisé** (pas d'instanciation par coup) ; fade via `CanvasGroup.alpha` (le rich text impose sa propre couleur RGB → la transparence passe par le CanvasGroup, pas par `Text.color`).
+4. **Hook = `EnemyController.TakeDamage(DamageInfo)`** (le seul point qui a la décomposition typée) : un appel `DamageNumberOverlay.Show(transform.position, hit)`. La surcharge `int` (récolte placeholder, attaques bâtiment) n'en émet pas → bulles réservées au combat typé. Couleurs/tailles/durée = placeholders (#88).
+
+**Alternatives écartées.** Texte world-space / TextMesh billboard (l'overlay screen-space est le pattern maison dominant) ; un seul nombre total coloré (le PO veut voir le split biome/physique) ; instanciation/`Destroy` par coup (préféré un pool) ; fade via `Text.color` (incompatible avec les tags de couleur rich text → `CanvasGroup`).
+
+**Conséquences.**
+- Le PO peut **valider visuellement** les dégâts typés sur le build (à noter en release note). Aucune régression (additif, off du chemin `int`).
+- Pattern dégagé : **overlay de texte flottant fire-and-forget + pool + anchor monde** (réutilisable pour les soigns, le crit, le « miss/parry » du combat, les gains de ressources).
+
 ### 2026-06-21 — Combat Phase B / B4 : modèle de dégâts typés (biome + physique)
 
 **Contexte.** Phase A livrée et taguée `v0.6.0-preview` (A1/A2/A3). Démarrage de la **Phase B** par **B4 (#84)** : poser le **modèle de dégâts typés** — un coup décompose son total en **part de biome + part physique** (spec Q2 : 80/20). Visible en debug. Stub sur les armes actuelles (outils hache/pioche), car les **vraies armes craftables dépendent du craft #8** (bloqué Pascal). **Q2 non confirmée par Pascal** → on code le *modèle*, le 80/20 reste en placeholder ajustable.
@@ -1156,4 +1200,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-21 (combat Phase B lancée — B4 #84 modèle de dégâts typés : `DamageType` + `DamageInfo`, décomposition biome/physique 80/20 placeholder, `EnemyController.TakeDamage(DamageInfo)` + crochet `WeaponData.BuildHit()` ; Q2 à confirmer Pascal)*
+*Dernière mise à jour : 2026-06-21 (combat polish — synchro anim/dégât : **impact piloté par l'animation** [Animation Event `AnimImpact` par clip, relayé par `PlayerAttackAnimationRelay`] + **verrou/cadence par durée** `_swingDurationSeconds` [robuste au martelage, ne dépend pas d'un event de fin] ; `EnemyController.Die()` coupe les colliders [plus de coup sur cadavre] ; verrou `IsSwinging` = socle B6 ; réintègre les bulles perdues au merge stacké de #93 ; ⚠️ câblage éditeur : relais sur l'avatar + `AnimImpact` sur Chop/Mine)*
