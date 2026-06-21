@@ -79,11 +79,11 @@
 
 ## 📊 État actuel
 
-**Sprint en cours :** Sprint 5 — Boucle Complète & Polish (épic combat #16, Phase A en cours)
+**Sprint en cours :** Sprint 5 — Boucle Complète & Polish (épic combat #16, Phase A livrée — Phase B en cours sur B4 #84)
 _(Sprint 4 livré ci-dessous ; Sprint 1 reste ouvert sur #8 craft, bloqué sur arbitrage Pascal — voir Décisions en attente)_
 
 **Objectifs Sprint 4 (livré)** : combat (placeholder), ennemis PVE, zone sauvage, mort & perte de stuff.
-- [~] Système de combat à l'énergie (**épic #16**, rattaché **Sprint 5**) — la vraie mécanique n'est plus « décalée » : elle est **cadrée et lancée**. Spec PO : [`docs/Spec_combat.md`](docs/Spec_combat.md). #16 décomposé en **plan agile** : **Phase A** énergie & ressenti (#81 réserve+HUD, #82 auto-attack, #83 esquive/course → build jouable `v0.6.0`) · **Phase B** profondeur (#84 dégâts typés, #85 armures _dépend craft #8_, #86 kit de compétences, #87 finition) · **Phase C** équilibrage (#88). **Gate structurelle Pascal par chunk** (Q1→Q5, voir Décisions en attente). **Phase A bouclée : A1 (#81) + A2 (#82) + A3 (#83) livrés** (réserve + barre HUD ; auto-attack pilotée par l'énergie — remplace le placeholder hache/pioche `v0.5.0` ; esquive i-frames + course consommant l'énergie). **Build jouable du combat à l'énergie taggé `v0.6.0-preview`** (validation d'étape ; `bundleVersion` 0.6.0). **Q1 acté provisoirement : réserve unique partagée (modèle A), en placeholder** (confirmation Pascal souhaitée, non bloquante). Suite : **Phase B** (#84/#85/#86/#87, gated Q2/Q3/Q4 + craft #8) puis **Phase C** équilibrage (#88).
+- [~] Système de combat à l'énergie (**épic #16**, rattaché **Sprint 5**) — la vraie mécanique n'est plus « décalée » : elle est **cadrée et lancée**. Spec PO : [`docs/Spec_combat.md`](docs/Spec_combat.md). #16 décomposé en **plan agile** : **Phase A** énergie & ressenti (#81 réserve+HUD, #82 auto-attack, #83 esquive/course → build jouable `v0.6.0`) · **Phase B** profondeur (#84 dégâts typés, #85 armures _dépend craft #8_, #86 kit de compétences, #87 finition) · **Phase C** équilibrage (#88). **Gate structurelle Pascal par chunk** (Q1→Q5, voir Décisions en attente). **Phase A bouclée : A1 (#81) + A2 (#82) + A3 (#83) livrés** (réserve + barre HUD ; auto-attack pilotée par l'énergie — remplace le placeholder hache/pioche `v0.5.0` ; esquive i-frames + course consommant l'énergie). **Build jouable du combat à l'énergie taggé `v0.6.0-preview`** (validation d'étape ; `bundleVersion` 0.6.0). **Q1 acté provisoirement : réserve unique partagée (modèle A), en placeholder** (confirmation Pascal souhaitée, non bloquante). **Phase B lancée sur B4 (#84) : modèle de dégâts typés** (`DamageType` + `DamageInfo`, décomposition biome/physique 80/20 en placeholder) branché sur `PlayerEnemyStrike` → `EnemyController.TakeDamage(DamageInfo)`, crochet `WeaponData.BuildHit()` prêt pour le craft #8. Suite : **B5 armures** (dépend craft #8), **B6 kit de compétences** (gated Q4), **B7 finition**, puis **Phase C** équilibrage (#88).
 - [x] Ennemis PVE & IA hostile (issue #17) — `EnemyData` + state machine Patrol→Chase→Attack→Return + aggro (ph.1) ; HP + mort + loot + frappe placeholder clic gauche (ph.2A) ; variété loup/troll/bandit + densité/respawn (ph.2B). Livré. ⚠️ **Attaque ennemie = telegraph SANS dégâts** (en attente vie joueur #19 / combat #16).
 - [x] Zone sauvage & exploration (issue #18) — terrain adjacent distinct + ressources (ph.1) ; frontière franchissable (edge falloff) + entrée/ambiance (`WildZone`) + danger (ph.2). Livré.
 - [x] Système de mort et perte de stuff (issue #19) — vie joueur (`PlayerHealth` + barre HUD) + **dégâts ennemis branchés** (#17) (ph.1) ; mort (écran + décompte) + **tombe lootable** (timer 5 min) + respawn (ph.2) ; **lit posable** + respawn au lit activable (E) + faisceau & marqueur de tombe (ph.3). Livré. `SetSheltered` (PNJ) laissé à l'habitation PNJ.
@@ -105,7 +105,7 @@ _(Sprint 4 livré ci-dessous ; Sprint 1 reste ouvert sur #8 craft, bloqué sur a
 
 **Dernière décision en date :** _voir le journal ci-dessous._
 
-**Prochain milestone :** Sprint 4 livré (#17/#18/#19/#74 + placeholder combat ; démo `v0.5.0` taggée). Bascule **Sprint 5 — Boucle Complète & Polish** : l'**épic combat #16** (Phases A/B/C) y est rattaché, **Phase A en cours** (A1 #81). Cible : build jouable du combat à l'énergie (candidat `v0.6.0` à la fin de #83).
+**Prochain milestone :** Phase A du combat livrée (`v0.6.0-preview`). **Phase B en cours** : B4 (#84) modèle de dégâts typés en PR ; ensuite B5 armures (bloqué craft #8), B6 kit de compétences (gate Q4 Pascal), B7 finition, puis Phase C équilibrage (#88).
 
 ---
 
@@ -211,6 +211,25 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
+
+### 2026-06-21 — Combat Phase B / B4 : modèle de dégâts typés (biome + physique)
+
+**Contexte.** Phase A livrée et taguée `v0.6.0-preview` (A1/A2/A3). Démarrage de la **Phase B** par **B4 (#84)** : poser le **modèle de dégâts typés** — un coup décompose son total en **part de biome + part physique** (spec Q2 : 80/20). Visible en debug. Stub sur les armes actuelles (outils hache/pioche), car les **vraies armes craftables dépendent du craft #8** (bloqué Pascal). **Q2 non confirmée par Pascal** → on code le *modèle*, le 80/20 reste en placeholder ajustable.
+
+**Décisions.**
+1. **Enum `DamageType` dédié**, et non réemploi de `BiomeConfig.BiomeType`. Deux raisons : (a) le combat exige un membre `Physical` qui n'a aucun sens côté worldgen ; (b) la spec combat nomme des biomes (« Vent », « Froid », « Côte maritime », « Montagne »…) qui ne mappent pas 1:1 sur le roster worldgen (ForetTemperee/Plaine/Toundra/DesertAride) — le roster d'éléments de combat reste un choix de design ouvert (#88/Pascal). Découpler évite un couplage load-bearing worldgen↔combat. Les membres de biome **reprennent le roster worldgen** comme socle concret ; les renommer (Vent/Froid…) est un ajustement #88.
+2. **`DamageInfo` = readonly struct immuable** (`BiomeType` + `BiomeAmount` + `PhysicalAmount`, `Total = somme`), construite via la factory `DamageInfo.Split(total, biomeFraction, biomeType)`. Zéro allocation. Nouveau namespace **`Survain.Gameplay.Combat`** (dossier miroir `Assets/Scripts/Gameplay/Combat/`).
+3. **`EnemyController.TakeDamage(DamageInfo)` = nouvelle surcharge**, l'`int` historique conservé (back-compat A2 — seul `PlayerEnemyStrike` l'appelait). En B4, **sans armures**, on applique `hit.TotalRounded` tel quel et on **logge la décomposition** (`SurvainLog`, catégorie AI). **Crochet B5** documenté dans la méthode : l'atténuation par résistances typées viendra ici, avant le retrait des PV.
+4. **`PlayerEnemyStrike` produit un coup typé** : `DamageInfo.Split(_damagePerHit, _biomeDamageFraction, _biomeDamageType)` → `enemy.TakeDamage(hit)`. L'énergie (A2) est intacte (split en aval de `TryConsume`). Biome + fraction = **placeholders sérialisés sur le composant** (ajustables Inspector), pas de SO jetable — même raisonnement qu'A2 : ces champs migreront sur `WeaponData`. Les armes du POC étant des **outils** (hache/pioche), c'est le composant qui porte les placeholders actifs.
+5. **`WeaponData` enrichi (crochet, pas finalisé)** : champs `_biomeDamageType` + `_biomeDamageFraction` + méthode `BuildHit()` qui fabrique le `DamageInfo`. C'est le **futur foyer** des dégâts du joueur ; quand le craft #8 équipera de vraies `WeaponData`, la source lira `weapon.BuildHit()` au lieu des placeholders du strike. Non câblé tant qu'aucune `WeaponData` n'est équipée.
+6. **Zéro modif de scène** : nouveaux `SerializeField` à valeur par défaut (Unity applique le défaut au load, pas de re-save), références combat auto-résolues côté struct/factory. `Main.unity` diff nul.
+
+**Alternatives écartées.** Réutiliser `BiomeConfig.BiomeType` (pas de `Physical`, couplage worldgen/combat, roster qui diverge de la spec) ; SO `DamageSplitConfig` jetable (les valeurs sont par-arme → vont sur `WeaponData`, comme A2 a refusé `PlayerCombatConfig`) ; remplacer l'`int` de `TakeDamage` (casserait la back-compat — on ajoute une surcharge) ; appliquer les résistances dès B4 (B5 dépend du craft #8, hors scope).
+
+**Conséquences.**
+- DoD B4 : frapper un ennemi applique un coup **décomposé biome/physique** (vérifiable au log debug) ; aucune régression A1/A2/A3 ; `Main.unity` intact ; tout ajustable en Inspector.
+- Patterns dégagés : **coup typé `DamageInfo` + factory `Split`** (réutilisable par compétences B6, attaques ennemies, pièges) ; **surcharge typée non-cassante** sur un récepteur de dégâts ; **crochet de résistances** posé dans `TakeDamage(DamageInfo)` pour B5.
+- Gates : **Q2 (80/20) reste à confirmer Pascal** — chiffre en placeholder, aucun figé en dur. **Q4 (kit lié arme/perso)** à trancher avant B6. **B5 armures bloqué craft #8.**
 
 ### 2026-06-19 — Combat A3 : esquive (i-frames) + course consommant l'énergie
 
@@ -1137,4 +1156,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-19 (combat Phase A bouclée — A1 #81 + A2 #82 + A3 #83 livrés ; build jouable du combat à l'énergie taggé `v0.6.0-preview`, bundleVersion 0.6.0 ; Q1 acté provisoirement = pool unique partagé en placeholder)*
+*Dernière mise à jour : 2026-06-21 (combat Phase B lancée — B4 #84 modèle de dégâts typés : `DamageType` + `DamageInfo`, décomposition biome/physique 80/20 placeholder, `EnemyController.TakeDamage(DamageInfo)` + crochet `WeaponData.BuildHit()` ; Q2 à confirmer Pascal)*
