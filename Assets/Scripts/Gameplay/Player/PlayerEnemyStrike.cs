@@ -85,7 +85,9 @@ namespace Survain.Gameplay.Player
         [Min(1)]
         [SerializeField] private int _damagePerHit = 10;
 
-        [Tooltip("Délai minimum entre le début de deux swings (plancher de cadence, secondes).")]
+        [Tooltip("Récupération après la FIN d'un swing avant de pouvoir réattaquer (secondes). Cadence "
+            + "max = durée du clip + cette valeur → empêche le martelage. Placeholder ajustable (#88), "
+            + "migrera en vitesse d'attaque sur WeaponData.")]
         [Min(0f)]
         [SerializeField] private float _hitCooldown = 0.4f;
 
@@ -183,11 +185,11 @@ namespace Survain.Gameplay.Player
             }
 
             // Lance le swing : l'anim part maintenant ; le dégât tombera à la frame de contact, signalée
-            // par un Animation Event (NotifyAnimationImpact). Aucune durée en dur ici.
+            // par un Animation Event (NotifyAnimationImpact). Aucune durée en dur ici. La récupération
+            // (_hitCooldown) est armée à la FIN du swing, pas ici → le martelage ne peut pas l'esquiver.
             _swingActive = true;
             _impactApplied = false;
             _swingStartedAt = Time.time;
-            _nextHitAllowedAt = Time.time + _hitCooldown;
             Swung?.Invoke(); // déclenche l'anim de l'outil équipé (Chop/Mine)
         }
 
@@ -208,7 +210,7 @@ namespace Survain.Gameplay.Player
         {
             if (!_swingActive) return;
             if (!_impactApplied) { _impactApplied = true; ApplyImpact(); }
-            _swingActive = false;
+            EndSwing();
         }
 
         private void Update()
@@ -220,7 +222,16 @@ namespace Survain.Gameplay.Player
             if (Time.time < _swingStartedAt + _fallbackSwingSeconds) return;
 
             if (!_impactApplied) { _impactApplied = true; ApplyImpact(); }
+            EndSwing();
+        }
+
+        /// <summary>Termine le swing et arme la récupération : on ne pourra réattaquer qu'après
+        /// <see cref="_hitCooldown"/>. Mesurée depuis la fin (et non le début) → le martelage est plafonné
+        /// à « durée du clip + récupération ».</summary>
+        private void EndSwing()
+        {
             _swingActive = false;
+            _nextHitAllowedAt = Time.time + _hitCooldown;
         }
 
         /// <summary>Applique le dégât du swing à l'instant de contact : re-vise l'ennemi devant la hache
