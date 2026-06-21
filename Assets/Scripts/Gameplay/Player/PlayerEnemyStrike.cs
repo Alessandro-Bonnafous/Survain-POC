@@ -73,7 +73,7 @@ namespace Survain.Gameplay.Player
 
         [Header("Dégâts typés (#16 B4 — placeholders, migreront sur WeaponData)")]
         [Tooltip("Biome de l'arme courante (part principale du coup). Placeholder ajustable (#88).")]
-        [SerializeField] private DamageType _biomeDamageType = DamageType.ForetTemperee;
+        [SerializeField] private DamageType _biomeDamageType = DamageType.Foret;
 
         [Tooltip("Part de dégâts de biome dans le total (spec Q2 : 0.8 = 80 % biome / 20 % physique). "
             + "Placeholder ajustable (#88).")]

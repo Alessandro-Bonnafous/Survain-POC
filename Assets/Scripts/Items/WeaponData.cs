@@ -34,7 +34,7 @@ namespace Survain.Items
 
         [Header("Dégâts typés (#16 B4 — placeholders, équilibrage #88)")]
         [Tooltip("Biome dont l'arme inflige la part principale de dégâts.")]
-        [SerializeField] private DamageType _biomeDamageType = DamageType.ForetTemperee;
+        [SerializeField] private DamageType _biomeDamageType = DamageType.Foret;
 
         [Tooltip("Part de dégâts de biome dans le total (spec Q2 : 0.8 = 80 % biome / 20 % physique).")]
         [Range(0f, 1f)]
