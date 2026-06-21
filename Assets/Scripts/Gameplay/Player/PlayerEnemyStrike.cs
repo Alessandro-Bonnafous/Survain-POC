@@ -72,7 +72,8 @@ namespace Survain.Gameplay.Player
         [SerializeField] private float _hitCooldown = 0.4f;
 
         [Header("Dégâts typés (#16 B4 — placeholders, migreront sur WeaponData)")]
-        [Tooltip("Biome de l'arme courante (part principale du coup). Placeholder ajustable (#88).")]
+        [Tooltip("Biome par défaut (fallback). Au POC, le biome dépend de l'outil équipé : hache → Forêt, "
+            + "pioche → Montagnes (cf. ResolveBiomeType). Placeholder ajustable (#88).")]
         [SerializeField] private DamageType _biomeDamageType = DamageType.Foret;
 
         [Tooltip("Part de dégâts de biome dans le total (spec Q2 : 0.8 = 80 % biome / 20 % physique). "
@@ -143,9 +144,23 @@ namespace Survain.Gameplay.Player
 
             // Coup typé (B4) : décompose le total en part biome + part physique (spec 80/20).
             // Quand le craft #8 équipera de vraies WeaponData, lire weapon.BuildHit() à la place.
-            var hit = DamageInfo.Split(_damagePerHit, _biomeDamageFraction, _biomeDamageType);
+            var hit = DamageInfo.Split(_damagePerHit, _biomeDamageFraction, ResolveBiomeType());
             enemy.TakeDamage(hit);
             Swung?.Invoke(); // déclenche l'anim de l'outil équipé (Chop/Mine)
+        }
+
+        /// <summary>Biome du coup courant. Placeholder POC : dérivé de l'outil-arme équipé (hache → Forêt,
+        /// pioche → Montagnes) pour visualiser deux types de dégâts distincts ; fallback sur
+        /// <see cref="_biomeDamageType"/>. Migrera sur <c>WeaponData.BiomeDamageType</c> avec le craft #8.</summary>
+        private DamageType ResolveBiomeType()
+        {
+            var tool = _equipment != null ? _equipment.CurrentTool : null;
+            if (tool != null)
+            {
+                if (tool.ToolType == ToolType.Axe) return DamageType.Foret;
+                if (tool.ToolType == ToolType.Pickaxe) return DamageType.Montagnes;
+            }
+            return _biomeDamageType;
         }
 
         /// <summary>Vrai si l'outil équipé peut servir d'arme (hache/pioche au POC). Sans référence

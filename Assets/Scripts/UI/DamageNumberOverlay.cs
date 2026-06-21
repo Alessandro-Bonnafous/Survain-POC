@@ -44,7 +44,7 @@ namespace Survain.UI
                 case DamageType.Foret: return new Color(0.30f, 0.85f, 0.30f); // vert
                 case DamageType.Plaines: return new Color(0.90f, 0.80f, 0.25f); // doré
                 case DamageType.Montagnes: return new Color(0.40f, 0.60f, 1.00f); // bleu froid
-                case DamageType.CoteMaritime: return new Color(0.20f, 0.85f, 0.85f); // cyan / mer
+                case DamageType.CoteMaritime: return new Color(0.90f, 0.20f, 0.20f); // rouge
                 default: return PhysicalColor;
             }
         }
