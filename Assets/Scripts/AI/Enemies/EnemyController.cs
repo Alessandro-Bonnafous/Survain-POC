@@ -132,6 +132,11 @@ namespace Survain.AI.Enemies
             if (_dead) return;
             _dead = true;
 
+            // Destroy est différé (fin de frame) : on coupe tout de suite les colliders pour que le
+            // raycast de frappe ne retrouve pas ce cadavre (sinon une attaque part « dans le vide » sur
+            // un ennemi déjà mort le temps que la destruction soit effective).
+            foreach (var col in GetComponentsInChildren<Collider>()) col.enabled = false;
+
             // Loot : déverse les items de la table au sol (ramassables via WorldItem).
             Vector3 pos = transform.position + Vector3.up * 0.5f;
             var loot = _data.Loot;

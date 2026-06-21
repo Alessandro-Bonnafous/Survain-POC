@@ -31,23 +31,21 @@ namespace Survain.Gameplay.Player
     /// craft #8 équipera de vraies <c>WeaponData</c>, on lira <see cref="WeaponData.BuildHit"/> à la place
     /// (le crochet existe déjà sur WeaponData).
     ///
-    /// <para><b>Synchro anim/dégât (polish Phase B) — pilotée par l'animation.</b> Le clic ne fait plus de
-    /// dégât immédiat : il <b>lance un swing</b> (l'anim part via <see cref="Swung"/>) et <b>verrouille</b>
-    /// les attaques (<see cref="IsSwinging"/>) → <b>1 swing = 1 coup</b> (fini les 3-4 dégâts pour 2 anims).
-    /// Le <b>timing vient de l'animation elle-même</b>, pas d'une durée en dur — ce qui gère nativement des
-    /// clips de longueurs différentes (hache ≠ pioche, et demain les compétences) :
+    /// <para><b>Synchro anim/dégât (polish Phase B).</b> Le clic ne fait plus de dégât immédiat : il
+    /// <b>lance un swing</b> (l'anim part via <see cref="Swung"/>) et <b>verrouille</b> les attaques
+    /// (<see cref="IsSwinging"/>) → <b>1 swing = 1 coup</b> (fini les 3-4 dégâts pour 2 anims).
     /// <list type="bullet">
-    /// <item>un Animation Event <b>à la frame de contact</b> appelle <see cref="NotifyAnimationImpact"/> →
-    /// dégât appliqué <b>une seule fois</b> (re-raycast au contact : coup dans le vide si la cible s'est
-    /// échappée) ;</item>
-    /// <item>un Animation Event <b>en fin de clip</b> appelle <see cref="NotifyAnimationSwingEnd"/> →
-    /// déverrouille.</item>
+    /// <item><b>Impact piloté par l'animation</b> : un Animation Event <b>à la frame de contact</b> appelle
+    /// <see cref="NotifyAnimationImpact"/> → dégât appliqué <b>une seule fois</b> (re-raycast au contact :
+    /// coup dans le vide si la cible s'est échappée). C'est calé <b>par clip</b> (hache ≠ pioche).</item>
+    /// <item><b>Verrou/cadence piloté par une durée gameplay</b> (<see cref="_swingDurationSeconds"/>, =
+    /// vitesse d'attaque). Volontairement <b>pas</b> dérivé d'un event de fin de clip : un tel event, mal
+    /// placé, libérait le verrou trop tôt → swings qui se relancent en martelant. Si l'event d'impact est
+    /// absent, le coup tombe en fin de ce délai (filet de sécurité).</item>
     /// </list>
-    /// Le relais des events passe par <see cref="PlayerAttackAnimationRelay"/> (l'Animator est sur l'avatar
-    /// enfant). Tant que les events ne sont pas posés sur les clips, un <b>filet de sécurité temporisé</b>
-    /// (<see cref="_fallbackSwingSeconds"/>) applique le coup et déverrouille — le jeu reste fonctionnel,
-    /// juste non synchro. Le verrou <see cref="IsSwinging"/> est le <b>socle réutilisable</b> par le futur
-    /// coordinateur de compétences (B6).</para>
+    /// Le relais de l'event passe par <see cref="PlayerAttackAnimationRelay"/> (l'Animator est sur l'avatar
+    /// enfant). Le verrou <see cref="IsSwinging"/> est le <b>socle réutilisable</b> par le futur coordinateur
+    /// de compétences (B6).</para>
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PlayerEnemyStrike : MonoBehaviour
@@ -85,18 +83,15 @@ namespace Survain.Gameplay.Player
         [Min(1)]
         [SerializeField] private int _damagePerHit = 10;
 
-        [Tooltip("Récupération après la FIN d'un swing avant de pouvoir réattaquer (secondes). Cadence "
-            + "max = durée du clip + cette valeur → empêche le martelage. Placeholder ajustable (#88), "
-            + "migrera en vitesse d'attaque sur WeaponData.")]
-        [Min(0f)]
-        [SerializeField] private float _hitCooldown = 0.4f;
-
         [Header("Synchro anim/dégât (#16)")]
-        [Tooltip("Filet de sécurité : si l'anim n'a pas (encore) ses Animation Events d'impact/fin, le coup "
-            + "est appliqué et le swing déverrouillé au plus tard après ce délai. À régler plus long que le "
-            + "plus long clip d'attaque. Quand les events sont posés, ils priment et ce délai ne sert plus.")]
+        [Tooltip("Durée de verrouillage du swing = CADENCE d'attaque : le clic est bloqué pendant ce temps, "
+            + "donc marteler ne peut pas enchaîner plus vite. À régler ≈ la durée du clip d'attaque le plus "
+            + "long (sinon l'anim peut se relancer par-dessus). L'IMPACT, lui, est calé par clip via "
+            + "l'Animation Event AnimImpact (hache ≠ pioche). Si AnimImpact est absent, le coup tombe en fin "
+            + "de ce délai (filet de sécurité). Placeholder ajustable (#88), migrera en vitesse d'attaque "
+            + "sur WeaponData.")]
         [Min(0.1f)]
-        [SerializeField] private float _fallbackSwingSeconds = 1f;
+        [SerializeField] private float _swingDurationSeconds = 0.8f;
 
         [Header("Dégâts typés (#16 B4 — placeholders, migreront sur WeaponData)")]
         [Tooltip("Biome par défaut (fallback). Au POC, le biome dépend de l'outil équipé : hache → Forêt, "
@@ -117,7 +112,6 @@ namespace Survain.Gameplay.Player
         public event Action Swung;
 
         private InputAction _attackAction;
-        private float _nextHitAllowedAt;
         private float _nextEmptyFeedbackAt;
 
         // ─── Swing en cours (synchro anim/dégât) ───────────────────────────
@@ -165,9 +159,8 @@ namespace Survain.Gameplay.Player
         private void OnAttack(InputAction.CallbackContext _)
         {
             if ((_buildMode != null && _buildMode.IsActive) || UiMode.IsActive) return;
-            if (_swingActive) return;                  // déjà en plein swing : verrouillé → 1 swing = 1 coup
-            if (Time.time < _nextHitAllowedAt) return; // plancher de cadence
-            if (!IsWeaponEquipped()) return;           // seules les armes (hache/pioche au POC) frappent
+            if (_swingActive) return;        // déjà en plein swing : verrouillé → 1 swing = 1 coup + cadence
+            if (!IsWeaponEquipped()) return; // seules les armes (hache/pioche au POC) frappent
 
             var enemy = RaycastForEnemy();
             if (enemy == null) return; // clic à vide : pas un coup de combat → pas de coût en énergie
@@ -185,8 +178,8 @@ namespace Survain.Gameplay.Player
             }
 
             // Lance le swing : l'anim part maintenant ; le dégât tombera à la frame de contact, signalée
-            // par un Animation Event (NotifyAnimationImpact). Aucune durée en dur ici. La récupération
-            // (_hitCooldown) est armée à la FIN du swing, pas ici → le martelage ne peut pas l'esquiver.
+            // par l'Animation Event AnimImpact (NotifyAnimationImpact). Le swing reste verrouillé pendant
+            // _swingDurationSeconds (cadence) → le martelage ne peut pas relancer un swing plus tôt.
             _swingActive = true;
             _impactApplied = false;
             _swingStartedAt = Time.time;
@@ -203,35 +196,21 @@ namespace Survain.Gameplay.Player
             ApplyImpact();
         }
 
-        /// <summary>Appelé par l'Animation Event de fin de clip (via <see cref="PlayerAttackAnimationRelay"/>).
-        /// Déverrouille l'enchaînement. Défensif : si aucun event d'impact n'a été reçu, applique le coup
-        /// ici (clip sans event d'impact).</summary>
-        public void NotifyAnimationSwingEnd()
-        {
-            if (!_swingActive) return;
-            if (!_impactApplied) { _impactApplied = true; ApplyImpact(); }
-            EndSwing();
-        }
+        /// <summary>⚠️ Déprécié — conservé en no-op pour ne pas casser un éventuel Animation Event
+        /// "AnimSwingEnd" déjà posé sur un clip (sinon Unity logge "no receiver"). Le déverrouillage est
+        /// désormais piloté par la durée (<see cref="_swingDurationSeconds"/>), pas par un event de fin :
+        /// un event de fin mal placé libérait le verrou trop tôt → swings qui se relancent en martelant.</summary>
+        public void NotifyAnimationSwingEnd() { /* no-op : déverrouillage par durée, cf. Update */ }
 
         private void Update()
         {
-            // Filet de sécurité uniquement : si l'anim n'a pas (encore) ses Animation Events, on applique
-            // le coup et on déverrouille au plus tard après _fallbackSwingSeconds. Quand les events sont
-            // posés, ils ferment le swing avant ce délai → ce bloc ne fait rien.
+            // Le swing reste verrouillé _swingDurationSeconds (cadence). À l'échéance : on déverrouille, et
+            // si l'Animation Event AnimImpact n'a pas appliqué le coup (clip sans event), filet de sécurité.
             if (!_swingActive) return;
-            if (Time.time < _swingStartedAt + _fallbackSwingSeconds) return;
+            if (Time.time < _swingStartedAt + _swingDurationSeconds) return;
 
             if (!_impactApplied) { _impactApplied = true; ApplyImpact(); }
-            EndSwing();
-        }
-
-        /// <summary>Termine le swing et arme la récupération : on ne pourra réattaquer qu'après
-        /// <see cref="_hitCooldown"/>. Mesurée depuis la fin (et non le début) → le martelage est plafonné
-        /// à « durée du clip + récupération ».</summary>
-        private void EndSwing()
-        {
             _swingActive = false;
-            _nextHitAllowedAt = Time.time + _hitCooldown;
         }
 
         /// <summary>Applique le dégât du swing à l'instant de contact : re-vise l'ennemi devant la hache
