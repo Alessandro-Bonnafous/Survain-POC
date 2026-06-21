@@ -212,6 +212,20 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-06-21 — Combat polish : esquive = anim de roulade (event Dodged)
+
+**Contexte.** Dernier des 3 irritants de ressenti remontés par le PO (après l'attaque) : l'esquive (A3) donnait un « dash glissé maladroit » — le dash override la vitesse horizontale, mais l'avatar continuait de jouer le blend de locomotion (Run, car la vitesse est élevée pendant le dash) → ça ressemblait à un sprint, pas à une esquive.
+
+**Décision.** Brancher le **crochet prévu en A3** : `PlayerController` expose un event **`Dodged`** (calqué sur `Jumped`), émis au frame exact où une esquive démarre réellement (énergie OK, hors dash en cours). `PlayerVisualAnimator` s'y abonne et déclenche le trigger Animator **`isDodging`** → une anim de roulade override la locomotion (même mécanisme que `isJumping`/`Jump`). Le dash/gameplay (vitesse, i-frames, coût) est **inchangé** — seul le visuel est ajouté. Tuning (`DodgeSpeed`/`DodgeDurationSeconds`/`DodgeIFrameSeconds`/`DodgeEnergyCost`) reste sur `PlayerMovementConfig` (placeholders #88).
+
+**Tâche éditeur (Aless, côté Unity).** Importer un clip de roulade Mixamo (`In Place`, Humanoid, `Create From This Model`, **one-shot** non loopé — checklist anims du 2026-05-22). L'ajouter au `PlayerAvatar.controller` : état **`Dodge`**, transition **`Any State → Dodge`** sur le trigger `isDodging` (`Has Exit Time` off, `Can Transition To Self` off), sortie **`Dodge → Blend Tree`** (`Has Exit Time` ~0.8). Caler la durée du clip ≈ `DodgeDurationSeconds` pour que le visuel colle au dash. Sans ce clip, l'esquive reste fonctionnelle (dash + i-frames), juste sans anim dédiée.
+
+**Alternatives écartées.** Anim de roulade pilotée par root motion (incompatible avec le CharacterController, cf. 2026-04-26) ; orienter l'avatar sur la direction du dash indépendamment du déplacement (le controller tourne déjà vers la direction de mouvement → suffisant au POC) ; layer d'override partiel (la roulade est full-body, un état one-shot façon Jump suffit).
+
+**Conséquences.**
+- Pattern réutilisé : **event de gameplay (`Dodged`) + trigger Animator côté `PlayerVisualAnimator`**, exactement comme `Jumped`/`HitLanded`/`Swung`. Les 3 irritants de ressenti du PO (attaque, esquive) sont traités ; reste **ennemis = vrais modèles** (gated assets/budget Pascal, #46).
+- ⚠️ **Modif de scène/asset côté éditeur** : import du clip + édition de `PlayerAvatar.controller` (pas de modif de `Main.unity` par le code — les refs s'auto-résolvent).
+
 ### 2026-06-21 — Combat : synchro anim/dégât (1 swing = 1 coup) + récup des bulles perdues au merge
 
 **Contexte.** Session de polish de l'état actuel (avant Phase B suivante). Bug constaté par le PO : l'auto-attack appliquait **3-4 dégâts pour 2 animations**. Cause : les dégâts partaient **immédiatement au clic** (raycast caméra), gatés par un simple cooldown de 0,4 s, tandis que l'anim (Chop/Mine) était purement **cosmétique et réactive** (event `Swung` → trigger `isHarvesting`) sur sa propre horloge — deux timelines indépendantes, le clip durant plus que le cooldown. **Les dégâts n'étaient pas appliqués au contact de la hache.**
@@ -1200,4 +1214,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-21 (combat polish — synchro anim/dégât : **impact piloté par l'animation** [Animation Event `AnimImpact` par clip, relayé par `PlayerAttackAnimationRelay`] + **verrou/cadence par durée** `_swingDurationSeconds` [robuste au martelage, ne dépend pas d'un event de fin] ; `EnemyController.Die()` coupe les colliders [plus de coup sur cadavre] ; verrou `IsSwinging` = socle B6 ; réintègre les bulles perdues au merge stacké de #93 ; ⚠️ câblage éditeur : relais sur l'avatar + `AnimImpact` sur Chop/Mine)*
+*Dernière mise à jour : 2026-06-21 (combat polish — esquive : anim de roulade via event `Dodged` + trigger `isDodging` [clip Mixamo à importer + état `Dodge` dans `PlayerAvatar.controller`] ; précédemment : synchro anim/dégât — **impact piloté par l'animation** [Animation Event `AnimImpact` par clip, relayé par `PlayerAttackAnimationRelay`] + **verrou/cadence par durée** `_swingDurationSeconds` [robuste au martelage, ne dépend pas d'un event de fin] ; `EnemyController.Die()` coupe les colliders [plus de coup sur cadavre] ; verrou `IsSwinging` = socle B6 ; réintègre les bulles perdues au merge stacké de #93 ; ⚠️ câblage éditeur : relais sur l'avatar + `AnimImpact` sur Chop/Mine)*

@@ -60,6 +60,12 @@ namespace Survain.Gameplay.Player
         /// </summary>
         public event Action Jumped;
 
+        /// <summary>
+        /// Déclenché au frame exact où une esquive démarre réellement (énergie OK, pas en plein dash).
+        /// Consommé par PlayerVisualAnimator pour jouer l'anim de roulade. Même pattern que <see cref="Jumped"/>.
+        /// </summary>
+        public event Action Dodged;
+
         // ─── État runtime ───────────────────────────────────────────────────
 
         private CharacterController _characterController;
@@ -228,6 +234,7 @@ namespace Survain.Gameplay.Player
                         _dodgeDir = moving ? wishDir : transform.forward;
                         _dodgeTimeRemaining = _config.DodgeDurationSeconds;
                         if (_health != null) _health.GrantInvulnerability(_config.DodgeIFrameSeconds);
+                        Dodged?.Invoke(); // déclenche l'anim de roulade (PlayerVisualAnimator)
                     }
                     else
                     {
