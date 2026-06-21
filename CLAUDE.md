@@ -212,6 +212,23 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-06-21 — Combat : bulles de dégâts typées (feedback visuel B4)
+
+**Contexte.** Le modèle de dégâts typés (B4, #84) n'était observable qu'en Console — invisible pour le PO sur un build taggé. Besoin d'un feedback visuel : des **bulles de dégâts flottantes** au-dessus de l'ennemi, **colorées par type**, pour rendre la décomposition biome/physique lisible en jeu. PR dédiée (séparée de #84 = le modèle).
+
+**Décisions.**
+1. **`DamageNumberOverlay`** (`Survain.UI`) calqué trait pour trait sur `NpcStatusOverlay` : Canvas screen-space singleton auto-créé via `[RuntimeInitializeOnLoadMethod]`, libellés `Text` legacy (`LegacyRuntime.ttf`, pas de dépendance TMP), positionnés via `WorldToScreenPoint`. **Zéro setup scène** (`Main.unity` intact).
+2. **Deux nombres séparés et colorés** (choix PO) : part de biome (couleur du biome) + part physique (gris), dans une même bulle via **rich text** (`<color=#…>`). Couleurs : Forêt = vert, Plaines = doré, Montagnes = bleu froid, Côte maritime = rouge. Parts arrondies à 0 omises.
+   - **Démo deux cas (choix PO)** : au POC, `PlayerEnemyStrike.ResolveBiomeType()` dérive le biome de l'outil-arme équipé — **hache → Forêt (vert)**, **pioche → Montagnes (bleu)** — pour visualiser deux types distincts. Fallback sur le champ placeholder ; migrera sur `WeaponData.BiomeDamageType` au craft #8.
+3. **Bulles fire-and-forget, position monde capturée** à l'instant du coup → elles continuent de monter/s'estomper **même après la destruction de l'ennemi** (même logique que le burst détaché de `ResourceNodeJuice`). **Pool interne réutilisé** (pas d'instanciation par coup) ; fade via `CanvasGroup.alpha` (le rich text impose sa propre couleur RGB → la transparence passe par le CanvasGroup, pas par `Text.color`).
+4. **Hook = `EnemyController.TakeDamage(DamageInfo)`** (le seul point qui a la décomposition typée) : un appel `DamageNumberOverlay.Show(transform.position, hit)`. La surcharge `int` (récolte placeholder, attaques bâtiment) n'en émet pas → bulles réservées au combat typé. Couleurs/tailles/durée = placeholders (#88).
+
+**Alternatives écartées.** Texte world-space / TextMesh billboard (l'overlay screen-space est le pattern maison dominant) ; un seul nombre total coloré (le PO veut voir le split biome/physique) ; instanciation/`Destroy` par coup (préféré un pool) ; fade via `Text.color` (incompatible avec les tags de couleur rich text → `CanvasGroup`).
+
+**Conséquences.**
+- Le PO peut **valider visuellement** les dégâts typés sur le build (à noter en release note). Aucune régression (additif, off du chemin `int`).
+- Pattern dégagé : **overlay de texte flottant fire-and-forget + pool + anchor monde** (réutilisable pour les soigns, le crit, le « miss/parry » du combat, les gains de ressources).
+
 ### 2026-06-21 — Combat Phase B / B4 : modèle de dégâts typés (biome + physique)
 
 **Contexte.** Phase A livrée et taguée `v0.6.0-preview` (A1/A2/A3). Démarrage de la **Phase B** par **B4 (#84)** : poser le **modèle de dégâts typés** — un coup décompose son total en **part de biome + part physique** (spec Q2 : 80/20). Visible en debug. Stub sur les armes actuelles (outils hache/pioche), car les **vraies armes craftables dépendent du craft #8** (bloqué Pascal). **Q2 non confirmée par Pascal** → on code le *modèle*, le 80/20 reste en placeholder ajustable.
@@ -1156,4 +1173,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-21 (combat Phase B lancée — B4 #84 modèle de dégâts typés : `DamageType` + `DamageInfo`, décomposition biome/physique 80/20 placeholder, `EnemyController.TakeDamage(DamageInfo)` + crochet `WeaponData.BuildHit()` ; Q2 à confirmer Pascal)*
+*Dernière mise à jour : 2026-06-21 (combat Phase B — B4 #84 modèle de dégâts typés [roster PO : Foret/Plaines/Montagnes/CoteMaritime] ; + bulles de dégâts typées colorées `DamageNumberOverlay` pour validation PO ; Q2 à confirmer Pascal)*
