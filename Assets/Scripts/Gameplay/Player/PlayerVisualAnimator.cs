@@ -13,6 +13,7 @@ namespace Survain.Gameplay.Player
     ///  - speed         (float)   : magnitude horizontale en m/s (alimente le Blend Tree de locomotion)
     ///  - isGrounded    (bool)    : true quand le CharacterController touche le sol
     ///  - isJumping     (trigger) : déclenché au frame exact du décollage
+    ///  - isDodging     (trigger) : déclenché au frame exact où une esquive démarre (anim de roulade)
     ///  - isHarvesting  (trigger) : déclenché à chaque coup qui touche un nœud (récolte) ou un ennemi (arme)
     ///
     /// Convention : composant à poser sur le GameObject racine _Player. L'avatar (mesh + skin)
@@ -42,6 +43,7 @@ namespace Survain.Gameplay.Player
         private static readonly int SpeedHash = Animator.StringToHash("speed");
         private static readonly int IsGroundedHash = Animator.StringToHash("isGrounded");
         private static readonly int IsJumpingHash = Animator.StringToHash("isJumping");
+        private static readonly int IsDodgingHash = Animator.StringToHash("isDodging");
         private static readonly int IsHarvestingHash = Animator.StringToHash("isHarvesting");
         private static readonly int HarvestTypeHash = Animator.StringToHash("harvestType");
 
@@ -88,6 +90,7 @@ namespace Survain.Gameplay.Player
         private void OnEnable()
         {
             _playerController.Jumped += OnJumped;
+            _playerController.Dodged += OnDodged;
             if (_harvester != null) _harvester.HitLanded += OnHitLanded;
             if (_strike != null) _strike.Swung += OnHitLanded; // coup d'arme → même anim que la récolte (selon harvestType)
             if (_equipment != null)
@@ -100,6 +103,7 @@ namespace Survain.Gameplay.Player
         private void OnDisable()
         {
             _playerController.Jumped -= OnJumped;
+            _playerController.Dodged -= OnDodged;
             if (_harvester != null) _harvester.HitLanded -= OnHitLanded;
             if (_strike != null) _strike.Swung -= OnHitLanded;
             if (_equipment != null) _equipment.OnCurrentToolChanged -= OnEquippedToolChanged;
@@ -117,6 +121,11 @@ namespace Survain.Gameplay.Player
         private void OnJumped()
         {
             _animator.SetTrigger(IsJumpingHash);
+        }
+
+        private void OnDodged()
+        {
+            _animator.SetTrigger(IsDodgingHash);
         }
 
         private void OnHitLanded()
