@@ -12,9 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5fde2d99bf6677d48add104491f341f6, type: 3}
   m_Name: PlayerMovementConfig
   m_EditorClassIdentifier: Assembly-CSharp::Survain.Data.PlayerMovementConfig
-  walkSpeed: 5
-  sprintMultiplier: 1.6
-  jumpHeight: 1.4
-  gravity: -20
-  groundedStickForce: -2
-  rotationSpeedDegPerSec: 720
+  _walkSpeed: 5
+  _sprintMultiplier: 1.6
+  _jumpHeight: 1.4
+  _gravity: -20
+  _groundedStickForce: -2
+  _rotationSpeedDegPerSec: 720
+  _sprintEnergyPerSecond: 10
+  _dodgeEnergyCost: 40
+  _dodgeIFrameSeconds: 0.4
+  _dodgeSpeed: 5
+  _dodgeDurationSeconds: 0.7
