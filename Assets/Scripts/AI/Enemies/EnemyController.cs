@@ -81,15 +81,31 @@ namespace Survain.AI.Enemies
             ChangeState(new EnemyPatrolState());
         }
 
-        /// <summary>Différenciation visuelle des types sur le prefab placeholder : échelle uniforme
-        /// + teinte du matériau (Renderer.material → clone, jamais sharedMaterial).</summary>
+        /// <summary>Applique le visuel du type. Si <see cref="EnemyData.VisualPrefab"/> est fourni (modèle
+        /// Synty en placeholder), on l'instancie comme enfant, on masque la capsule placeholder et on
+        /// résout son Animator (locomotion via "speed", comme les PNJ). Sinon, fallback capsule teintée.
+        /// L'échelle s'applique à la racine (visuel + collider). Le NavMeshAgent reste l'autorité de
+        /// position → prévoir Apply Root Motion OFF sur le modèle.</summary>
         private void ApplyVisual()
         {
             if (!Mathf.Approximately(_data.VisualScale, 1f))
                 transform.localScale = Vector3.one * _data.VisualScale;
 
-            // Le prefab placeholder (Capsule) a un matériau null/Default → rose en build : on assigne
-            // un vrai matériau URP coloré (build-safe, cf. UrpMaterial).
+            if (_data.VisualPrefab != null)
+            {
+                // Masque le visuel placeholder (capsule) — le collider de la racine reste pour la frappe.
+                foreach (var r in GetComponentsInChildren<Renderer>()) r.enabled = false;
+
+                var visual = Instantiate(_data.VisualPrefab, transform);
+                visual.transform.localPosition = Vector3.zero;
+                visual.transform.localRotation = Quaternion.identity;
+
+                // Animator du modèle piloté par "speed" (voir Update), sauf s'il est déjà assigné au prefab.
+                if (_animator == null) _animator = visual.GetComponentInChildren<Animator>();
+                return;
+            }
+
+            // Fallback capsule placeholder : matériau URP coloré build-safe (cf. UrpMaterial), teinte par type.
             var rend = GetComponentInChildren<Renderer>();
             if (rend != null) UrpMaterial.ApplyColor(rend, _data.Tint);
         }
