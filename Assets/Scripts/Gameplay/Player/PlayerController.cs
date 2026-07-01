@@ -232,9 +232,15 @@ namespace Survain.Gameplay.Player
                     if (hasEnergy)
                     {
                         _dodgeDir = moving ? wishDir : transform.forward;
+                        // Oriente le perso vers la direction d'esquive : la roulade est une anim vers
+                        // l'AVANT (root motion baké), donc sans ça elle part « de côté » si on esquive
+                        // dans une direction ≠ du regard courant.
+                        transform.rotation = Quaternion.LookRotation(_dodgeDir, Vector3.up);
                         _dodgeTimeRemaining = _config.DodgeDurationSeconds;
                         if (_health != null) _health.GrantInvulnerability(_config.DodgeIFrameSeconds);
                         Dodged?.Invoke(); // déclenche l'anim de roulade (PlayerVisualAnimator)
+                        SurvainLog.Info(SurvainLog.Category.Gameplay,
+                            $"[DodgeDbg] DODGE START t={Time.time:0.00} dir={_dodgeDir}", this); // DEBUG (à retirer)
                     }
                     else
                     {

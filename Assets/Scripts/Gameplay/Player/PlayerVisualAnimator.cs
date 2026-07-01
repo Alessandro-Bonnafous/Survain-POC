@@ -116,6 +116,8 @@ namespace Survain.Gameplay.Player
             v.y = 0f;
             _animator.SetFloat(SpeedHash, v.magnitude);
             _animator.SetBool(IsGroundedHash, _characterController.isGrounded);
+
+            DebugDodgeTick(); // DEBUG (à retirer)
         }
 
         private void OnJumped()
@@ -126,6 +128,28 @@ namespace Survain.Gameplay.Player
         private void OnDodged()
         {
             _animator.SetTrigger(IsDodgingHash);
+            _dbgUntil = Time.time + 2.5f; // DEBUG (à retirer) : fenêtre d'observation du state Dodge
+            SurvainLog.Info(SurvainLog.Category.Gameplay, "[DodgeDbg] OnDodged -> SetTrigger(isDodging)", this);
+        }
+
+        // ─── DEBUG esquive (à retirer une fois le bug résolu) ───────────────
+        private float _dbgUntil;
+        private bool _dbgWasDodge;
+        private float _dbgLastNt;
+
+        private void DebugDodgeTick()
+        {
+            if (Time.time >= _dbgUntil) return;
+            var st = _animator.GetCurrentAnimatorStateInfo(0);
+            bool isDodge = st.IsName("Dodge");
+            if (isDodge && !_dbgWasDodge)
+                SurvainLog.Info(SurvainLog.Category.Gameplay, $"[DodgeDbg] ENTER Dodge nt={st.normalizedTime:0.00}", this);
+            else if (!isDodge && _dbgWasDodge)
+                SurvainLog.Info(SurvainLog.Category.Gameplay, "[DodgeDbg] EXIT Dodge -> autre state", this);
+            else if (isDodge && st.normalizedTime + 0.05f < _dbgLastNt)
+                SurvainLog.Info(SurvainLog.Category.Gameplay, $"[DodgeDbg] RE-LOOP Dodge (nt {_dbgLastNt:0.00} -> {st.normalizedTime:0.00})", this);
+            _dbgWasDodge = isDodge;
+            _dbgLastNt = st.normalizedTime;
         }
 
         private void OnHitLanded()
