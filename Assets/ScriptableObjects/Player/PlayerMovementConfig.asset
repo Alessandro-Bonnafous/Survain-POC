@@ -22,4 +22,5 @@ MonoBehaviour:
   _dodgeEnergyCost: 40
   _dodgeIFrameSeconds: 0.4
   _dodgeSpeed: 5
-  _dodgeDurationSeconds: 0.7
+  _dodgeDurationSeconds: 1.2
+  _dodgeEaseOutSeconds: 0.12
