@@ -67,8 +67,14 @@ namespace Survain.AI.Enemies
         [Tooltip("Items lâchés à la mort (matériaux sauvages). Consommé en phase 2.")]
         [SerializeField] private BuildCost[] _loot;
 
-        [Header("Visuel (placeholder)")]
-        [Tooltip("Teinte appliquée au visuel à l'apparition (différencie les types sur la capsule placeholder).")]
+        [Header("Visuel")]
+        [Tooltip("Modèle visuel (Synty en placeholder). Instancié comme enfant à l'apparition ; son " +
+            "Animator (locomotion pilotée par 'speed') est auto-résolu. Si null → capsule placeholder teintée. " +
+            "Prévoir Apply Root Motion OFF (le NavMeshAgent pilote la position).")]
+        [SerializeField] private GameObject _visualPrefab;
+
+        [Tooltip("Teinte du visuel placeholder (capsule) pour différencier les types. Ignorée si un " +
+            "modèle (VisualPrefab) est fourni.")]
         [SerializeField] private Color _tint = Color.white;
 
         [Tooltip("Échelle uniforme du visuel (ex. loup 0.8 / troll 1.6). 1 = taille du prefab.")]
@@ -90,6 +96,7 @@ namespace Survain.AI.Enemies
         public int AttackDamage => _attackDamage;
         public int MaxHp => _maxHp;
         public System.Collections.Generic.IReadOnlyList<BuildCost> Loot => _loot;
+        public GameObject VisualPrefab => _visualPrefab;
         public Color Tint => _tint;
         public float VisualScale => _visualScale;
     }

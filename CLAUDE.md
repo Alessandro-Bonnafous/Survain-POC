@@ -212,6 +212,23 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 > **Format** : `YYYY-MM-DD — <titre court>` puis contexte, décision, alternatives considérées, conséquences.
 > **Ordre** : antéchronologique (plus récent en haut).
 
+### 2026-06-21 — Ennemis : visuel modèle (Synty placeholder) au lieu des capsules
+
+**Contexte.** Les ennemis (#17) étaient des **capsules teintées**. Plutôt que d'attendre l'arbitrage assets/budget Pascal pour de vrais modèles dédiés (loup/troll — comme #46), on **réutilise les personnages Synty déjà dans le projet** (Sidekick, comme les PNJ) en **placeholder** pour un rendu humanoïde immédiat.
+
+**Décision.**
+1. **Champ `EnemyData.VisualPrefab`** (optionnel) : un modèle instancié comme **enfant** de la racine ennemie à l'apparition. `EnemyController.ApplyVisual` masque le visuel capsule (les renderers de la racine), instancie le modèle, et **auto-résout son Animator** (piloté par `speed`, exactement comme les PNJ). Si `VisualPrefab` est null → fallback capsule teintée (comportement historique conservé).
+2. **Séparation logique/visuel** (même pattern que le joueur `_Player` + avatar enfant) : la **racine** garde `NavMeshAgent` + collider (hitbox de frappe) + `EnemyController` ; le **modèle** n'est que mesh + Animator. Le NavMeshAgent reste l'autorité de position → **Apply Root Motion OFF** sur le modèle (leçon esquive).
+3. **`_visualScale`** s'applique à la racine (visuel + collider). La **teinte** ne sert plus qu'au fallback capsule (les matériaux Synty sont texturés).
+
+**Alternatives écartées.** Attendre les vrais modèles dédiés (bloqué Pascal — on ne veut pas rester en capsules) ; refondre le spawner pour un prefab racine par type (le champ visuel par `EnemyData` suffit et garde la hitbox/agent communs) ; teinter les matériaux Synty (inutile, ils sont texturés).
+
+**Tâche éditeur (Aless, côté Unity).** Pour chaque `EnemyData` : assigner un **modèle Synty** (perso Sidekick, model + Animator avec un controller exposant `speed` — réutiliser `NpcAvatar.controller` — et **Apply Root Motion OFF**) dans **Visual Prefab**. Le prefab racine ennemi (capsule + agent + collider + `EnemyController`) reste inchangé (sa capsule est masquée au runtime). Ajuster le **Y local** du modèle s'il flotte/s'enfonce (selon le pivot de la racine).
+
+**Conséquences.**
+- Ennemis rendus en modèles humanoïdes dès maintenant, sans dépendre de Pascal. Les vrais modèles (loup/troll) remplaceront juste le `VisualPrefab` plus tard (zéro code).
+- Pattern réutilisé : **racine logique (agent+collider) + modèle enfant + Animator auto-résolu** (comme le joueur). Limite placeholder connue : le `_visualScale` ne change pas le rayon du NavMeshAgent (inchangé depuis #17).
+
 ### 2026-06-21 — Combat : synchro anim/dégât (1 swing = 1 coup) + récup des bulles perdues au merge
 
 **Contexte.** Session de polish de l'état actuel (avant Phase B suivante). Bug constaté par le PO : l'auto-attack appliquait **3-4 dégâts pour 2 animations**. Cause : les dégâts partaient **immédiatement au clic** (raycast caméra), gatés par un simple cooldown de 0,4 s, tandis que l'anim (Chop/Mine) était purement **cosmétique et réactive** (event `Swung` → trigger `isHarvesting`) sur sa propre horloge — deux timelines indépendantes, le clip durant plus que le cooldown. **Les dégâts n'étaient pas appliqués au contact de la hache.**
@@ -1200,4 +1217,4 @@ Cette section liste les choix structurants qui conditionnent le reste du code. L
 
 ---
 
-*Dernière mise à jour : 2026-06-21 (combat polish — synchro anim/dégât : **impact piloté par l'animation** [Animation Event `AnimImpact` par clip, relayé par `PlayerAttackAnimationRelay`] + **verrou/cadence par durée** `_swingDurationSeconds` [robuste au martelage, ne dépend pas d'un event de fin] ; `EnemyController.Die()` coupe les colliders [plus de coup sur cadavre] ; verrou `IsSwinging` = socle B6 ; réintègre les bulles perdues au merge stacké de #93 ; ⚠️ câblage éditeur : relais sur l'avatar + `AnimImpact` sur Chop/Mine)*
+*Dernière mise à jour : 2026-06-21 (ennemis — visuel modèle Synty en placeholder via `EnemyData.VisualPrefab` [instancié enfant + Animator auto-résolu `speed`, capsule masquée] au lieu des capsules teintées ; ⚠️ câblage éditeur : assigner un modèle Synty par `EnemyData`, Apply Root Motion OFF ; précédemment : combat polish synchro anim/dégât + esquive roulade)*
