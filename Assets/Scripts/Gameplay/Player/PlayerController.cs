@@ -60,6 +60,12 @@ namespace Survain.Gameplay.Player
         /// </summary>
         public event Action Jumped;
 
+        /// <summary>
+        /// Déclenché au frame exact où une esquive démarre réellement (énergie OK, pas en plein dash).
+        /// Consommé par PlayerVisualAnimator pour jouer l'anim de roulade. Même pattern que <see cref="Jumped"/>.
+        /// </summary>
+        public event Action Dodged;
+
         // ─── État runtime ───────────────────────────────────────────────────
 
         private CharacterController _characterController;
@@ -226,8 +232,13 @@ namespace Survain.Gameplay.Player
                     if (hasEnergy)
                     {
                         _dodgeDir = moving ? wishDir : transform.forward;
+                        // Oriente le perso vers la direction d'esquive : la roulade est une anim vers
+                        // l'AVANT (root motion baké), donc sans ça elle part « de côté » si on esquive
+                        // dans une direction ≠ du regard courant.
+                        transform.rotation = Quaternion.LookRotation(_dodgeDir, Vector3.up);
                         _dodgeTimeRemaining = _config.DodgeDurationSeconds;
                         if (_health != null) _health.GrantInvulnerability(_config.DodgeIFrameSeconds);
+                        Dodged?.Invoke(); // déclenche l'anim de roulade (PlayerVisualAnimator)
                     }
                     else
                     {
@@ -242,7 +253,12 @@ namespace Survain.Gameplay.Player
             if (_dodgeTimeRemaining > 0f)
             {
                 _dodgeTimeRemaining -= dt;
-                horizontal = _dodgeDir * _config.DodgeSpeed;
+                // Décélération en fin de dash (les dernières _dodgeEaseOutSeconds) : évite l'arrêt net,
+                // le déplacement s'éteint en douceur pendant que la roulade se relève.
+                float ease = _config.DodgeEaseOutSeconds > 0f
+                    ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_dodgeTimeRemaining / _config.DodgeEaseOutSeconds))
+                    : 1f;
+                horizontal = _dodgeDir * _config.DodgeSpeed * ease;
             }
             else
             {
