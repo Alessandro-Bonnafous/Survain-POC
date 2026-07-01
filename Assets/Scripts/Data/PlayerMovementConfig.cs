@@ -67,6 +67,11 @@ namespace Survain.Data
         [Min(0.05f)]
         [SerializeField] private float _dodgeDurationSeconds = 0.25f;
 
+        [Tooltip("Durée de décélération en fin d'esquive : le dash ralentit en douceur au lieu de "
+            + "s'arrêter net (secondes, plafonné à la durée du dash). 0 = arrêt sec. Placeholder (#88).")]
+        [Min(0f)]
+        [SerializeField] private float _dodgeEaseOutSeconds = 0.12f;
+
         public float WalkSpeed => _walkSpeed;
         public float SprintMultiplier => _sprintMultiplier;
         public float JumpHeight => _jumpHeight;
@@ -78,5 +83,6 @@ namespace Survain.Data
         public float DodgeIFrameSeconds => _dodgeIFrameSeconds;
         public float DodgeSpeed => _dodgeSpeed;
         public float DodgeDurationSeconds => _dodgeDurationSeconds;
+        public float DodgeEaseOutSeconds => _dodgeEaseOutSeconds;
     }
 }

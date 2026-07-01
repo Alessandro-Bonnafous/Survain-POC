@@ -253,7 +253,12 @@ namespace Survain.Gameplay.Player
             if (_dodgeTimeRemaining > 0f)
             {
                 _dodgeTimeRemaining -= dt;
-                horizontal = _dodgeDir * _config.DodgeSpeed;
+                // Décélération en fin de dash (les dernières _dodgeEaseOutSeconds) : évite l'arrêt net,
+                // le déplacement s'éteint en douceur pendant que la roulade se relève.
+                float ease = _config.DodgeEaseOutSeconds > 0f
+                    ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_dodgeTimeRemaining / _config.DodgeEaseOutSeconds))
+                    : 1f;
+                horizontal = _dodgeDir * _config.DodgeSpeed * ease;
             }
             else
             {
