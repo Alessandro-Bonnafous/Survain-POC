@@ -239,8 +239,6 @@ namespace Survain.Gameplay.Player
                         _dodgeTimeRemaining = _config.DodgeDurationSeconds;
                         if (_health != null) _health.GrantInvulnerability(_config.DodgeIFrameSeconds);
                         Dodged?.Invoke(); // déclenche l'anim de roulade (PlayerVisualAnimator)
-                        SurvainLog.Info(SurvainLog.Category.Gameplay,
-                            $"[DodgeDbg] DODGE START t={Time.time:0.00} dir={_dodgeDir}", this); // DEBUG (à retirer)
                     }
                     else
                     {
